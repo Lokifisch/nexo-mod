@@ -1,6 +1,6 @@
 # Nexo Mod
 
-The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client) — a personal Minecraft client project that pairs this mod with a rebranded install/launch app, instead of a monolithic custom launcher. Targets **Minecraft 26.1.2** (Fabric).
+The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client)(Currently Private) — a personal Minecraft client project that pairs this mod with a rebranded install/launch app, instead of a monolithic custom launcher. Targets **Minecraft 26.1.2** (Fabric).
 
 > **Status:** alpha. See [Releases](../../releases) for builds.
 
