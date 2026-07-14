@@ -14,7 +14,8 @@
 		"TitleScreenBrandingMixin",
 		"InventoryWatermarkMixin",
 		"AbstractContainerScreenAccessor",
-		"NexoSettingsButtonMixin"
+		"NexoSettingsButtonMixin",
+		"NeonSliderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

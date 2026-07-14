@@ -35,4 +35,4 @@ This mod adapts real, working code from a couple of MIT-licensed open-source pro
 
 ## License
 
-Not yet decided — treat as all-rights-reserved until a license is added.
+MIT — see [`LICENSE`](LICENSE).
