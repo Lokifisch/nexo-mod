@@ -1,0 +1,38 @@
+{
+	"text.nexomod.lantunnel.domainAssigned": "Your LAN world is now reachable at %s",
+	"text.nexomod.lantunnel.clickToStop": "[Stop sharing]",
+	"text.nexomod.lantunnel.error": "Nexo LAN tunnel hit an error — check the log for details.",
+	"text.nexomod.lantunnel.closeServer": "Stopped sharing your LAN world.",
+	"text.nexomod.lantunnel.serverAlreadyClosed": "Nothing to stop — the LAN tunnel isn't running.",
+
+	"nexomod.login.title": "Sign in with Microsoft",
+	"nexomod.login.waiting": "Waiting for you to sign in in your browser...",
+	"nexomod.login.failedTitle": "Sign-in failed",
+	"nexomod.login.signIn": "Sign in",
+	"nexomod.login.offline.title": "Play offline",
+	"nexomod.login.offline.username": "Username",
+	"nexomod.login.offline.play": "Play",
+
+	"nexomod.accounts.title": "Minecraft accounts",
+	"nexomod.accounts.none": "No accounts signed in yet.",
+	"nexomod.accounts.add": "Add account",
+	"nexomod.accounts.offline": "Play offline",
+	"nexomod.accounts.logoutTitle": "Log out?",
+	"nexomod.accounts.logoutConfirm": "Remove %s from this device? You'll need to sign in again to use it.",
+	"nexomod.accounts.launcherTag": "Launched with this account",
+	"nexomod.accounts.offlineTag": "Offline account",
+
+	"nexomod.settings.title": "Nexo Settings",
+	"nexomod.settings.customMenus.on": "Custom Menus: On",
+	"nexomod.settings.customMenus.off": "Custom Menus: Off",
+	"nexomod.settings.background.starfield": "Background: Starfield",
+	"nexomod.settings.background.matrix": "Background: Matrix Rain",
+	"nexomod.settings.matrixColor.green": "Matrix Color: Green",
+	"nexomod.settings.matrixColor.cyan": "Matrix Color: Cyan",
+	"nexomod.settings.matrixColor.magenta": "Matrix Color: Magenta",
+	"nexomod.settings.matrixColor.violet": "Matrix Color: Violet",
+	"nexomod.settings.matrixColor.white": "Matrix Color: White",
+	"nexomod.settings.matrixDensity.sparse": "Matrix Density: Sparse",
+	"nexomod.settings.matrixDensity.normal": "Matrix Density: Normal",
+	"nexomod.settings.matrixDensity.dense": "Matrix Density: Dense"
+}

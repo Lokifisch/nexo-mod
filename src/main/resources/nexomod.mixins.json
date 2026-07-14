@@ -1,0 +1,22 @@
+{
+	"required": true,
+	"package": "dev.nexoclient.nexomod.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"TabListBadgeMixin",
+		"NameTagBadgeMixin",
+		"OwnNameTagVisibilityMixin",
+		"LanTunnelHostMixin",
+		"MinecraftUserAccessor",
+		"MultiplayerLoginButtonMixin",
+		"NeonMenuBackgroundMixin",
+		"NeonButtonMixin",
+		"TitleScreenBrandingMixin",
+		"InventoryWatermarkMixin",
+		"AbstractContainerScreenAccessor",
+		"NexoSettingsButtonMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

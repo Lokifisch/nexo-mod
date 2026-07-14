@@ -1,0 +1,70 @@
+plugins {
+	// The non-remapping Loom plugin: Minecraft 26.1+ ships unobfuscated, so there are
+	// no mappings and nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	mavenCentral()
+	// Hosts a patched build of Netty's incubator QUIC "classes" (API) jar that
+	// e4mc (https://github.com/vgskye/e4mc-minecraft-architectury, MIT) depends
+	// on for its relay tunnel. The native QUIC codec binaries themselves are the
+	// unpatched upstream release, from Maven Central.
+	maven { url 'https://maven.is-quite.gay/' }
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	// No mappings dependency: Minecraft is unobfuscated from 26.1 onwards.
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// LAN-over-internet tunnel (see dev.nexoclient.nexomod.lantunnel), adapted
+	// from e4mc. QUIC transport for the tunnel to the relay.
+	include(implementation("io.netty.incubator:netty-incubator-codec-classes-quic:${project.quic_version}") {
+		exclude group: "io.netty"
+	})
+	// Bundle every platform's native QUIC codec so one built jar works on
+	// Linux, Windows, and macOS — Netty's native loader auto-detects the
+	// running OS/arch and picks the matching one at runtime, ignoring the
+	// rest.
+	["linux-x86_64", "linux-aarch_64", "windows-x86_64", "osx-x86_64", "osx-aarch_64"].each { classifier ->
+		include(implementation("io.netty.incubator:netty-incubator-codec-native-quic:${project.quic_native_version}:${classifier}") {
+			// The native artifact's own POM depends on the unforked classes-quic
+			// at the plain version, which otherwise wins Gradle's conflict
+			// resolution over our patched version above (same group:artifact,
+			// "higher" version string) and silently swaps it out.
+			exclude group: "io.netty.incubator", module: "netty-incubator-codec-classes-quic"
+		})
+	}
+	include(implementation("io.netty:netty-all:${project.netty_version}"))
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

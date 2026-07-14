@@ -1,0 +1,25 @@
+{
+	"providers": [
+		{
+			"type": "ttf",
+			"file": "nexomod:noto_sans.ttf",
+			"size": 11.0,
+			"oversample": 4.0
+		},
+		{
+			"type": "reference",
+			"id": "minecraft:include/space"
+		},
+		{
+			"type": "reference",
+			"id": "minecraft:include/default",
+			"filter": {
+				"uniform": false
+			}
+		},
+		{
+			"type": "reference",
+			"id": "minecraft:include/unifont"
+		}
+	]
+}
