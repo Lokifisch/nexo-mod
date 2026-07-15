@@ -24,6 +24,22 @@ The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client)(C
 
 The built jar lands in `build/libs/`. Drop it into your instance's `mods/` folder alongside Fabric API.
 
+## Releases
+
+[Nexo Client](https://github.com/Lokifisch/nexo-client)'s in-app installer fetches releases directly from this repo's GitHub Releases API, so every release must publish two assets:
+
+- the built jar (`nexomod-<version>.jar`)
+- `manifest.json`, declaring what it targets:
+  ```json
+  {
+  	"minecraft_version": "26.1.2",
+  	"loader": "fabric",
+  	"mod_version": "0.1.0"
+  }
+  ```
+
+The installer reads `manifest.json` to decide compatibility — it never assumes a fixed target version, so this must stay accurate for every release.
+
 ## Third-party code
 
 This mod adapts real, working code from a couple of MIT-licensed open-source projects rather than reimplementing their protocols from scratch — see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) for exactly what was ported from where and full license text:
