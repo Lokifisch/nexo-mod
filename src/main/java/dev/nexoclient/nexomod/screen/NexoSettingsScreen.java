@@ -1,5 +1,6 @@
 package dev.nexoclient.nexomod.screen;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
@@ -9,6 +10,7 @@ import net.minecraft.network.chat.Component;
 /** Nexo's own settings — whether the menu re-skin is on at all, and its background style. */
 public class NexoSettingsScreen extends NexoModalScreen {
 	private NexoButton customMenusButton;
+	private NexoButton customFontButton;
 	private NexoButton backgroundButton;
 	private NexoButton matrixColorButton;
 	private NexoButton matrixDensityButton;
@@ -24,6 +26,7 @@ public class NexoSettingsScreen extends NexoModalScreen {
 		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
 
 		customMenusButton = layout.addChild(NexoButton.builder(customMenusLabel(), this::toggleCustomMenus).size(220, 20).build());
+		customFontButton = layout.addChild(NexoButton.builder(customFontLabel(), this::toggleCustomFont).size(220, 20).build());
 		backgroundButton = layout.addChild(NexoButton.builder(backgroundLabel(), this::cycleBackground).size(220, 20).build());
 		matrixColorButton = layout.addChild(NexoButton.builder(matrixColorLabel(), this::cycleMatrixColor).size(220, 20).build());
 		matrixDensityButton = layout.addChild(NexoButton.builder(matrixDensityLabel(), this::cycleMatrixDensity).size(220, 20).build());
@@ -40,6 +43,15 @@ public class NexoSettingsScreen extends NexoModalScreen {
 		NexoConfig config = NexoConfig.get();
 		config.setCustomMenusEnabled(!config.customMenusEnabled());
 		customMenusButton.setMessage(customMenusLabel());
+	}
+
+	private void toggleCustomFont() {
+		NexoConfig config = NexoConfig.get();
+		config.setCustomFontEnabled(!config.customFontEnabled());
+		customFontButton.setMessage(customFontLabel());
+		// Font providers are resolved once per resource reload, not per frame — flipping
+		// the config alone doesn't change what's already been baked into the active FontSet.
+		Minecraft.getInstance().reloadResourcePacks();
 	}
 
 	private void cycleBackground() {
@@ -63,6 +75,11 @@ public class NexoSettingsScreen extends NexoModalScreen {
 	private Component customMenusLabel() {
 		boolean enabled = NexoConfig.get().customMenusEnabled();
 		return Component.translatable(enabled ? "nexomod.settings.customMenus.on" : "nexomod.settings.customMenus.off");
+	}
+
+	private Component customFontLabel() {
+		boolean enabled = NexoConfig.get().customFontEnabled();
+		return Component.translatable(enabled ? "nexomod.settings.customFont.on" : "nexomod.settings.customFont.off");
 	}
 
 	private Component backgroundLabel() {

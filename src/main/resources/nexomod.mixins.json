@@ -15,7 +15,8 @@
 		"InventoryWatermarkMixin",
 		"AbstractContainerScreenAccessor",
 		"NexoSettingsButtonMixin",
-		"NeonSliderMixin"
+		"NeonSliderMixin",
+		"NexoFontToggleMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

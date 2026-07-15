@@ -67,12 +67,14 @@ public final class NexoConfig {
 	}
 
 	private boolean customMenusEnabled;
+	private boolean customFontEnabled;
 	private BackgroundStyle backgroundStyle;
 	private MatrixColor matrixColor;
 	private MatrixDensity matrixDensity;
 
-	private NexoConfig(boolean customMenusEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity) {
+	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity) {
 		this.customMenusEnabled = customMenusEnabled;
+		this.customFontEnabled = customFontEnabled;
 		this.backgroundStyle = backgroundStyle;
 		this.matrixColor = matrixColor;
 		this.matrixDensity = matrixDensity;
@@ -91,6 +93,15 @@ public final class NexoConfig {
 
 	public void setCustomMenusEnabled(boolean enabled) {
 		this.customMenusEnabled = enabled;
+		save();
+	}
+
+	public boolean customFontEnabled() {
+		return customFontEnabled;
+	}
+
+	public void setCustomFontEnabled(boolean enabled) {
+		this.customFontEnabled = enabled;
 		save();
 	}
 
@@ -131,10 +142,11 @@ public final class NexoConfig {
 			}
 		}
 		boolean customMenusEnabled = Boolean.parseBoolean(props.getProperty("customMenusEnabled", "true"));
+		boolean customFontEnabled = Boolean.parseBoolean(props.getProperty("customFontEnabled", "true"));
 		BackgroundStyle backgroundStyle = enumOrDefault(BackgroundStyle.class, props.getProperty("backgroundStyle"), BackgroundStyle.STARFIELD);
 		MatrixColor matrixColor = enumOrDefault(MatrixColor.class, props.getProperty("matrixColor"), MatrixColor.GREEN);
 		MatrixDensity matrixDensity = enumOrDefault(MatrixDensity.class, props.getProperty("matrixDensity"), MatrixDensity.NORMAL);
-		return new NexoConfig(customMenusEnabled, backgroundStyle, matrixColor, matrixDensity);
+		return new NexoConfig(customMenusEnabled, customFontEnabled, backgroundStyle, matrixColor, matrixDensity);
 	}
 
 	private static <E extends Enum<E>> E enumOrDefault(Class<E> type, String value, E fallback) {
@@ -151,6 +163,7 @@ public final class NexoConfig {
 	private void save() {
 		Properties props = new Properties();
 		props.setProperty("customMenusEnabled", Boolean.toString(customMenusEnabled));
+		props.setProperty("customFontEnabled", Boolean.toString(customFontEnabled));
 		props.setProperty("backgroundStyle", backgroundStyle.name());
 		props.setProperty("matrixColor", matrixColor.name());
 		props.setProperty("matrixDensity", matrixDensity.name());

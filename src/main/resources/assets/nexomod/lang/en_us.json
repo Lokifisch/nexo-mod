@@ -25,6 +25,8 @@
 	"nexomod.settings.title": "Nexo Settings",
 	"nexomod.settings.customMenus.on": "Custom Menus: On",
 	"nexomod.settings.customMenus.off": "Custom Menus: Off",
+	"nexomod.settings.customFont.on": "Custom Font: On",
+	"nexomod.settings.customFont.off": "Custom Font: Off",
 	"nexomod.settings.background.starfield": "Background: Starfield",
 	"nexomod.settings.background.matrix": "Background: Matrix Rain",
 	"nexomod.settings.matrixColor.green": "Matrix Color: Green",
