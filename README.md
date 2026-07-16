@@ -8,7 +8,8 @@ The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client)(C
 
 - **LAN-over-internet tunneling** — share a singleplayer world with friends over the internet without port forwarding, via a QUIC relay. Uses [e4mc](https://github.com/vgskye/e4mc-minecraft-architectury)'s public relay by default; swappable via config. Cross-platform (Linux/Windows/macOS) native codec bundled into the jar.
 - **Microsoft account sign-in** — browser-based OAuth device flow, no separate launcher account juggling. Encrypted (AES-256-GCM) multi-account storage with instant switching, offline-account support, and protection against logging out of whichever account actually launched the game.
-- **Neon menu re-skin** — rounded, glowing black/neon buttons everywhere in the game; animated starfield or Matrix-rain menu backgrounds (configurable, with mouse parallax); a bundled modern font replacing vanilla's pixel font. Fully toggleable back to stock vanilla menus from in-game Nexo Settings.
+- **Neon menu re-skin** — rounded, glowing black/neon buttons everywhere in the game; animated starfield or Matrix-rain menu backgrounds (configurable, with mouse parallax); a bundled modern font replacing vanilla's pixel font. Applies to every menu-style screen — including ones added by other mods — not just vanilla's own. Fully toggleable back to stock vanilla menus from in-game Nexo Settings.
+- **Macros** — bind chat commands/messages to keys, with send-all, cycle, random, repeat-while-held, and type-without-sending modes, plus a few placeholders (`%myname%`, `%pos%`, `%x%`/`%y%`/`%z%`, `%clipboard%`). Configured from in-game Nexo Settings → Macros.
 
 ## Requirements
 

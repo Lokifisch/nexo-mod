@@ -30,6 +30,7 @@ public class NexoSettingsScreen extends NexoModalScreen {
 		backgroundButton = layout.addChild(NexoButton.builder(backgroundLabel(), this::cycleBackground).size(220, 20).build());
 		matrixColorButton = layout.addChild(NexoButton.builder(matrixColorLabel(), this::cycleMatrixColor).size(220, 20).build());
 		matrixDensityButton = layout.addChild(NexoButton.builder(matrixDensityLabel(), this::cycleMatrixDensity).size(220, 20).build());
+		layout.addChild(NexoButton.builder(Component.translatable("nexomod.settings.macros"), () -> minecraft.setScreen(new NexoMacroListScreen(this))).size(220, 20).build());
 
 		LinearLayout buttonRow = layout.addChild(LinearLayout.horizontal().spacing(4));
 		buttonRow.defaultCellSetting().paddingTop(12);

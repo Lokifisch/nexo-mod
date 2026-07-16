@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
+import dev.nexoclient.nexomod.macro.NexoMacroDispatcher;
 
 public class NexoMod implements ClientModInitializer {
 	public static final String MOD_ID = "nexomod";
@@ -34,6 +35,7 @@ public class NexoMod implements ClientModInitializer {
 	public void onInitializeClient() {
 		LOGGER.info("[nexomod] Initialised.");
 		CommandRegistrationCallback.EVENT.register((dispatcher, ignoredRegistryAccess, ignoredEnvironment) -> LanTunnel.registerCommands(dispatcher));
+		NexoMacroDispatcher.register();
 	}
 
 	/**

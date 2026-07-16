@@ -1,5 +1,58 @@
 # Third-party notices
 
+## TerminalMC/CommandKeys
+
+The `dev.nexoclient.nexomod.macro` package (keybind-triggered chat/command
+macros) took its feature set — multiple commands per macro, several send
+modes (send all/cycle/random/repeat/type-without-sending), and a few
+message placeholders — from
+[CommandKeys](https://github.com/TerminalMC/CommandKeys), used under the
+Apache License 2.0. `NexoMacro`/`NexoMacroConfig`/`NexoMacroDispatcher`
+(data model, persistence, tick-based key polling) are original, since
+CommandKeys' equivalents are entangled with features not adopted here.
+
+Its screen framework **is** a direct port, since CommandKeys happens to
+target the same Minecraft version (26.1.2) this mod does:
+`NexoTextField`, `NexoOptionList` (+ its `Entry`/`Entry.Text`/
+`Entry.ActionButton`/`Entry.Space` inner classes), and `NexoOptionScreen`
+are adapted from CommandKeys' `gui/widget/field/TextField.java`,
+`gui/widget/list/OptionList.java`, and `gui/screen/OptionScreen.java`
+respectively — same class shapes and method bodies, renamed and with a few
+CommandKeys-specific pieces removed (its custom-sprite `WidgetSprites`
+icon buttons, since this mod doesn't have or want those textures; plain
+vanilla `Button`s are used instead). `NexoMacroOptionList` and
+`NexoMacroEditOptionList` (the actual macro-list and macro-edit row
+layouts) are modeled closely on `MainOptionList`'s profile-row pattern and
+`MacroOptionList`'s field-row pattern, adapted to this mod's simpler
+single-list `NexoMacro` model. The point of building on this framework
+rather than a hand-designed screen: it's built entirely from plain
+vanilla widgets (`Screen`/`AbstractButton`/`CycleButton`/`EditBox`), so
+the mod's own global re-skin mixins (`NeonButtonMixin`,
+`NeonMenuBackgroundMixin`) reskin it automatically like any other screen
+in the game, rather than needing bespoke Nexo-styled chrome.
+
+Not ported: profiles and per-server auto-switching, ratelimiting, conflict
+strategies, dual keybinds, drag-to-reorder, per-message delay, "MC
+activator key" command-block-style triggers, and the HUD/history/
+resume-repeat toggles — those are CommandKeys features this mod's simpler
+macro model doesn't have.
+
+```
+Copyright 2026 TerminalMC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
 ## Fix85/SelfNametag
 
 `src/main/java/dev/nexoclient/nexomod/mixin/OwnNameTagVisibilityMixin.java`
