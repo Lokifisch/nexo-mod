@@ -11,6 +11,9 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 
+import dev.nexoclient.nexomod.auth.HardwareKey;
+import dev.nexoclient.nexomod.coords.CoordObfuscator;
+import dev.nexoclient.nexomod.discord.NexoDiscordRpc;
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
 import dev.nexoclient.nexomod.macro.NexoMacroDispatcher;
 
@@ -34,8 +37,11 @@ public class NexoMod implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		LOGGER.info("[nexomod] Initialised.");
+		HardwareKey.warmUp();
 		CommandRegistrationCallback.EVENT.register((dispatcher, ignoredRegistryAccess, ignoredEnvironment) -> LanTunnel.registerCommands(dispatcher));
 		NexoMacroDispatcher.register();
+		NexoDiscordRpc.register();
+		CoordObfuscator.register();
 	}
 
 	/**

@@ -1,113 +1,68 @@
 package dev.nexoclient.nexomod.screen;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.StringWidget;
-import net.minecraft.client.gui.layouts.LinearLayout;
+import java.util.function.Supplier;
+
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.layouts.GridLayout;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
-/** Nexo's own settings — whether the menu re-skin is on at all, and its background style. */
-public class NexoSettingsScreen extends NexoModalScreen {
-	private NexoButton customMenusButton;
-	private NexoButton customFontButton;
-	private NexoButton backgroundButton;
-	private NexoButton matrixColorButton;
-	private NexoButton matrixDensityButton;
+/**
+ * Nexo's settings hub — a structural port of vanilla's {@code OptionsScreen}
+ * (title header, two-column grid of category buttons, Done footer), built from
+ * plain vanilla widgets so the global reskin mixins style it like every other
+ * menu. Categories open {@link NexoOptionScreen}-based sub-screens; simple
+ * standalone toggles sit directly in the grid, the way vanilla mixes both.
+ */
+public class NexoSettingsScreen extends Screen {
+	private static final Component TITLE = Component.translatable("nexomod.settings.title");
 
-	public NexoSettingsScreen(Screen parent) {
-		super(Component.translatable("nexomod.settings.title"), parent);
+	private final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this);
+	private final Screen lastScreen;
+
+	public NexoSettingsScreen(Screen lastScreen) {
+		super(TITLE);
+		this.lastScreen = lastScreen;
 	}
 
 	@Override
 	protected void init() {
-		super.init();
-		layout.defaultCellSetting().alignHorizontallyCenter();
-		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
+		layout.addTitleHeader(TITLE, font);
 
-		customMenusButton = layout.addChild(NexoButton.builder(customMenusLabel(), this::toggleCustomMenus).size(220, 20).build());
-		customFontButton = layout.addChild(NexoButton.builder(customFontLabel(), this::toggleCustomFont).size(220, 20).build());
-		backgroundButton = layout.addChild(NexoButton.builder(backgroundLabel(), this::cycleBackground).size(220, 20).build());
-		matrixColorButton = layout.addChild(NexoButton.builder(matrixColorLabel(), this::cycleMatrixColor).size(220, 20).build());
-		matrixDensityButton = layout.addChild(NexoButton.builder(matrixDensityLabel(), this::cycleMatrixDensity).size(220, 20).build());
-		layout.addChild(NexoButton.builder(Component.translatable("nexomod.settings.macros"), () -> minecraft.setScreen(new NexoMacroListScreen(this))).size(220, 20).build());
+		GridLayout grid = new GridLayout();
+		grid.defaultCellSetting().paddingHorizontal(4).paddingBottom(4).alignHorizontallyCenter();
+		GridLayout.RowHelper helper = grid.createRowHelper(2);
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.appearance"), () -> new NexoAppearanceScreen(this)));
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.positionObscuring"), () -> new NexoPositionObscuringScreen(this)));
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.macros"), () -> new NexoMacroListScreen(this)));
+		helper.addChild(CycleButton.onOffBuilder(NexoConfig.get().discordRpcEnabled())
+				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.discordRpc"), (button, value) -> {
+					NexoConfig.get().setDiscordRpcEnabled(value);
+					if (!value) {
+						dev.nexoclient.nexomod.discord.DiscordRichPresence.get().clearActivity();
+					}
+				}));
+		layout.addToContents(grid);
 
-		LinearLayout buttonRow = layout.addChild(LinearLayout.horizontal().spacing(4));
-		buttonRow.defaultCellSetting().paddingTop(12);
-		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_DONE, this::onClose).build());
-
+		layout.addToFooter(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(200).build());
 		layout.visitWidgets(this::addRenderableWidget);
 		repositionElements();
 	}
 
-	private void toggleCustomMenus() {
-		NexoConfig config = NexoConfig.get();
-		config.setCustomMenusEnabled(!config.customMenusEnabled());
-		customMenusButton.setMessage(customMenusLabel());
+	@Override
+	protected void repositionElements() {
+		layout.arrangeElements();
 	}
 
-	private void toggleCustomFont() {
-		NexoConfig config = NexoConfig.get();
-		config.setCustomFontEnabled(!config.customFontEnabled());
-		customFontButton.setMessage(customFontLabel());
-		// Font providers are resolved once per resource reload, not per frame — flipping
-		// the config alone doesn't change what's already been baked into the active FontSet.
-		Minecraft.getInstance().reloadResourcePacks();
+	@Override
+	public void onClose() {
+		minecraft.setScreen(lastScreen);
 	}
 
-	private void cycleBackground() {
-		NexoConfig config = NexoConfig.get();
-		config.setBackgroundStyle(config.backgroundStyle().next());
-		backgroundButton.setMessage(backgroundLabel());
-	}
-
-	private void cycleMatrixColor() {
-		NexoConfig config = NexoConfig.get();
-		config.setMatrixColor(config.matrixColor().next());
-		matrixColorButton.setMessage(matrixColorLabel());
-	}
-
-	private void cycleMatrixDensity() {
-		NexoConfig config = NexoConfig.get();
-		config.setMatrixDensity(config.matrixDensity().next());
-		matrixDensityButton.setMessage(matrixDensityLabel());
-	}
-
-	private Component customMenusLabel() {
-		boolean enabled = NexoConfig.get().customMenusEnabled();
-		return Component.translatable(enabled ? "nexomod.settings.customMenus.on" : "nexomod.settings.customMenus.off");
-	}
-
-	private Component customFontLabel() {
-		boolean enabled = NexoConfig.get().customFontEnabled();
-		return Component.translatable(enabled ? "nexomod.settings.customFont.on" : "nexomod.settings.customFont.off");
-	}
-
-	private Component backgroundLabel() {
-		String key = switch (NexoConfig.get().backgroundStyle()) {
-			case STARFIELD -> "nexomod.settings.background.starfield";
-			case MATRIX_RAIN -> "nexomod.settings.background.matrix";
-		};
-		return Component.translatable(key);
-	}
-
-	private Component matrixColorLabel() {
-		String key = switch (NexoConfig.get().matrixColor()) {
-			case GREEN -> "nexomod.settings.matrixColor.green";
-			case CYAN -> "nexomod.settings.matrixColor.cyan";
-			case MAGENTA -> "nexomod.settings.matrixColor.magenta";
-			case VIOLET -> "nexomod.settings.matrixColor.violet";
-			case WHITE -> "nexomod.settings.matrixColor.white";
-		};
-		return Component.translatable(key);
-	}
-
-	private Component matrixDensityLabel() {
-		String key = switch (NexoConfig.get().matrixDensity()) {
-			case SPARSE -> "nexomod.settings.matrixDensity.sparse";
-			case NORMAL -> "nexomod.settings.matrixDensity.normal";
-			case DENSE -> "nexomod.settings.matrixDensity.dense";
-		};
-		return Component.translatable(key);
+	private Button openScreenButton(Component message, Supplier<Screen> screen) {
+		return Button.builder(message, button -> minecraft.setScreen(screen.get())).build();
 	}
 }

@@ -66,18 +66,40 @@ public final class NexoConfig {
 		}
 	}
 
+	/**
+	 * Position-obscuring preset. NONE/FULL force every obscuring feature off/on;
+	 * CUSTOM defers to the individual per-feature flags. The per-feature getters
+	 * ({@link #obscureCoordinatesActive()}, {@link #obscureBlockRotationActive()})
+	 * resolve the preset, so callers never need to look at it directly.
+	 */
+	public enum ObscurePreset {
+		NONE,
+		FULL,
+		CUSTOM
+	}
+
 	private boolean customMenusEnabled;
 	private boolean customFontEnabled;
 	private BackgroundStyle backgroundStyle;
 	private MatrixColor matrixColor;
 	private MatrixDensity matrixDensity;
+	private boolean discordRpcEnabled;
+	private ObscurePreset obscurePreset;
+	private boolean obscureCoordinatesEnabled;
+	private boolean obscureBlockRotationEnabled;
+	private boolean obscureBedrockFloorEnabled;
 
-	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity) {
+	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity, boolean discordRpcEnabled, ObscurePreset obscurePreset, boolean obscureCoordinatesEnabled, boolean obscureBlockRotationEnabled, boolean obscureBedrockFloorEnabled) {
 		this.customMenusEnabled = customMenusEnabled;
 		this.customFontEnabled = customFontEnabled;
 		this.backgroundStyle = backgroundStyle;
 		this.matrixColor = matrixColor;
 		this.matrixDensity = matrixDensity;
+		this.discordRpcEnabled = discordRpcEnabled;
+		this.obscurePreset = obscurePreset;
+		this.obscureCoordinatesEnabled = obscureCoordinatesEnabled;
+		this.obscureBlockRotationEnabled = obscureBlockRotationEnabled;
+		this.obscureBedrockFloorEnabled = obscureBedrockFloorEnabled;
 	}
 
 	public static synchronized NexoConfig get() {
@@ -132,6 +154,81 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean discordRpcEnabled() {
+		return discordRpcEnabled;
+	}
+
+	public void setDiscordRpcEnabled(boolean enabled) {
+		this.discordRpcEnabled = enabled;
+		save();
+	}
+
+	public ObscurePreset obscurePreset() {
+		return obscurePreset;
+	}
+
+	public void setObscurePreset(ObscurePreset preset) {
+		this.obscurePreset = preset;
+		save();
+	}
+
+	/** The stored CUSTOM-mode flag; use {@link #obscureCoordinatesActive()} to know whether the feature is on. */
+	public boolean obscureCoordinatesEnabled() {
+		return obscureCoordinatesEnabled;
+	}
+
+	public void setObscureCoordinatesEnabled(boolean enabled) {
+		this.obscureCoordinatesEnabled = enabled;
+		save();
+	}
+
+	/** The stored CUSTOM-mode flag; use {@link #obscureBlockRotationActive()} to know whether the feature is on. */
+	public boolean obscureBlockRotationEnabled() {
+		return obscureBlockRotationEnabled;
+	}
+
+	public void setObscureBlockRotationEnabled(boolean enabled) {
+		this.obscureBlockRotationEnabled = enabled;
+		save();
+	}
+
+	/** Whether F3 coordinates are obscured, after resolving the preset. */
+	public boolean obscureCoordinatesActive() {
+		return switch (obscurePreset) {
+			case NONE -> false;
+			case FULL -> true;
+			case CUSTOM -> obscureCoordinatesEnabled;
+		};
+	}
+
+	/** Whether block model randomization is re-seeded from fake coordinates, after resolving the preset. */
+	public boolean obscureBlockRotationActive() {
+		return switch (obscurePreset) {
+			case NONE -> false;
+			case FULL -> true;
+			case CUSTOM -> obscureBlockRotationEnabled;
+		};
+	}
+
+	/** The stored CUSTOM-mode flag; use {@link #obscureBedrockFloorActive()} to know whether the feature is on. */
+	public boolean obscureBedrockFloorEnabled() {
+		return obscureBedrockFloorEnabled;
+	}
+
+	public void setObscureBedrockFloorEnabled(boolean enabled) {
+		this.obscureBedrockFloorEnabled = enabled;
+		save();
+	}
+
+	/** Whether deep blocks render as bedrock (anti bedrock-pattern-matching), after resolving the preset. */
+	public boolean obscureBedrockFloorActive() {
+		return switch (obscurePreset) {
+			case NONE -> false;
+			case FULL -> true;
+			case CUSTOM -> obscureBedrockFloorEnabled;
+		};
+	}
+
 	private static NexoConfig load() {
 		Properties props = new Properties();
 		if (Files.exists(PATH)) {
@@ -146,7 +243,14 @@ public final class NexoConfig {
 		BackgroundStyle backgroundStyle = enumOrDefault(BackgroundStyle.class, props.getProperty("backgroundStyle"), BackgroundStyle.STARFIELD);
 		MatrixColor matrixColor = enumOrDefault(MatrixColor.class, props.getProperty("matrixColor"), MatrixColor.GREEN);
 		MatrixDensity matrixDensity = enumOrDefault(MatrixDensity.class, props.getProperty("matrixDensity"), MatrixDensity.NORMAL);
-		return new NexoConfig(customMenusEnabled, customFontEnabled, backgroundStyle, matrixColor, matrixDensity);
+		boolean discordRpcEnabled = Boolean.parseBoolean(props.getProperty("discordRpcEnabled", "true"));
+		boolean obscureCoordinatesEnabled = Boolean.parseBoolean(props.getProperty("obscureCoordinatesEnabled", "false"));
+		boolean obscureBlockRotationEnabled = Boolean.parseBoolean(props.getProperty("obscureBlockRotationEnabled", "false"));
+		boolean obscureBedrockFloorEnabled = Boolean.parseBoolean(props.getProperty("obscureBedrockFloorEnabled", "false"));
+		// Configs from before presets existed only have the coordinates flag; CUSTOM keeps its effect.
+		ObscurePreset obscurePreset = enumOrDefault(ObscurePreset.class, props.getProperty("obscurePreset"),
+				obscureCoordinatesEnabled ? ObscurePreset.CUSTOM : ObscurePreset.NONE);
+		return new NexoConfig(customMenusEnabled, customFontEnabled, backgroundStyle, matrixColor, matrixDensity, discordRpcEnabled, obscurePreset, obscureCoordinatesEnabled, obscureBlockRotationEnabled, obscureBedrockFloorEnabled);
 	}
 
 	private static <E extends Enum<E>> E enumOrDefault(Class<E> type, String value, E fallback) {
@@ -167,6 +271,11 @@ public final class NexoConfig {
 		props.setProperty("backgroundStyle", backgroundStyle.name());
 		props.setProperty("matrixColor", matrixColor.name());
 		props.setProperty("matrixDensity", matrixDensity.name());
+		props.setProperty("discordRpcEnabled", Boolean.toString(discordRpcEnabled));
+		props.setProperty("obscurePreset", obscurePreset.name());
+		props.setProperty("obscureCoordinatesEnabled", Boolean.toString(obscureCoordinatesEnabled));
+		props.setProperty("obscureBlockRotationEnabled", Boolean.toString(obscureBlockRotationEnabled));
+		props.setProperty("obscureBedrockFloorEnabled", Boolean.toString(obscureBedrockFloorEnabled));
 		try {
 			Files.createDirectories(PATH.getParent());
 			try (OutputStream out = Files.newOutputStream(PATH)) {
