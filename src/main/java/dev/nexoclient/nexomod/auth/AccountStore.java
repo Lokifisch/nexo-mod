@@ -7,9 +7,12 @@ import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -48,15 +51,35 @@ public final class AccountStore {
 	/** File-format marker, also bound into the ciphertext as GCM additional data. */
 	private static final byte[] HEADER = {'N', 'E', 'X', 'O', 'A', 'C', 'C', 2};
 
-	private static final Path DATA_FILE = FabricLoader.getInstance().getConfigDir().resolve("nexomod-accounts.dat");
+	/**
+	 * Shared with Nexo Client, so an account added in the launcher appears in
+	 * the in-game switcher and the other way round.
+	 *
+	 * <p>Deliberately <em>not</em> the instance config dir: that made the store
+	 * per-instance, so accounts did not even follow the player between their
+	 * own instances. This resolves the same OS location the launcher's
+	 * {@code directories} crate does — see {@code Mod/docs/SHARED-ACCOUNT-STORE.md}.
+	 */
+	private static final Path DATA_FILE = sharedDataDir().resolve("accounts.dat");
 	/** Only referenced to clean up installs of the old scheme that kept the key next to the data. */
 	private static final Path LEGACY_KEY_FILE = FabricLoader.getInstance().getConfigDir().resolve("nexomod-accounts.key");
 
-	private record StoredAccount(String name, String uuid, String minecraftAccessToken, String microsoftRefreshToken, long expiresAtEpochSecond, boolean offline) {}
+	/**
+	 * Field names are the wire format: Gson serialises record components by
+	 * name and the launcher's Rust structs are renamed to match.
+	 *
+	 * <p>The cosmetic fields belong to the launcher. This mod does not use
+	 * them, but must carry them through untouched — dropping them would wipe
+	 * the launcher's skin and cape data on every in-game account change.
+	 */
+	private record StoredAccount(String name, String uuid, String minecraftAccessToken, String microsoftRefreshToken, long expiresAtEpochSecond, boolean offline,
+			String skinUrl, String skinModel, String capeUrl) {}
 	private record StoredData(List<StoredAccount> accounts, String activeUuid) {}
 
 	private List<MinecraftAccount> accounts = new ArrayList<>();
 	private UUID activeUuid;
+	/** Launcher-owned cosmetic fields, kept verbatim so a save doesn't drop them. */
+	private final Map<UUID, StoredAccount> passthrough = new HashMap<>();
 
 	private static AccountStore instance;
 
@@ -120,7 +143,9 @@ public final class AccountStore {
 				return;
 			}
 			accounts = new ArrayList<>();
+			passthrough.clear();
 			for (StoredAccount entry : data.accounts()) {
+				passthrough.put(UUID.fromString(entry.uuid()), entry);
 				accounts.add(new MinecraftAccount(
 						entry.name(),
 						UUID.fromString(entry.uuid()),
@@ -131,13 +156,14 @@ public final class AccountStore {
 			}
 			activeUuid = data.activeUuid() != null ? UUID.fromString(data.activeUuid()) : null;
 		} catch (Exception e) {
-			// Not decryptable on this hardware means it was copied here (shared
-			// config folder) or the machine changed — either way, per design it
-			// self-destructs immediately instead of lingering as an oracle.
-			LOGGER.warn("Stored accounts can't be decrypted on this machine ({}) — deleting {}", e.toString(), DATA_FILE.getFileName());
+			// Left in place rather than deleted. This file is shared with the
+			// launcher now, so destroying it would take the launcher's accounts
+			// with it — and an undecryptable file is already useless to anyone
+			// without this machine's hardware, which was the original reason for
+			// deleting it.
+			LOGGER.error("Stored accounts can't be decrypted on this machine ({}) — leaving {} alone and starting without saved accounts", e.toString(), DATA_FILE);
 			accounts = new ArrayList<>();
 			activeUuid = null;
-			deleteQuietly(DATA_FILE);
 		}
 	}
 
@@ -149,15 +175,48 @@ public final class AccountStore {
 		}
 		try {
 			List<StoredAccount> stored = accounts.stream()
-					.map(a -> new StoredAccount(a.name(), a.uuid().toString(), a.minecraftAccessToken(), a.microsoftRefreshToken(), a.expiresAt().getEpochSecond(), a.offline()))
+					.map(a -> {
+						StoredAccount previous = passthrough.get(a.uuid());
+						return new StoredAccount(a.name(), a.uuid().toString(), a.minecraftAccessToken(), a.microsoftRefreshToken(), a.expiresAt().getEpochSecond(), a.offline(),
+								previous != null ? previous.skinUrl() : null,
+								previous != null ? previous.skinModel() : null,
+								previous != null ? previous.capeUrl() : null);
+					})
 					.toList();
 			StoredData data = new StoredData(stored, activeUuid != null ? activeUuid.toString() : null);
 			byte[] plaintext = GSON.toJson(data).getBytes(StandardCharsets.UTF_8);
 			byte[] encrypted = encrypt(plaintext, key);
+			Files.createDirectories(DATA_FILE.getParent());
 			Files.write(DATA_FILE, encrypted);
 		} catch (Exception e) {
 			LOGGER.error("Failed to save accounts", e);
 		}
+	}
+
+	/**
+	 * The launcher's platform data directory, resolved the same way its
+	 * {@code directories} crate does. These paths are a contract between the
+	 * two halves, not a preference.
+	 */
+	private static Path sharedDataDir() {
+		String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+		String home = System.getProperty("user.home", ".");
+
+		if (os.contains("win")) {
+			String appData = System.getenv("APPDATA");
+			Path base = appData != null && !appData.isBlank()
+					? Path.of(appData)
+					: Path.of(home, "AppData", "Roaming");
+			return base.resolve("nexoclient").resolve("nexo").resolve("data");
+		}
+		if (os.contains("mac")) {
+			return Path.of(home, "Library", "Application Support", "dev.nexoclient.nexo");
+		}
+
+		// Linux and the BSDs honour XDG_DATA_HOME when it is set.
+		String xdg = System.getenv("XDG_DATA_HOME");
+		Path base = xdg != null && !xdg.isBlank() ? Path.of(xdg) : Path.of(home, ".local", "share");
+		return base.resolve("nexo");
 	}
 
 	private static void deleteQuietly(Path path) {
