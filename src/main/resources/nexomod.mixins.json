@@ -16,7 +16,11 @@
 		"AbstractContainerScreenAccessor",
 		"NexoSettingsButtonMixin",
 		"NeonSliderMixin",
-		"NexoFontToggleMixin"
+		"NexoFontToggleMixin",
+		"DebugOverlayCoordWarningMixin",
+		"BlockSeedObscureMixin",
+		"BedrockFloorDisguiseMixin",
+		"BedrockFloorDisguiseSodiumMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
