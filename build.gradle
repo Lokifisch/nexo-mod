@@ -18,6 +18,8 @@ repositories {
 	// on for its relay tunnel. The native QUIC codec binaries themselves are the
 	// unpatched upstream release, from Maven Central.
 	maven { url 'https://maven.is-quite.gay/' }
+	// Hosts discord-game-sdk4j (see dev.nexoclient.nexomod.discord), which isn't published to Maven Central.
+	maven { url 'https://jitpack.io' }
 }
 
 dependencies {
@@ -48,6 +50,22 @@ dependencies {
 		})
 	}
 	include(implementation("io.netty:netty-all:${project.netty_version}"))
+
+	// Discord Rich Presence (see dev.nexoclient.nexomod.discord) — a pure-Java
+	// reimplementation of Discord's local RPC IPC protocol (MIT), used instead
+	// of a hand-rolled socket client because it's already battle-tested by
+	// other real Fabric mods (e.g. Phase's Discord Rich Presence,
+	// https://github.com/ThePhaseCat/phases-discord-rich-presence, which
+	// depends on this same library, on this same MC/loader combo). Pinned to
+	// the v1.0.0 tag rather than Phase's exact commit since that commit isn't
+	// pre-built on JitPack (would need to trigger + wait on a fresh build);
+	// v1.0.0's CHANGELOG covers the same "pure Java, no native lib, button
+	// support" rewrite this mod relies on.
+	include(implementation("com.github.JnCrMx:discord-game-sdk4j:v1.0.0") {
+		// Minecraft/Fabric Loader already ships Gson on the runtime classpath;
+		// bundling a second copy risks a classpath conflict for no benefit.
+		exclude group: "com.google.code.gson", module: "gson"
+	})
 }
 
 processResources {
