@@ -43,11 +43,19 @@ public final class LoginFlow {
 		}));
 	}
 
-	/** Silently refreshes and switches to a saved account — no UI beyond the caller's own loading state. */
-	public static void switchTo(MinecraftAccount account, Runnable onDone, java.util.function.Consumer<Throwable> onError) {
+	/**
+	 * Refreshes (if needed) and switches to a saved account. The refresh is a
+	 * chain of network round-trips, so callers should be showing a loading
+	 * state whenever {@code account.isExpired()}; setting {@code cancelled}
+	 * abandons the switch — nothing is applied and neither callback runs.
+	 */
+	public static void switchTo(MinecraftAccount account, AtomicBoolean cancelled, Runnable onDone, java.util.function.Consumer<Throwable> onError) {
 		Minecraft mc = Minecraft.getInstance();
 		java.util.concurrent.CompletableFuture.supplyAsync(() -> account.isExpired() ? MicrosoftAuth.refresh(account) : account)
 				.whenComplete((refreshed, error) -> mc.execute(() -> {
+					if (cancelled.get()) {
+						return; // User backed out — don't yank whatever screen they're on now.
+					}
 					if (error != null) {
 						onError.accept(error);
 						return;

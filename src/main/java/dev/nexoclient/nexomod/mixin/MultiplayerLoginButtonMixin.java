@@ -10,7 +10,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.network.chat.Component;
 
-import dev.nexoclient.nexomod.auth.AccountStore;
 import dev.nexoclient.nexomod.screen.AccountSwitcherScreen;
 import dev.nexoclient.nexomod.screen.NexoButton;
 
@@ -30,8 +29,11 @@ public abstract class MultiplayerLoginButtonMixin extends Screen {
 	}
 
 	private static Component nexomod$buttonLabel() {
-		return AccountStore.get().active()
-				.map(account -> Component.literal(account.name()))
-				.orElse(Component.translatable("nexomod.login.signIn"));
+		// The live session is the only thing that's never stale — the account
+		// store's "active" marker doesn't cover the launcher's own session.
+		String name = Minecraft.getInstance().getUser().getName();
+		return name == null || name.isBlank()
+				? Component.translatable("nexomod.login.signIn")
+				: Component.literal(name);
 	}
 }

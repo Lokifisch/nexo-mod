@@ -1,7 +1,9 @@
 package dev.nexoclient.nexomod.screen;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -17,6 +19,12 @@ import net.minecraft.world.entity.player.PlayerSkin;
 /** One row in the account switcher: face icon + name, click to switch to this account. */
 public class AccountRowWidget extends AbstractButton {
 	private static final int ICON_SIZE = 16;
+	/**
+	 * The switcher screen is rebuilt from scratch on every switch/logout/return,
+	 * so without this each rebuild re-fetched every account's profile and skin
+	 * over the network and the face icons popped in late every single time.
+	 */
+	private static final Map<UUID, PlayerSkin> SKIN_CACHE = new ConcurrentHashMap<>();
 
 	private final boolean isCurrent;
 	private final boolean isLauncherAccount;
@@ -37,6 +45,12 @@ public class AccountRowWidget extends AbstractButton {
 			return;
 		}
 
+		PlayerSkin cached = SKIN_CACHE.get(uuid);
+		if (cached != null) {
+			this.skin = cached;
+			return;
+		}
+
 		// A bare GameProfile(uuid, name) has no "textures" property, and SkinManager
 		// only reads a property that's already on the profile — it doesn't resolve
 		// one itself. Fetching the real profile first is what actually gets the
@@ -44,7 +58,10 @@ public class AccountRowWidget extends AbstractButton {
 		Minecraft mc = Minecraft.getInstance();
 		CompletableFuture.supplyAsync(() -> mc.services().sessionService().fetchProfile(uuid, false), Util.nonCriticalIoPool())
 				.thenCompose(profileResult -> mc.getSkinManager().get(profileResult.profile()))
-				.thenAccept(result -> result.ifPresent(s -> this.skin = s));
+				.thenAccept(result -> result.ifPresent(s -> {
+					SKIN_CACHE.put(uuid, s);
+					this.skin = s;
+				}));
 	}
 
 	@Override

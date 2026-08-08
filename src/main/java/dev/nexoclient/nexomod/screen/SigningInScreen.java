@@ -8,13 +8,25 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
-/** Shown while a browser sign-in is in progress: just a status line and a cancel button. */
+/**
+ * Shown while an auth flow is in progress: just a status line and a cancel
+ * button. Defaults to browser-sign-in wording; the other constructor reuses
+ * it for anything else that waits on the network (e.g. the token refresh
+ * when switching to a saved account).
+ */
 public class SigningInScreen extends NexoModalScreen {
 	private final AtomicBoolean cancelled;
+	private final Component status;
 
 	public SigningInScreen(Screen parent, AtomicBoolean cancelled) {
-		super(Component.translatable("nexomod.login.title"), parent);
+		this(parent, cancelled, Component.translatable("nexomod.login.title"),
+				Component.translatable("nexomod.login.waiting"));
+	}
+
+	public SigningInScreen(Screen parent, AtomicBoolean cancelled, Component title, Component status) {
+		super(title, parent);
 		this.cancelled = cancelled;
+		this.status = status;
 	}
 
 	@Override
@@ -23,7 +35,7 @@ public class SigningInScreen extends NexoModalScreen {
 		layout.defaultCellSetting().alignHorizontallyCenter();
 		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
 		layout.addChild(new StringWidget(
-				Component.translatable("nexomod.login.waiting").withStyle(style -> style.withColor(NexoStyle.TEXT_SECONDARY)), font));
+				status.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_SECONDARY)), font));
 
 		LinearLayout buttonRow = layout.addChild(LinearLayout.horizontal().spacing(4));
 		buttonRow.defaultCellSetting().paddingTop(12);

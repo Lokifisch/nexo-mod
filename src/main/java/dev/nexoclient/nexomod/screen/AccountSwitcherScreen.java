@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.layouts.LinearLayout;
@@ -37,7 +38,9 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
 
 		AccountStore store = AccountStore.get();
-		UUID activeUuid = store.active().map(MinecraftAccount::uuid).orElseGet(() -> LauncherAccount.user().map(u -> u.getProfileId()).orElse(null));
+		// The live session, not the store's marker, decides which row is "current" —
+		// it's the only source that also covers the launcher's own un-stored account.
+		UUID activeUuid = minecraft.getUser().getProfileId();
 
 		for (RowEntry entry : buildRows(store)) {
 			LinearLayout row = layout.addChild(LinearLayout.horizontal().spacing(4));
@@ -81,7 +84,15 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 			minecraft.setScreen(new AccountSwitcherScreen(parent));
 			return;
 		}
-		LoginFlow.switchTo(entry.storedAccount(),
+		AtomicBoolean cancelled = new AtomicBoolean(false);
+		if (entry.storedAccount().isExpired()) {
+			// The refresh is several network round-trips; without a visible
+			// waiting state the click just looks ignored for a few seconds.
+			minecraft.setScreen(new SigningInScreen(new AccountSwitcherScreen(parent), cancelled,
+					Component.translatable("nexomod.accounts.switchingTitle"),
+					Component.translatable("nexomod.accounts.switching")));
+		}
+		LoginFlow.switchTo(entry.storedAccount(), cancelled,
 				() -> minecraft.setScreen(new AccountSwitcherScreen(parent)),
 				error -> minecraft.setScreen(new net.minecraft.client.gui.screens.AlertScreen(
 						() -> minecraft.setScreen(new AccountSwitcherScreen(parent)),

@@ -39,7 +39,12 @@ public final class SessionSwap {
 	/** Switches back to whatever account this game process was actually launched with. */
 	public static void restoreLauncherAccount() {
 		LauncherAccount.captureIfNeeded();
-		LauncherAccount.user().ifPresent(SessionSwap::apply);
+		LauncherAccount.user().ifPresent(user -> {
+			apply(user);
+			// Without this the store keeps claiming the previously active stored
+			// account, and everything that displays "current account" lies.
+			AccountStore.get().markActive(user.getProfileId());
+		});
 	}
 
 	private static void apply(User user) {
