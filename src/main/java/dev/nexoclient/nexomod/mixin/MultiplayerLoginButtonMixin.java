@@ -24,6 +24,10 @@ public abstract class MultiplayerLoginButtonMixin extends Screen {
 	private void nexomod$addLoginButton(CallbackInfo ci) {
 		this.addRenderableWidget(NexoButton.builder(nexomod$buttonLabel(),
 				() -> Minecraft.getInstance().setScreen(new AccountSwitcherScreen(this)))
+				// Live rather than fixed: a switch that finishes after this
+				// screen was built — which is what switching quickly causes —
+				// would otherwise leave the previous account's name showing.
+				.liveLabel(MultiplayerLoginButtonMixin::nexomod$buttonLabel)
 				.bounds(4, 4, 90, 20)
 				.build());
 	}
