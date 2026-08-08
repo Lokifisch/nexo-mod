@@ -1,14 +1,20 @@
 # Nexo Mod
 
-The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client)(Currently Private) — a personal Minecraft client project that pairs this mod with a rebranded install/launch app, instead of a monolithic custom launcher. Targets **Minecraft 26.1.2** (Fabric).
+The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client) — a personal Minecraft client project that pairs this mod with a native launcher, instead of a monolithic custom launcher. Targets **Minecraft 26.1.2** (Fabric).
 
 > **Status:** alpha. See [Releases](../../releases) for builds.
 
 ## Features
 
 - **LAN-over-internet tunneling** — share a singleplayer world with friends over the internet without port forwarding, via a QUIC relay. Uses [e4mc](https://github.com/vgskye/e4mc-minecraft-architectury)'s public relay by default; swappable via config. Cross-platform (Linux/Windows/macOS) native codec bundled into the jar.
-- **Microsoft account sign-in** — browser-based OAuth device flow, no separate launcher account juggling. Encrypted (AES-256-GCM) multi-account storage with instant switching, offline-account support, and protection against logging out of whichever account actually launched the game.
-- **Neon menu re-skin** — rounded, glowing black/neon buttons everywhere in the game; animated starfield or Matrix-rain menu backgrounds (configurable, with mouse parallax); a bundled modern font replacing vanilla's pixel font. Applies to every menu-style screen — including ones added by other mods — not just vanilla's own. Fully toggleable back to stock vanilla menus from in-game Nexo Settings.
+- **Microsoft account sign-in** — browser-based OAuth device flow, no separate launcher account juggling. Multi-account storage with instant switching, offline-account support, and protection against logging out of whichever account actually launched the game. The store is AES-256-GCM encrypted under a key **derived from this machine's hardware** (CPU, mainboard, and GPU identity) rather than one written to disk — so a config folder copied into a shared modpack can't be decrypted anywhere but the machine it came from.
+- **Position obscuring** — a set of anti-doxxing measures for streaming and public servers, under Nexo Settings → Position Obscuring. Presets are None / Full / Custom:
+  - *Obscure F3 Coordinates* — shifts the X/Z shown on the debug screen by a random 3,000–700,000 blocks, re-rolled every time you join a world or server.
+  - *Match Block Rotation* — random block textures (grass, stone, sand…) normally pick their variant from your real position, so a screenshot can be brute-forced back to real coordinates. This re-seeds them from the fake position so the visible pattern agrees with what F3 shows.
+  - *Hide Bedrock Pattern* — the bedrock mix at the bottom of the world is generated from the world seed, so a screenshot of it can also give away coordinates. This renders everything at Y -60 and below as solid bedrock. Purely visual: mining, collision, and everything server-side are unaffected, and there's a [Sodium](https://modrinth.com/mod/sodium)-specific path so it works with Sodium's meshing pipeline too.
+  - Independently, on servers with more than 50 players, the first F3 press while coordinates are *not* obscured shows a warning instead of the debug screen; press F3 again within 10 seconds to open it anyway.
+- **Discord Rich Presence** — shows the world or server you're actually in (not merely "playing Minecraft", which is all the launcher could know on its own). On multiplayer, the activity carries a join secret so friends see a Join button; clicking it works if their own Nexo Mod is already running. Toggleable from Nexo Settings.
+- **Neon menu re-skin** — rounded, glowing black/neon buttons everywhere in the game; animated starfield or Matrix-rain menu backgrounds (configurable colour and density, with mouse parallax); a bundled modern font replacing vanilla's pixel font. Applies to every menu-style screen — including ones added by other mods — not just vanilla's own. Menus and font toggle independently, so you can keep the neon buttons and vanilla's font or vice versa, and both revert fully to stock from in-game Nexo Settings → Appearance.
 - **Macros** — bind chat commands/messages to keys, with send-all, cycle, random, repeat-while-held, and type-without-sending modes, plus a few placeholders (`%myname%`, `%pos%`, `%x%`/`%y%`/`%z%`, `%clipboard%`). Configured from in-game Nexo Settings → Macros.
 
 ## Requirements
@@ -47,6 +53,7 @@ This mod adapts real, working code from a couple of MIT-licensed open-source pro
 
 - [vgskye/e4mc-minecraft-architectury](https://github.com/vgskye/e4mc-minecraft-architectury) — LAN tunnel relay client
 - [axieum/authme](https://github.com/axieum/authme) — Microsoft OAuth sign-in flow
+- [JnCrMx/discord-game-sdk4j](https://github.com/JnCrMx/discord-game-sdk4j) (MIT) — pure-Java implementation of Discord's local RPC protocol, used as a dependency (not vendored) for Rich Presence
 - [Fix85/SelfNametag](https://github.com/Fix85/SelfNametag) — own-nametag visibility technique
 - [Noto Sans](https://fonts.google.com/noto) (Google, SIL OFL) — bundled UI font
 
