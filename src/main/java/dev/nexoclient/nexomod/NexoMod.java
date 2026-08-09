@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 
 import dev.nexoclient.nexomod.auth.HardwareKey;
+import dev.nexoclient.nexomod.bedrock.BedrockHoleFinder;
 import dev.nexoclient.nexomod.coords.CoordObfuscator;
 import dev.nexoclient.nexomod.discord.NexoDiscordRpc;
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
@@ -42,6 +43,7 @@ public class NexoMod implements ClientModInitializer {
 		NexoMacroDispatcher.register();
 		NexoDiscordRpc.register();
 		CoordObfuscator.register();
+		BedrockHoleFinder.register();
 	}
 
 	/**

@@ -37,6 +37,7 @@ public class NexoSettingsScreen extends Screen {
 		GridLayout.RowHelper helper = grid.createRowHelper(2);
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.appearance"), () -> new NexoAppearanceScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.positionObscuring"), () -> new NexoPositionObscuringScreen(this)));
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.bedrockHoles"), () -> new NexoBedrockHoleScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.macros"), () -> new NexoMacroListScreen(this)));
 		helper.addChild(CycleButton.onOffBuilder(NexoConfig.get().discordRpcEnabled())
 				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.discordRpc"), (button, value) -> {

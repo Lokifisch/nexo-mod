@@ -19,6 +19,10 @@ public final class NexoConfig {
 
 	private static NexoConfig instance;
 
+	/** Slider bounds for the bedrock hole finder's size filter, in blocks. */
+	public static final int MIN_HOLE_SIZE_FLOOR = 1;
+	public static final int MAX_HOLE_SIZE_CEILING = 64;
+
 	public enum BackgroundStyle {
 		STARFIELD,
 		MATRIX_RAIN;
@@ -78,6 +82,20 @@ public final class NexoConfig {
 		CUSTOM
 	}
 
+	/** How far out from the player the bedrock hole finder scans, in chunks. */
+	public enum BedrockHoleRadius {
+		CHUNKS_4(4),
+		CHUNKS_8(8),
+		CHUNKS_16(16),
+		CHUNKS_32(32);
+
+		public final int chunks;
+
+		BedrockHoleRadius(int chunks) {
+			this.chunks = chunks;
+		}
+	}
+
 	private boolean customMenusEnabled;
 	private boolean customFontEnabled;
 	private BackgroundStyle backgroundStyle;
@@ -88,6 +106,15 @@ public final class NexoConfig {
 	private boolean obscureCoordinatesEnabled;
 	private boolean obscureBlockRotationEnabled;
 	private boolean obscureBedrockFloorEnabled;
+	private boolean bedrockHoleFinderEnabled;
+	private BedrockHoleRadius bedrockHoleRadius = BedrockHoleRadius.CHUNKS_8;
+	private int bedrockHoleMinSize = 2;
+	private int bedrockHoleMaxSize = 30;
+	private boolean bedrockHoleShowCoordsEnabled = true;
+	private boolean bedrockHoleLabelsEnabled = true;
+	private boolean bedrockHoleChatEnabled = true;
+	private boolean bedrockHoleToastEnabled;
+	private boolean bedrockHoleSoundEnabled = true;
 
 	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity, boolean discordRpcEnabled, ObscurePreset obscurePreset, boolean obscureCoordinatesEnabled, boolean obscureBlockRotationEnabled, boolean obscureBedrockFloorEnabled) {
 		this.customMenusEnabled = customMenusEnabled;
@@ -229,6 +256,108 @@ public final class NexoConfig {
 		};
 	}
 
+	public boolean bedrockHoleFinderEnabled() {
+		return bedrockHoleFinderEnabled;
+	}
+
+	public void setBedrockHoleFinderEnabled(boolean enabled) {
+		this.bedrockHoleFinderEnabled = enabled;
+		save();
+	}
+
+	public BedrockHoleRadius bedrockHoleRadius() {
+		return bedrockHoleRadius;
+	}
+
+	public void setBedrockHoleRadius(BedrockHoleRadius radius) {
+		this.bedrockHoleRadius = radius;
+		save();
+	}
+
+	/** Smallest pocket, in blocks, still worth reporting. */
+	public int bedrockHoleMinSize() {
+		return bedrockHoleMinSize;
+	}
+
+	/** Setting a minimum above the maximum pushes the maximum up with it, so the range can never be empty. */
+	public void setBedrockHoleMinSize(int minSize) {
+		this.bedrockHoleMinSize = Math.clamp(minSize, MIN_HOLE_SIZE_FLOOR, MAX_HOLE_SIZE_CEILING);
+		this.bedrockHoleMaxSize = Math.max(bedrockHoleMaxSize, bedrockHoleMinSize);
+		save();
+	}
+
+	/** Largest pocket still counted as a hole; a connected region bigger than this is ordinary rock. */
+	public int bedrockHoleMaxSize() {
+		return bedrockHoleMaxSize;
+	}
+
+	public void setBedrockHoleMaxSize(int maxSize) {
+		this.bedrockHoleMaxSize = Math.clamp(maxSize, MIN_HOLE_SIZE_FLOOR, MAX_HOLE_SIZE_CEILING);
+		this.bedrockHoleMinSize = Math.min(bedrockHoleMinSize, bedrockHoleMaxSize);
+		save();
+	}
+
+	/** Whether found holes' coordinates appear in chat and toasts — off is the streaming-safe setting. */
+	public boolean bedrockHoleShowCoordsEnabled() {
+		return bedrockHoleShowCoordsEnabled;
+	}
+
+	public void setBedrockHoleShowCoordsEnabled(boolean enabled) {
+		this.bedrockHoleShowCoordsEnabled = enabled;
+		save();
+	}
+
+	/**
+	 * Whether a find notification may name coordinates: the explicit setting, and
+	 * never while {@link #obscureCoordinatesActive() F3 coordinates are obscured} —
+	 * printing a real position to chat would hand back exactly what that feature
+	 * exists to withhold.
+	 */
+	public boolean bedrockHoleCoordsVisible() {
+		return bedrockHoleShowCoordsEnabled && !obscureCoordinatesActive();
+	}
+
+	public boolean bedrockHoleLabelsEnabled() {
+		return bedrockHoleLabelsEnabled;
+	}
+
+	public void setBedrockHoleLabelsEnabled(boolean enabled) {
+		this.bedrockHoleLabelsEnabled = enabled;
+		save();
+	}
+
+	public boolean bedrockHoleChatEnabled() {
+		return bedrockHoleChatEnabled;
+	}
+
+	public void setBedrockHoleChatEnabled(boolean enabled) {
+		this.bedrockHoleChatEnabled = enabled;
+		save();
+	}
+
+	public boolean bedrockHoleToastEnabled() {
+		return bedrockHoleToastEnabled;
+	}
+
+	public void setBedrockHoleToastEnabled(boolean enabled) {
+		this.bedrockHoleToastEnabled = enabled;
+		save();
+	}
+
+	public boolean bedrockHoleSoundEnabled() {
+		return bedrockHoleSoundEnabled;
+	}
+
+	public void setBedrockHoleSoundEnabled(boolean enabled) {
+		this.bedrockHoleSoundEnabled = enabled;
+		save();
+	}
+
+	/** Whether any of the three find notifications (chat, toast, sound) is on. */
+	public boolean bedrockHoleNotifyEnabled() {
+		return bedrockHoleChatEnabled || bedrockHoleToastEnabled || bedrockHoleSoundEnabled;
+	}
+
 	private static NexoConfig load() {
 		Properties props = new Properties();
 		if (Files.exists(PATH)) {
@@ -250,7 +379,37 @@ public final class NexoConfig {
 		// Configs from before presets existed only have the coordinates flag; CUSTOM keeps its effect.
 		ObscurePreset obscurePreset = enumOrDefault(ObscurePreset.class, props.getProperty("obscurePreset"),
 				obscureCoordinatesEnabled ? ObscurePreset.CUSTOM : ObscurePreset.NONE);
-		return new NexoConfig(customMenusEnabled, customFontEnabled, backgroundStyle, matrixColor, matrixDensity, discordRpcEnabled, obscurePreset, obscureCoordinatesEnabled, obscureBlockRotationEnabled, obscureBedrockFloorEnabled);
+		return new NexoConfig(customMenusEnabled, customFontEnabled, backgroundStyle, matrixColor, matrixDensity, discordRpcEnabled, obscurePreset, obscureCoordinatesEnabled, obscureBlockRotationEnabled, obscureBedrockFloorEnabled)
+				.withBedrockHoleSettings(props);
+	}
+
+	/**
+	 * Applied after construction rather than through the constructor, which
+	 * already carries as many positional booleans as is readable — one more
+	 * block of them would be a swap waiting to happen.
+	 */
+	private NexoConfig withBedrockHoleSettings(Properties props) {
+		bedrockHoleFinderEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleFinderEnabled", "false"));
+		bedrockHoleRadius = enumOrDefault(BedrockHoleRadius.class, props.getProperty("bedrockHoleRadius"), BedrockHoleRadius.CHUNKS_8);
+		bedrockHoleMinSize = intOrDefault(props.getProperty("bedrockHoleMinSize"), 2);
+		bedrockHoleMaxSize = Math.max(bedrockHoleMinSize, intOrDefault(props.getProperty("bedrockHoleMaxSize"), 30));
+		bedrockHoleShowCoordsEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleShowCoordsEnabled", "true"));
+		bedrockHoleLabelsEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleLabelsEnabled", "true"));
+		bedrockHoleChatEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleChatEnabled", "true"));
+		bedrockHoleToastEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleToastEnabled", "false"));
+		bedrockHoleSoundEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleSoundEnabled", "true"));
+		return this;
+	}
+
+	private static int intOrDefault(String value, int fallback) {
+		if (value == null) {
+			return fallback;
+		}
+		try {
+			return Math.clamp(Integer.parseInt(value.trim()), MIN_HOLE_SIZE_FLOOR, MAX_HOLE_SIZE_CEILING);
+		} catch (NumberFormatException e) {
+			return fallback;
+		}
 	}
 
 	private static <E extends Enum<E>> E enumOrDefault(Class<E> type, String value, E fallback) {
@@ -276,6 +435,15 @@ public final class NexoConfig {
 		props.setProperty("obscureCoordinatesEnabled", Boolean.toString(obscureCoordinatesEnabled));
 		props.setProperty("obscureBlockRotationEnabled", Boolean.toString(obscureBlockRotationEnabled));
 		props.setProperty("obscureBedrockFloorEnabled", Boolean.toString(obscureBedrockFloorEnabled));
+		props.setProperty("bedrockHoleFinderEnabled", Boolean.toString(bedrockHoleFinderEnabled));
+		props.setProperty("bedrockHoleRadius", bedrockHoleRadius.name());
+		props.setProperty("bedrockHoleMinSize", Integer.toString(bedrockHoleMinSize));
+		props.setProperty("bedrockHoleMaxSize", Integer.toString(bedrockHoleMaxSize));
+		props.setProperty("bedrockHoleShowCoordsEnabled", Boolean.toString(bedrockHoleShowCoordsEnabled));
+		props.setProperty("bedrockHoleLabelsEnabled", Boolean.toString(bedrockHoleLabelsEnabled));
+		props.setProperty("bedrockHoleChatEnabled", Boolean.toString(bedrockHoleChatEnabled));
+		props.setProperty("bedrockHoleToastEnabled", Boolean.toString(bedrockHoleToastEnabled));
+		props.setProperty("bedrockHoleSoundEnabled", Boolean.toString(bedrockHoleSoundEnabled));
 		try {
 			Files.createDirectories(PATH.getParent());
 			try (OutputStream out = Files.newOutputStream(PATH)) {

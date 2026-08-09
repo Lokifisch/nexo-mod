@@ -1,5 +1,7 @@
 package dev.nexoclient.nexomod.screen;
 
+import net.minecraft.util.Mth;
+
 /**
  * Nexo's neon brand palette, shared across every custom-drawn screen/widget
  * in this package. Same hex values used throughout {@code Client/} (the
@@ -33,6 +35,16 @@ public final class NexoStyle {
 		int rg = (int) (ag + (bg - ag) * t);
 		int rb = (int) (ab + (bb - ab) * t);
 		return (ra << 24) | (rr << 16) | (rg << 8) | rb;
+	}
+
+	/**
+	 * A full hue sweep, for accents meant to read as a rainbow rather than as the
+	 * brand ramp {@link #cycle} walks. Saturation and value are pinned high so it
+	 * stays legible against dark rock at every hue.
+	 */
+	public static int rainbow(long nowMillis, long periodMillis) {
+		float hue = (nowMillis % periodMillis) / (float) periodMillis;
+		return Mth.hsvToArgb(hue, 0.85F, 1.0F, 0xFF);
 	}
 
 	/** A slow color cycle through the brand palette, for animated borders/accents — same idea as the launcher's animated brand color. */

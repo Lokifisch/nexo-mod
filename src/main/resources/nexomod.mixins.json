@@ -21,6 +21,7 @@
 		"BlockSeedObscureMixin",
 		"BedrockFloorDisguiseMixin",
 		"BedrockFloorDisguiseSodiumMixin",
+		"BedrockHoleWallOverlayMixin",
 		"XaeroMinimapCoordsMixin",
 		"XaeroWorldMapCoordsMixin"
 	],
