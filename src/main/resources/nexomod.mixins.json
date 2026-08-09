@@ -21,8 +21,7 @@
 		"BlockSeedObscureMixin",
 		"BedrockFloorDisguiseMixin",
 		"BedrockFloorDisguiseSodiumMixin",
-		"XaeroMinimapCoordsMixin",
-		"XaeroWorldMapCoordsMixin"
+		"XaeroMinimapCoordsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

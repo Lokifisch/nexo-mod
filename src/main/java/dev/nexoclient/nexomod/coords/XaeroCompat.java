@@ -22,10 +22,19 @@ import net.minecraft.network.chat.Component;
  * whose whole job is hiding your coordinates means believing you're covered
  * when you aren't.
  *
- * <p>So the patches report in the first time they run, and this warns if one
- * of Xaero's mods is installed, obscuring is switched on, and nothing has
- * reported after a grace period. Better a false alarm than a false sense of
- * safety.
+ * <p>So the patch reports in the first time it runs, and this warns if the
+ * minimap is installed, obscuring is switched on, and nothing has reported
+ * after a grace period. Better a false alarm than a false sense of safety.
+ *
+ * <p>The World Map is deliberately not patched. Its coordinate readout comes
+ * from fields that also index into map data — {@code LeveledRegion.getTexture}
+ * and friends read the same values — so shifting them would make the map look
+ * up the wrong tiles rather than merely print a different number. Falsifying
+ * only the drawn string is possible but would have to match text whose format
+ * isn't verifiable from the compiled jar, and a patch that silently stops
+ * matching is precisely the failure this class exists to catch. The map also
+ * renders your actual surroundings, so hiding the number alone would not make
+ * a screenshot of it safe.
  */
 public final class XaeroCompat {
 	private static final Logger LOGGER = LoggerFactory.getLogger("nexomod/coords");
@@ -34,7 +43,6 @@ public final class XaeroCompat {
 	private static final long GRACE_MILLIS = TimeUnit.SECONDS.toMillis(8);
 
 	private static volatile boolean minimapPatched;
-	private static volatile boolean worldMapPatched;
 	private static boolean warned;
 
 	private XaeroCompat() {
@@ -45,19 +53,12 @@ public final class XaeroCompat {
 		minimapPatched = true;
 	}
 
-	/** Called by the world map mixin the first time it shifts a position. */
-	public static void worldMapPatchRan() {
-		worldMapPatched = true;
-	}
-
 	/**
 	 * Warns once, in chat, if the minimap is installed and obscuring is on but
 	 * the patch never ran.
 	 *
-	 * <p>Only the minimap is checked. It draws continuously, so not having run
-	 * within the grace period is conclusive; the world map only renders while
-	 * its screen is open, and warning about a screen the player may never have
-	 * opened would be noise.
+	 * <p>Only the minimap is patched at all — see the class note on why the
+	 * world map isn't.
 	 */
 	public static void checkAfterJoin(long millisSinceJoin) {
 		if (warned || millisSinceJoin < GRACE_MILLIS) {
@@ -81,10 +82,5 @@ public final class XaeroCompat {
 					Component.translatable("nexomod.coords.xaeroWarning").withStyle(ChatFormatting.RED),
 					false);
 		}
-	}
-
-	/** Whether the world map patch has run, for diagnostics. */
-	public static boolean worldMapPatched() {
-		return worldMapPatched;
 	}
 }
