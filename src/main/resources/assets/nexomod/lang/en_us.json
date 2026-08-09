@@ -59,6 +59,7 @@
 	"nexomod.settings.obscure.bedrockFloor": "Hide Bedrock Pattern",
 	"nexomod.settings.obscure.bedrockFloor.tooltip": "The bedrock pattern at the bottom of the world is generated from the world seed, so a screenshot of it can reveal your coordinates. This renders everything at Y -60 and below as solid bedrock (visual only — mining and collision are unaffected).",
 
+	"nexomod.coords.xaeroMapWarning": "Nexo can't hide coordinates on Xaero's World Map \u2014 it is showing your real position",
 	"nexomod.coords.xaeroWarning": "Nexo can't hide coordinates in Xaero's Minimap \u2014 it is showing your real position",
 	"nexomod.coords.f3warning": "Coordinates are NOT obscured — press F3 again within 10 seconds to open anyway",
 

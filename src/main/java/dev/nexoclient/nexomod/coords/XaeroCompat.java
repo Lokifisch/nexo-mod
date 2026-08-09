@@ -26,15 +26,15 @@ import net.minecraft.network.chat.Component;
  * minimap is installed, obscuring is switched on, and nothing has reported
  * after a grace period. Better a false alarm than a false sense of safety.
  *
- * <p>The World Map is deliberately not patched. Its coordinate readout comes
- * from fields that also index into map data — {@code LeveledRegion.getTexture}
- * and friends read the same values — so shifting them would make the map look
- * up the wrong tiles rather than merely print a different number. Falsifying
- * only the drawn string is possible but would have to match text whose format
- * isn't verifiable from the compiled jar, and a patch that silently stops
- * matching is precisely the failure this class exists to catch. The map also
- * renders your actual surroundings, so hiding the number alone would not make
- * a screenshot of it safe.
+ * <p>The World Map is handled differently. Its readout is rewritten as text on
+ * the way to being drawn, because the fields behind it also index into map
+ * data, so shifting those would fetch the wrong tiles rather than print a
+ * different number. That patch matches a known line shape, so it reports a
+ * mismatch directly — no timer needed, since by then the line has already been
+ * drawn.
+ *
+ * <p>Worth knowing regardless: the map renders your actual surroundings, so
+ * hiding the number does not make a screenshot of it safe.
  */
 public final class XaeroCompat {
 	private static final Logger LOGGER = LoggerFactory.getLogger("nexomod/coords");
@@ -43,7 +43,9 @@ public final class XaeroCompat {
 	private static final long GRACE_MILLIS = TimeUnit.SECONDS.toMillis(8);
 
 	private static volatile boolean minimapPatched;
+	private static volatile boolean worldMapPatched;
 	private static boolean warned;
+	private static boolean warnedWorldMap;
 
 	private XaeroCompat() {
 	}
@@ -51,6 +53,40 @@ public final class XaeroCompat {
 	/** Called by the minimap mixin the first time it shifts a position. */
 	public static void minimapPatchRan() {
 		minimapPatched = true;
+	}
+
+	/** Called by the world map mixin each time it rewrites a coordinate line. */
+	public static void worldMapPatchRan() {
+		worldMapPatched = true;
+	}
+
+	/**
+	 * Called when the world map drew something that looks like a coordinate
+	 * line but didn't match the shape the patch rewrites.
+	 *
+	 * <p>Warned about immediately rather than on a timer: unlike the minimap
+	 * there is no waiting involved — the line has already been drawn with real
+	 * coordinates on it.
+	 */
+	public static void worldMapFormatChanged() {
+		if (warnedWorldMap || !CoordObfuscator.active()) {
+			return;
+		}
+		warnedWorldMap = true;
+
+		LOGGER.error(
+				"Xaero's World Map coordinate line no longer matches the expected format — it is showing real coordinates");
+		Minecraft client = Minecraft.getInstance();
+		if (client.player != null) {
+			client.gui.setOverlayMessage(
+					Component.translatable("nexomod.coords.xaeroMapWarning").withStyle(ChatFormatting.RED),
+					false);
+		}
+	}
+
+	/** Whether the world map patch has rewritten a line, for diagnostics. */
+	public static boolean worldMapPatched() {
+		return worldMapPatched;
 	}
 
 	/**
