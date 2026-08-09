@@ -2,6 +2,7 @@ package dev.nexoclient.nexomod.coords;
 
 import java.security.SecureRandom;
 
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -27,6 +28,9 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
  * path never touches {@link NexoConfig}'s synchronized accessor.
  */
 public final class CoordObfuscator {
+	/** When the current world was joined, for the Xaero compatibility check. */
+	private static volatile long joinedAt;
+
 	private static final int MIN_MAGNITUDE = 3_000;
 	private static final int MAX_MAGNITUDE = 700_000;
 	/** Blocks at this height or below render as bedrock when the bedrock-floor disguise is on. */
@@ -49,6 +53,15 @@ public final class CoordObfuscator {
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
 			offsetX = roll();
 			offsetZ = roll();
+			joinedAt = System.currentTimeMillis();
+		});
+		// Checked on a tick rather than at join: the Xaero patches only report
+		// in once they have actually drawn something, which is necessarily
+		// after the world has loaded.
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			if (joinedAt != 0) {
+				XaeroCompat.checkAfterJoin(System.currentTimeMillis() - joinedAt);
+			}
 		});
 		ObfuscatedDebugEntries.install();
 	}

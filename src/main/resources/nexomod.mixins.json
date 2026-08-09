@@ -20,7 +20,9 @@
 		"DebugOverlayCoordWarningMixin",
 		"BlockSeedObscureMixin",
 		"BedrockFloorDisguiseMixin",
-		"BedrockFloorDisguiseSodiumMixin"
+		"BedrockFloorDisguiseSodiumMixin",
+		"XaeroMinimapCoordsMixin",
+		"XaeroWorldMapCoordsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
