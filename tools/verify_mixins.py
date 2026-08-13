@@ -1041,7 +1041,7 @@ def main():
     configs = [
         (root / "src/main/resources/nexomod.mixins.json",
          root / "build/classes/java/main"),
-        (root / "src/full/resources/nexomod-full.mixins.json",
+        (root / "src/full/resources/nexomod-tactical.mixins.json",
          root / "build/classes/java/full"),
     ]
 

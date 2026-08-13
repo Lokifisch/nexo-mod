@@ -18,7 +18,7 @@ base {
 // `nexomod` (full) is the released product and keeps every existing name:
 // source set `main`, task `jar`, artifact `nexomod-<version>.jar`.
 //
-// `nexomod-light` is the same jar minus everything that supplies information or
+// `nexomod-legit` is the same jar minus everything that supplies information or
 // automation vanilla doesn't — the bedrock hole finder today — so a server
 // admin can approve it without auditing it.
 //
@@ -36,10 +36,10 @@ base {
 // That asymmetry is the whole safety property — a light-jar reference to a
 // full-jar class is a NoClassDefFoundError at runtime, and the only way to make
 // it a compile error instead is to keep it off main's classpath. The seams that
-// let full reach back into main are NexoFullFeatures (a second
+// let full reach back into main are NexoTacticalFeatures (a second
 // ClientModInitializer) and NexoExtraCategories (settings-hub buttons).
 sourceSets {
-	full {
+	tactical {
 		// Loom quirk, and the one thing that makes this non-obvious: Loom
 		// attaches Minecraft and the Fabric libraries to the source sets it
 		// knows about, and it only knows about `main` (and `client`/`server`
@@ -51,7 +51,7 @@ sourceSets {
 		//
 		// Note this is the non-remapping Loom (MC 26.1+ ships unobfuscated), so
 		// there is no `modImplementation` and no remap configuration to
-		// duplicate: `loom.createRemapConfigurations(sourceSets.full)` is what
+		// duplicate: `loom.createRemapConfigurations(sourceSets.tactical)` is what
 		// a normal Loom project would need here and is neither necessary nor
 		// available on this one. There is also no refmap and no Mixin
 		// annotation processor to wire up, for the same reason — a mixin config
@@ -68,7 +68,7 @@ sourceSets {
 // stays free of `full`, which is the invariant that matters. Deliberately
 // ordered after the block above, so `full`'s runtime classpath captured main's
 // previous value and no cycle exists.
-sourceSets.main.runtimeClasspath += sourceSets.full.output
+sourceSets.main.runtimeClasspath += sourceSets.tactical.output
 
 repositories {
 	mavenCentral()
@@ -274,8 +274,8 @@ tasks.register('cargoBuild') {
 		// sharing one directory would mean recompiling SQLite from source on
 		// every single build instead of only when it actually changes.
 		def variants = [
-				[name: 'light', args: []],
-				[name: 'full', args: ['--features', 'full']]
+				[name: 'legit', args: []],
+				[name: 'tactical', args: ['--features', 'tactical']]
 		]
 
 		variants.each { variant ->
@@ -332,24 +332,24 @@ tasks.register('cargoBuild') {
 // mixin and every entrypoint twice, which shows up as duplicated buttons and
 // double-applied injections rather than as an error anyone can act on. With it,
 // Fabric refuses to launch and says why.
-def fullManifestTokens = [
+def tacticalManifestTokens = [
 		version         : project.version,
 		mod_id          : 'nexomod',
-		mod_name        : 'Nexo Mod',
+		mod_name        : 'Nexo Mod Tactical',
 		mod_description : 'The Nexo client mod: features, cosmetics, and UI that make the Nexo launcher feel like a client while staying a normal, portable mod.',
 		// Leading comma: these splice into a JSON array that already has one
 		// element, and are empty strings in the light variant.
-		full_entrypoints: ',\n\t\t\t"dev.nexoclient.nexomod.full.NexoFullFeatures"',
-		full_mixins     : ',\n\t\t"nexomod-full.mixins.json"',
-		sibling_mod_id  : 'nexomod-light'
+		tactical_entrypoints: ',\n\t\t\t"dev.nexoclient.nexomod.tactical.NexoTacticalFeatures"',
+		tactical_mixins     : ',\n\t\t"nexomod-tactical.mixins.json"',
+		sibling_mod_id  : 'nexomod-legit'
 ]
-def lightManifestTokens = [
+def legitManifestTokens = [
 		version         : project.version,
-		mod_id          : 'nexomod-light',
-		mod_name        : 'Nexo Mod Light',
-		mod_description : 'Nexo Mod without the features that hand out information the vanilla game does not: no bedrock hole finder. Account switching, the LAN tunnel, Discord presence, the UI reskin, keybind macros and the position-obscuring suite are all still here.',
-		full_entrypoints: '',
-		full_mixins     : '',
+		mod_id          : 'nexomod-legit',
+		mod_name        : 'Nexo Mod Legit',
+		mod_description : 'Nexo Mod without anything that hands out information or automation the vanilla game withholds: no sound radar, armor HUD, time/weather override, bedrock hole finder, chunk history or state-triggered macro automation. Account switching, the LAN tunnel, Discord presence, the UI reskin, chat history and filtering, quick server switching, keybind macros and the position-obscuring suite are all still here.',
+		tactical_entrypoints: '',
+		tactical_mixins     : '',
 		sibling_mod_id  : 'nexomod'
 ]
 
@@ -363,7 +363,7 @@ def lightManifestTokens = [
 // EXTEND THIS when you add a full-only feature with user-visible text. Nothing
 // checks it — a missed prefix leaks a string, a wrong one costs a missing
 // translation in the light build (visible as the raw key on screen).
-def lightLangDropPrefixes = [
+def legitLangDropPrefixes = [
 		'nexomod.bedrockHoles.',
 		'nexomod.settings.bedrockHoles',
 		'key.nexomod.bedrockHoles',
@@ -385,7 +385,7 @@ def lightLangDropPrefixes = [
 // full-only prefix by accident of naming. Empty today; kept because the drop
 // list matches on prefixes and the next full-only feature may not get a
 // namespace to itself.
-def lightLangKeepPrefixes = []
+def legitLangKeepPrefixes = []
 
 def lightLangDir = layout.buildDirectory.dir('generated/light-lang')
 
@@ -394,8 +394,8 @@ tasks.register('lightLang') {
 
 	def sourceDir = layout.projectDirectory.dir('src/main/resources/assets/nexomod/lang').asFile
 	inputs.dir(sourceDir)
-	inputs.property('dropPrefixes', lightLangDropPrefixes)
-	inputs.property('keepPrefixes', lightLangKeepPrefixes)
+	inputs.property('dropPrefixes', legitLangDropPrefixes)
+	inputs.property('keepPrefixes', legitLangKeepPrefixes)
 	outputs.dir(lightLangDir)
 
 	doLast {
@@ -409,7 +409,7 @@ tasks.register('lightLang') {
 			// every-key-missing failure at runtime, not a build error.
 			def entries = new groovy.json.JsonSlurper().parse(source, 'UTF-8')
 			def kept = entries.findAll { key, value ->
-				lightLangKeepPrefixes.any { key.startsWith(it) } || !lightLangDropPrefixes.any { key.startsWith(it) }
+				legitLangKeepPrefixes.any { key.startsWith(it) } || !legitLangDropPrefixes.any { key.startsWith(it) }
 			}
 			def dropped = entries.size() - kept.size()
 			new File(outDir, source.name).write(
@@ -424,14 +424,14 @@ tasks.register('lightLang') {
 processResources {
 	dependsOn tasks.named('cargoBuild')
 
-	inputs.property "manifest", fullManifestTokens
+	inputs.property "manifest", tacticalManifestTokens
 
 	filesMatching("fabric.mod.json") {
-		expand fullManifestTokens
+		expand tacticalManifestTokens
 	}
 
 	// NativeLoader reads exactly this path out of the jar.
-	from(nativesDir.map { it.dir('full') }) {
+	from(nativesDir.map { it.dir('tactical') }) {
 		into 'assets/nexomod/natives'
 	}
 }
@@ -439,23 +439,23 @@ processResources {
 // The light variant's resources, assembled separately rather than by filtering
 // the full ones: three of the files differ (fabric.mod.json, the lang file, the
 // native library) and only one is a straight copy.
-tasks.register('processLightResources', Sync) {
+tasks.register('processLegitResources', Sync) {
 	description = 'Builds the light variant\'s resource tree (own fabric.mod.json, own lang file, own native library).'
 	dependsOn tasks.named('cargoBuild'), tasks.named('lightLang')
 
-	inputs.property "manifest", lightManifestTokens
+	inputs.property "manifest", legitManifestTokens
 
 	from(sourceSets.main.resources) {
 		// Replaced wholesale by the lightLang output below.
 		exclude 'assets/nexomod/lang/**'
 		filesMatching("fabric.mod.json") {
-			expand lightManifestTokens
+			expand legitManifestTokens
 		}
 	}
 	from(lightLangDir) {
 		into 'assets/nexomod/lang'
 	}
-	from(nativesDir.map { it.dir('light') }) {
+	from(nativesDir.map { it.dir('legit') }) {
 		into 'assets/nexomod/natives'
 	}
 	into layout.buildDirectory.dir('light-resources')
@@ -465,31 +465,34 @@ tasks.register('processLightResources', Sync) {
 // The two jars
 // ---------------------------------------------------------------------------
 //
-// The full jar is the EXISTING `jar` task and keeps the EXISTING artifact name,
-// nexomod-<version>.jar. It is the released product: the launcher
+// The Tactical jar is the EXISTING `jar` task and keeps the EXISTING artifact
+// name, nexomod-<version>.jar — deliberately asymmetric with nexomod-legit-…,
+// which is new and free to be named. It is the released product: the launcher
 // (Client/crates/nexo-core/src/nexo_mod.rs) and the website resolver both pick
-// a release's jar asset, and renaming it to nexomod-full-<version>.jar would
-// have gained nothing and risked both. It only grows the `full` source set.
+// a release's jar asset by scanning for one, and until both read the edition
+// table out of manifest.json instead, renaming this file moves the website's
+// download button onto whichever jar the GitHub API happens to list first.
+// Rename it once they do. It only grows the `tactical` source set.
 //
 // Note there is no `remapJar` on this project — MC 26.1+ is unobfuscated, so
 // Loom installs NonRemappedJarTaskConfiguration and `jar` *is* the final
 // artifact, including jar-in-jar nesting.
 tasks.named('jar', Jar) {
-	from sourceSets.full.output
+	from sourceSets.tactical.output
 }
 
-tasks.register('lightJar', Jar) {
+tasks.register('legitJar', Jar) {
 	group = 'build'
-	description = 'Builds nexomod-light-<version>.jar: src/main only, no full-only classes, mixins, natives or strings.'
+	description = 'Builds nexomod-legit-<version>.jar: src/main only, no full-only classes, mixins, natives or strings.'
 
-	archiveBaseName = "${project.archives_base_name}-light"
+	archiveBaseName = "${project.archives_base_name}-legit"
 
 	// classesDirs, not `output`: `output` drags in build/resources/main, which
 	// holds the *full* fabric.mod.json. That mistake produces a light jar
 	// announcing itself as `nexomod` with a mixin config it doesn't contain —
 	// a startup crash, and one that looks like a mixin bug.
 	from sourceSets.main.output.classesDirs
-	from tasks.named('processLightResources')
+	from tasks.named('processLegitResources')
 }
 
 // Jar-in-jar for the light jar. The QUIC/Netty/Discord libraries are needed by
@@ -503,10 +506,10 @@ tasks.register('lightJar', Jar) {
 // uniquely-named processing task, so the include jars get prepared twice (once
 // per jar). That is a few hundred ms of copying, not a rebuild.
 net.fabricmc.loom.configuration.IncludeConfigurations.nestJars(
-		project, tasks.named('lightJar', Jar), configurations.named('include'))
+		project, tasks.named('legitJar', Jar), configurations.named('include'))
 
 tasks.named('assemble') {
-	dependsOn tasks.named('lightJar')
+	dependsOn tasks.named('legitJar')
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -523,7 +526,7 @@ java {
 // withSourcesJar() only knows about `main`. The sources jar is published
 // alongside the full jar, so it should describe the full mod.
 tasks.named('sourcesJar', Jar) {
-	from sourceSets.full.allSource
+	from sourceSets.tactical.allSource
 }
 
 // ---------------------------------------------------------------------------
@@ -546,7 +549,7 @@ tasks.register('mixinVerifyClasspath') {
 	description = 'Dumps the compile classpath tools/verify_mixins.py resolves mixin targets against.'
 
 	def out = layout.buildDirectory.file('mixin-verify-classpath.txt')
-	def cp = sourceSets.full.compileClasspath
+	def cp = sourceSets.tactical.compileClasspath
 	inputs.files(cp)
 	outputs.file(out)
 

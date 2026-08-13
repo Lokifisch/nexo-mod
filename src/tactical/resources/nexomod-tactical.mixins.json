@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "dev.nexoclient.nexomod.tactical.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"BedrockHoleWallOverlayMixin",
+		"SoundDirectionMixin",
+		"ClientClockOverrideMixin",
+		"WeatherOverrideMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

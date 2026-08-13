@@ -99,7 +99,7 @@ public final class NexoMacroDispatcher {
 	 * <h2>Why this exists and why it is safe to have in the light jar</h2>
 	 *
 	 * <p>The full jar's state-triggered automation
-	 * ({@code dev.nexoclient.nexomod.full.macro}) needs to run a macro the
+	 * ({@code dev.nexoclient.nexomod.tactical.macro}) needs to run a macro the
 	 * player configured, and the code that knows how to run one is here. What
 	 * makes a macro light-jar material is its <em>trigger</em> — a key the player
 	 * pressed — so the trigger side is what lives in {@code src/full}, and this

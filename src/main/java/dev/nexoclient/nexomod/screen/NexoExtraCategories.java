@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 /**
  * The one seam between the two build variants on the UI side.
  *
- * <p>The mod ships as {@code nexomod} (full) and {@code nexomod-light}, built
+ * <p>The mod ships as {@code nexomod} (full) and {@code nexomod-legit}, built
  * from the same tree: {@code src/main} is in both jars, {@code src/full} only in
  * the full one, and <b>{@code src/main} must never reference a {@code src/full}
  * class</b> — a dangling reference is a {@link NoClassDefFoundError} the moment
@@ -19,7 +19,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>{@link NexoSettingsScreen} therefore cannot name the Bedrock-Hole category
  * directly. Instead the full initialiser
- * ({@code dev.nexoclient.nexomod.full.NexoFullFeatures}) registers it here at
+ * ({@code dev.nexoclient.nexomod.tactical.NexoTacticalFeatures}) registers it here at
  * client-init time, and the settings hub renders whatever is present. In the
  * light jar nothing registers, the list stays empty, and the category simply
  * does not exist — which is the point: nothing in the light build hints at a

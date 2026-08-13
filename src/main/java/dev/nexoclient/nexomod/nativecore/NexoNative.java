@@ -46,7 +46,7 @@ public final class NexoNative {
 	 * is a full build of the library.
 	 *
 	 * <p>The declarations for that surface are
-	 * {@code dev.nexoclient.nexomod.full.nativecore.NexoNativeChunks}, which is
+	 * {@code dev.nexoclient.nexomod.tactical.nativecore.NexoNativeChunks}, which is
 	 * only compiled into the full jar — so in the light jar nothing can name
 	 * them and this bit is never set. It exists for the one case the source
 	 * split cannot cover: {@code -Dnexomod.nativecore.library=…} pointing a full
@@ -297,7 +297,7 @@ public final class NexoNative {
 	// ---------------------------------------------------------------------
 	//
 	// Chunk history used to be declared here. It moved to
-	// dev.nexoclient.nexomod.full.nativecore.NexoNativeChunks in src/full,
+	// dev.nexoclient.nexomod.tactical.nativecore.NexoNativeChunks in src/full,
 	// because this class is compiled into the light jar too and the light build
 	// of the library does not export those symbols. Declaring them here would
 	// have made "don't call these from light code" a rule to remember rather

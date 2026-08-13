@@ -27,7 +27,7 @@
 
 pub mod chatdb;
 /// Only in the full variant — see the `full` feature in `Cargo.toml`.
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 pub mod chunks;
 pub mod error;
 pub mod ffi;
@@ -71,9 +71,9 @@ pub const FEATURE_CHUNK_HISTORY: i32 = 1 << 0;
 /// at a light build turns the first chunk-history call into an
 /// `UnsatisfiedLinkError`, which is an `Error` and slips past
 /// `catch (Exception)`.
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 pub const FEATURES: i32 = FEATURE_CHUNK_HISTORY;
-#[cfg(not(feature = "full"))]
+#[cfg(not(feature = "tactical"))]
 pub const FEATURES: i32 = 0;
 
 /// Human-readable build identity, surfaced in the log line the mod prints when
@@ -87,10 +87,10 @@ pub fn version() -> String {
         "{} (abi {}, {} build, features 0x{:x})",
         env!("CARGO_PKG_VERSION"),
         ABI_VERSION,
-        if cfg!(feature = "full") {
-            "full"
+        if cfg!(feature = "tactical") {
+            "tactical"
         } else {
-            "light"
+            "legit"
         },
         FEATURES
     )

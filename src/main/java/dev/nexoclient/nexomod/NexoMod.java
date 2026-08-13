@@ -29,10 +29,10 @@ import dev.nexoclient.nexomod.servers.NexoQuickConnect;
  * The client initialiser both build variants share.
  *
  * <p>This class is compiled into {@code nexomod} (full) <em>and</em>
- * {@code nexomod-light}, so it must not name a single class from
+ * {@code nexomod-legit}, so it must not name a single class from
  * {@code src/full} — not in an import, not in a method body, not in a javadoc
  * {@code @link}. Anything the light jar must not contain is registered by
- * {@code dev.nexoclient.nexomod.full.NexoFullFeatures}, a second
+ * {@code dev.nexoclient.nexomod.tactical.NexoTacticalFeatures}, a second
  * {@link ClientModInitializer} listed only in the full jar's
  * {@code fabric.mod.json}.
  *

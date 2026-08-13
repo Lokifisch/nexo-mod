@@ -13,11 +13,11 @@
 	"environment": "client",
 	"entrypoints": {
 		"client": [
-			"dev.nexoclient.nexomod.NexoMod"${full_entrypoints}
+			"dev.nexoclient.nexomod.NexoMod"${tactical_entrypoints}
 		]
 	},
 	"mixins": [
-		"nexomod.mixins.json"${full_mixins}
+		"nexomod.mixins.json"${tactical_mixins}
 	],
 	"depends": {
 		"fabricloader": ">=0.19.0",

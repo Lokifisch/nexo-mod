@@ -117,7 +117,7 @@ public final class NexoConfig {
 	 * Fixed client-side time of day, as an offset into the 24000-tick day.
 	 *
 	 * <p>Purely a rendering choice — see
-	 * {@code dev.nexoclient.nexomod.full.environment.NexoEnvironmentOverride}
+	 * {@code dev.nexoclient.nexomod.tactical.environment.NexoEnvironmentOverride}
 	 * for why overriding the client clock cannot change gameplay.
 	 */
 	public enum TimeOverride {

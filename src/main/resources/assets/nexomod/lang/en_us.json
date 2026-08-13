@@ -148,8 +148,8 @@
 	"nexomod.servers.join": "Join",
 	"nexomod.servers.join.tooltip": "Leave the current world and connect to this server.",
 
-	"nexomod.settings.full": "Nexo+ Features...",
-	"nexomod.settings.full.title": "Nexo+ Features",
+	"nexomod.settings.tactical": "Tactical Features...",
+	"nexomod.settings.tactical.title": "Tactical Features",
 
 	"nexomod.settings.tactical.enabled": "Sound Radar",
 	"nexomod.settings.tactical.enabled.tooltip": "Show where a sound came from, as a marker on a ring around the crosshair. Vanilla subtitles already tell you left or right; this gives the full bearing and fades the marker with distance.",

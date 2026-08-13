@@ -38,7 +38,7 @@ crate-type = ["cdylib"]
 # `nativeFeatures()` reports is how Java tells the two builds apart at runtime.
 [features]
 default = []
-full = []
+tactical = []
 
 [dependencies]
 # Raw JNI bindings. 0.22 is the current line (0.21 is what most tutorials

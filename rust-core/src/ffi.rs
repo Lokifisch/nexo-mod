@@ -46,7 +46,7 @@ use jni::sys::{jboolean, jbyteArray, jint, jlong, jstring};
 use jni::{Env, EnvUnowned, Outcome};
 
 use crate::chatdb::{ChatDb, ChatRecord};
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 use crate::chunks::{ChunkRecord, ChunkStore};
 use crate::error::{Error, Result, describe_panic};
 use crate::filter::{ChatFilter, FilterAction};
@@ -66,7 +66,7 @@ const MAX_SEARCH_LIMIT: usize = 10_000;
 static CHAT_DBS: LazyLock<Registry<ChatDb>> = LazyLock::new(Registry::new);
 static SCRUBBERS: LazyLock<Registry<Scrubber>> = LazyLock::new(Registry::new);
 static FILTERS: LazyLock<Registry<ChatFilter>> = LazyLock::new(Registry::new);
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 static CHUNK_STORES: LazyLock<Registry<ChunkStore>> = LazyLock::new(Registry::new);
 
 thread_local! {
@@ -136,7 +136,7 @@ fn arg_path(env: &Env<'_>, name: &str, value: &JString) -> Result<PathBuf> {
 /// feature — hence the `allow` rather than a `#[cfg]`. It is a general argument
 /// helper, not a full-only one, and gating it would make adding a `byte[]`
 /// parameter to a non-gated function fail to compile for no reason.
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
+#[cfg_attr(not(feature = "tactical"), allow(dead_code))]
 fn arg_bytes(env: &Env<'_>, name: &str, value: &JByteArray) -> Result<Vec<u8>> {
     if value.is_null() {
         return Err(Error::new(format!("argument `{name}` must not be null")));
@@ -173,7 +173,7 @@ fn chat_filter(handle: jlong) -> Result<Arc<ChatFilter>> {
     FILTERS.get(handle).ok_or_else(|| Error::bad_handle(handle))
 }
 
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 fn chunk_store(handle: jlong) -> Result<Arc<ChunkStore>> {
     CHUNK_STORES
         .get(handle)
@@ -262,7 +262,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_nativecore_NexoNative_nativeS
         CHAT_DBS.clear();
         SCRUBBERS.clear();
         FILTERS.clear();
-        #[cfg(feature = "full")]
+        #[cfg(feature = "tactical")]
         CHUNK_STORES.clear();
         Ok(())
     })
@@ -573,7 +573,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_nativecore_NexoNative_filterD
 // compile error in the light build, which is the only kind of guarantee worth
 // having across an FFI boundary.
 
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkStoreOpen<
     'local,
@@ -588,7 +588,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChu
     })
 }
 
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkStoreClose<
     'local,
@@ -605,7 +605,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChu
     })
 }
 
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkSnapshot<
     'local,
@@ -636,7 +636,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChu
     })
 }
 
-#[cfg(feature = "full")]
+#[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkQueryAsync<
     'local,
