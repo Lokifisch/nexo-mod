@@ -1,4 +1,4 @@
-package dev.nexoclient.nexomod.bedrock;
+package dev.nexoclient.nexomod.full.bedrock;
 
 import java.util.HashMap;
 import java.util.List;

@@ -8,8 +8,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 
+import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.screen.NexoButtonRenderer;
-import dev.nexoclient.nexomod.screen.NexoConfig;
 
 /**
  * Draws every vanilla button (stone sprite) as a neon gradient panel
@@ -26,7 +26,7 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
 public abstract class NeonButtonMixin {
 	@Inject(method = "extractDefaultSprite", at = @At("HEAD"), cancellable = true)
 	private void nexomod$neonSprite(GuiGraphicsExtractor graphics, CallbackInfo ci) {
-		if (!NexoConfig.get().customMenusEnabled()) {
+		if (!NexoHudVisibility.nexoSkinActive()) {
 			return;
 		}
 		AbstractButton self = (AbstractButton) (Object) this;

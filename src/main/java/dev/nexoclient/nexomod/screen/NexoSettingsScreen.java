@@ -37,7 +37,15 @@ public class NexoSettingsScreen extends Screen {
 		GridLayout.RowHelper helper = grid.createRowHelper(2);
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.appearance"), () -> new NexoAppearanceScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.positionObscuring"), () -> new NexoPositionObscuringScreen(this)));
-		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.bedrockHoles"), () -> new NexoBedrockHoleScreen(this)));
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.chat"), () -> new NexoChatScreen(this)));
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.servers"), () -> new NexoQuickServerScreen(this)));
+		// Bedrock Holes used to be named here. It lives in src/full now and this
+		// class is compiled into the light jar too, so it arrives through the
+		// registry instead — empty in light, one entry in full. Macros stayed
+		// in src/main and are still named directly. See NexoExtraCategories.
+		for (NexoExtraCategories.Category category : NexoExtraCategories.categories()) {
+			helper.addChild(openScreenButton(category.label(), () -> category.factory().apply(this)));
+		}
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.macros"), () -> new NexoMacroListScreen(this)));
 		helper.addChild(CycleButton.onOffBuilder(NexoConfig.get().discordRpcEnabled())
 				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.discordRpc"), (button, value) -> {

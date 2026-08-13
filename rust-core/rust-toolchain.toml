@@ -1,0 +1,14 @@
+[toolchain]
+# Deliberately looser than ../../Client/rust-toolchain.toml, which pins an
+# exact version. This crate is built as a *side effect* of `./gradlew build`,
+# so a pin to a version the machine doesn't have turns a Java build into a
+# ~200 MB rustup download — or, offline, into a failed build of a mod that
+# would otherwise have shipped fine without natives. The real compatibility
+# floor is `rust-version` in Cargo.toml, which cargo enforces with a clear
+# error instead.
+channel = "stable"
+# Host target only. Listing cross targets here would make rustup install them
+# on first build; the mod's cross-platform natives are opt-in via
+# -Pnexo_native_extra_targets (see ../build.gradle), because only the release
+# machine needs them.
+targets = ["x86_64-unknown-linux-gnu"]

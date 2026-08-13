@@ -13,8 +13,8 @@ import net.minecraft.client.gui.screens.WinScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
+import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.screen.NexoBackground;
-import dev.nexoclient.nexomod.screen.NexoConfig;
 
 /**
  * Replaces vanilla's dirt-blur/panorama background on every menu-style
@@ -44,7 +44,7 @@ public abstract class NeonMenuBackgroundMixin {
 	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
 	private void nexomod$neonBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		if (!NexoConfig.get().customMenusEnabled() || nexomod$keepsVanillaBackground(self)) {
+		if (!NexoHudVisibility.nexoSkinActive() || nexomod$keepsVanillaBackground(self)) {
 			return;
 		}
 		NexoBackground.draw(graphics, self.width, self.height);
@@ -54,7 +54,7 @@ public abstract class NeonMenuBackgroundMixin {
 	@Inject(method = "extractPanorama", at = @At("HEAD"), cancellable = true)
 	private void nexomod$neonPanorama(GuiGraphicsExtractor graphics, float partialTick, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		if (!NexoConfig.get().customMenusEnabled() || nexomod$keepsVanillaBackground(self)) {
+		if (!NexoHudVisibility.nexoSkinActive() || nexomod$keepsVanillaBackground(self)) {
 			return;
 		}
 		NexoBackground.draw(graphics, self.width, self.height);

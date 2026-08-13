@@ -1,4 +1,4 @@
-package dev.nexoclient.nexomod.bedrock;
+package dev.nexoclient.nexomod.full.bedrock;
 
 import java.io.IOException;
 import java.io.Reader;

@@ -10,10 +10,19 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.network.chat.Component;
 
+import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.screen.NexoButton;
 import dev.nexoclient.nexomod.screen.NexoSettingsScreen;
 
-/** Adds a "Nexo Settings" button to the options screen, top-right, opening the background-style toggle. */
+/**
+ * Adds a "Nexo Settings" button to the options screen, top-right, opening the background-style toggle.
+ *
+ * <p>Omitted entirely while {@link NexoHudVisibility#hidden()} — not merely
+ * hidden, since a widget that is invisible but still on the screen keeps
+ * swallowing clicks in the corner it used to occupy. The toggle re-runs the open
+ * screen's {@code init()} so this takes effect on the tick it is pressed rather
+ * than the next time the screen is opened.
+ */
 @Mixin(OptionsScreen.class)
 public abstract class NexoSettingsButtonMixin extends Screen {
 	protected NexoSettingsButtonMixin(Component title) {
@@ -22,6 +31,9 @@ public abstract class NexoSettingsButtonMixin extends Screen {
 
 	@Inject(method = "init", at = @At("TAIL"))
 	private void nexomod$addSettingsButton(CallbackInfo ci) {
+		if (NexoHudVisibility.hidden()) {
+			return;
+		}
 		this.addRenderableWidget(NexoButton.builder(Component.translatable("nexomod.settings.title"),
 				() -> Minecraft.getInstance().setScreen(new NexoSettingsScreen(this)))
 				.bounds(this.width - 104, 4, 100, 20)

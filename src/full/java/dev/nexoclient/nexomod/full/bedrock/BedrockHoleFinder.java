@@ -1,4 +1,4 @@
-package dev.nexoclient.nexomod.bedrock;
+package dev.nexoclient.nexomod.full.bedrock;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,8 +35,8 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.phys.Vec3;
 
-import dev.nexoclient.nexomod.bedrock.BedrockHole.Band;
-import dev.nexoclient.nexomod.bedrock.BedrockHole.Kind;
+import dev.nexoclient.nexomod.full.bedrock.BedrockHole.Band;
+import dev.nexoclient.nexomod.full.bedrock.BedrockHole.Kind;
 import dev.nexoclient.nexomod.screen.NexoConfig;
 import dev.nexoclient.nexomod.screen.NexoStyle;
 
@@ -353,6 +353,12 @@ public final class BedrockHoleFinder {
 	}
 
 	private static void render() {
+		// Top of the render path, before anything is sampled: the outlines are
+		// Nexo's own drawing, so the screenshot toggle and ghost mode both take
+		// them away. NexoHudVisibility.hidden() folds the two together.
+		if (dev.nexoclient.nexomod.hud.NexoHudVisibility.hidden()) {
+			return;
+		}
 		if (faces.isEmpty() && labels.isEmpty()) {
 			return;
 		}

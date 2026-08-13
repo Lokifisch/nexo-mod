@@ -1,9 +1,9 @@
 {
 	"schemaVersion": 1,
-	"id": "nexomod",
+	"id": "${mod_id}",
 	"version": "${version}",
-	"name": "Nexo Mod",
-	"description": "The Nexo client mod: features, cosmetics, and UI that make the Nexo launcher feel like a client while staying a normal, portable mod.",
+	"name": "${mod_name}",
+	"description": "${mod_description}",
 	"authors": [
 		"lokifisch"
 	],
@@ -13,16 +13,19 @@
 	"environment": "client",
 	"entrypoints": {
 		"client": [
-			"dev.nexoclient.nexomod.NexoMod"
+			"dev.nexoclient.nexomod.NexoMod"${full_entrypoints}
 		]
 	},
 	"mixins": [
-		"nexomod.mixins.json"
+		"nexomod.mixins.json"${full_mixins}
 	],
 	"depends": {
 		"fabricloader": ">=0.19.0",
 		"minecraft": ">=26.1.2",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"breaks": {
+		"${sibling_mod_id}": "*"
 	}
 }

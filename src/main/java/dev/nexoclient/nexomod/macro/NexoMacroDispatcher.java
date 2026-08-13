@@ -93,6 +93,29 @@ public final class NexoMacroDispatcher {
 		};
 	}
 
+	/**
+	 * Runs a macro's actions once, without a key press.
+	 *
+	 * <h2>Why this exists and why it is safe to have in the light jar</h2>
+	 *
+	 * <p>The full jar's state-triggered automation
+	 * ({@code dev.nexoclient.nexomod.full.macro}) needs to run a macro the
+	 * player configured, and the code that knows how to run one is here. What
+	 * makes a macro light-jar material is its <em>trigger</em> — a key the player
+	 * pressed — so the trigger side is what lives in {@code src/full}, and this
+	 * method is only the "send these lines" half. Nothing in {@code src/main}
+	 * calls it, and it cannot fire on its own: something has to decide when.
+	 *
+	 * <p>It sends chat and commands, exactly as a key press would. It does not
+	 * synthesise key or mouse input, so it cannot click, mine, or attack.
+	 */
+	public static void runNow(Minecraft mc, NexoMacro macro) {
+		if (macro == null || !macro.enabled || macro.commands.isEmpty() || mc.player == null) {
+			return;
+		}
+		fire(mc, macro);
+	}
+
 	private static void fire(Minecraft mc, NexoMacro macro) {
 		switch (macro.mode) {
 			case SEND, REPEAT -> queueSend(mc, macro);

@@ -3,6 +3,9 @@
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# Rust (rust-core/ has its own .gitignore too; this covers the whole tree)
+rust-core/target/
+
 # Loom / Fabric run environment
 run/
 
@@ -19,3 +22,7 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Python bytecode cache (tools/)
+__pycache__/
+*.pyc

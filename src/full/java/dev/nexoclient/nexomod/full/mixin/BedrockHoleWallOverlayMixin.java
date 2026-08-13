@@ -1,4 +1,4 @@
-package dev.nexoclient.nexomod.mixin;
+package dev.nexoclient.nexomod.full.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

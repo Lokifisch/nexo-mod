@@ -11,7 +11,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.resources.Identifier;
 
-import dev.nexoclient.nexomod.screen.NexoConfig;
+import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.screen.NexoSliderRenderer;
 
 /**
@@ -36,7 +36,7 @@ public abstract class NeonSliderMixin {
 					target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIIII)V",
 					ordinal = 0))
 	private void nexomod$box(GuiGraphicsExtractor graphics, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height, int color) {
-		if (!NexoConfig.get().customMenusEnabled()) {
+		if (!NexoHudVisibility.nexoSkinActive()) {
 			graphics.blitSprite(pipeline, sprite, x, y, width, height, color);
 			return;
 		}
@@ -51,7 +51,7 @@ public abstract class NeonSliderMixin {
 					target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIIII)V",
 					ordinal = 1))
 	private void nexomod$handle(GuiGraphicsExtractor graphics, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height, int color) {
-		if (!NexoConfig.get().customMenusEnabled()) {
+		if (!NexoHudVisibility.nexoSkinActive()) {
 			graphics.blitSprite(pipeline, sprite, x, y, width, height, color);
 		}
 	}

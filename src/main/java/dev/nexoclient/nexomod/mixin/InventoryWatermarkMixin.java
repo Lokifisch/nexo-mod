@@ -10,16 +10,31 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.resources.Identifier;
 
+import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.screen.NexoStyle;
 
-/** Draws the Nexo logo + "Nexo Client" just above the inventory panel. */
+/**
+ * Draws the Nexo logo + "Nexo Client" just above the inventory panel.
+ *
+ * <p>Skipped while {@link NexoHudVisibility#hidden()}: this is a literal
+ * watermark, and an inventory screenshot is the most common place it appears.
+ */
 @Mixin(InventoryScreen.class)
 public abstract class InventoryWatermarkMixin {
 	private static final Identifier BADGE_TEXTURE = Identifier.fromNamespaceAndPath("nexomod", "textures/font/nexo_badge.png");
 	private static final int ICON_SIZE = 16;
 
-	@Inject(method = "extractRenderState", at = @At("TAIL"))
+	// The descriptor is pinned, not optional: InventoryScreen declares a SECOND
+	// extractRenderState — the private static (LivingEntity)EntityRenderState
+	// helper that builds the render state for the little player model in the
+	// panel. A bare name selects both, and applying this instance handler to the
+	// static one throws InvalidInjectionException ("'static' modifier of handler
+	// method does not match target") the moment InventoryScreen is transformed.
+	@Inject(method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V", at = @At("TAIL"))
 	private void nexomod$watermark(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (NexoHudVisibility.hidden()) {
+			return;
+		}
 		AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) (Object) this;
 		int leftPos = accessor.nexomod$getLeftPos();
 		int topPos = accessor.nexomod$getTopPos();

@@ -11,6 +11,65 @@ base {
 	archivesName = project.archives_base_name
 }
 
+// ---------------------------------------------------------------------------
+// Two variants out of one source tree
+// ---------------------------------------------------------------------------
+//
+// `nexomod` (full) is the released product and keeps every existing name:
+// source set `main`, task `jar`, artifact `nexomod-<version>.jar`.
+//
+// `nexomod-light` is the same jar minus everything that supplies information or
+// automation vanilla doesn't — the bedrock hole finder today — so a server
+// admin can approve it without auditing it.
+//
+// Two things that look like they should be full-only and are not:
+//
+//   * Position obscuring (coords/, and the bedrock *floor disguise* mixins) is
+//     privacy. It hides the player's own coordinates from their own screen; it
+//     tells them nothing.
+//   * Macros (macro/) are keybind-triggered. The player presses a key and the
+//     mod types what they would have typed. The split is drawn at the trigger:
+//     player-pressed is light, state-triggered automation with no player input
+//     is full.
+//
+// The mechanism: source set `full` sees `main`, `main` does not see `full`.
+// That asymmetry is the whole safety property — a light-jar reference to a
+// full-jar class is a NoClassDefFoundError at runtime, and the only way to make
+// it a compile error instead is to keep it off main's classpath. The seams that
+// let full reach back into main are NexoFullFeatures (a second
+// ClientModInitializer) and NexoExtraCategories (settings-hub buttons).
+sourceSets {
+	full {
+		// Loom quirk, and the one thing that makes this non-obvious: Loom
+		// attaches Minecraft and the Fabric libraries to the source sets it
+		// knows about, and it only knows about `main` (and `client`/`server`
+		// when environment source sets are split, which they aren't here).
+		// Inheriting main's *compile classpath object* rather than re-declaring
+		// dependencies is what gives `full` Minecraft, fabric-loader,
+		// fabric-api and Mixin, and it keeps working when Loom changes how it
+		// injects them.
+		//
+		// Note this is the non-remapping Loom (MC 26.1+ ships unobfuscated), so
+		// there is no `modImplementation` and no remap configuration to
+		// duplicate: `loom.createRemapConfigurations(sourceSets.full)` is what
+		// a normal Loom project would need here and is neither necessary nor
+		// available on this one. There is also no refmap and no Mixin
+		// annotation processor to wire up, for the same reason — a mixin config
+		// in this source set compiles as plain Java.
+		compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+		runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+	}
+}
+
+// The dev run must be the *full* mod: `build/resources/main`'s fabric.mod.json
+// is generated with the full entrypoint and the full mixin config (see
+// processResources below), and a listed mixin config that isn't on the
+// classpath is a hard startup crash. Runtime only — main's *compile* classpath
+// stays free of `full`, which is the invariant that matters. Deliberately
+// ordered after the block above, so `full`'s runtime classpath captured main's
+// previous value and no cycle exists.
+sourceSets.main.runtimeClasspath += sourceSets.full.output
+
 repositories {
 	mavenCentral()
 	// Hosts a patched build of Netty's incubator QUIC "classes" (API) jar that
@@ -68,12 +127,386 @@ dependencies {
 	})
 }
 
+// The native core (see rust-core/ and dev.nexoclient.nexomod.nativecore).
+//
+// Built once per variant, because each jar bundles its own library: the light
+// build is plain `cargo build`, the full build adds `--features full` (today:
+// the chunk-history store and its four JNI entry points). Shipping the full
+// library inside the light jar would put the capability on the player's disk
+// however careful the Java side is, which defeats the point of the split.
+//
+// Output layout is <variant>/<os>-<arch>/<library>; the <os>-<arch>/<library>
+// tail matches NativeLoader.platformDirectory() exactly — a disagreement there
+// is invisible until runtime, where it looks like a library that was built but
+// can never be found.
+def nativesDir = layout.buildDirectory.dir('generated/natives')
+
+tasks.register('cargoBuild') {
+	group = 'build'
+	description = 'Builds rust-core into build/generated/natives/<variant>/<os>-<arch>/ for the jars to bundle.'
+
+	def crateDir = layout.projectDirectory.dir('rust-core').asFile
+	def libStem = project.nexo_native_lib
+	def skip = project.nexo_native_skip.toBoolean()
+	def cargoOverride = project.findProperty('nexo_native_cargo')?.toString()
+	def extraTargets = project.nexo_native_extra_targets.toString()
+			.split(',').collect { it.trim() }.findAll { !it.isEmpty() }
+
+	inputs.dir("${crateDir}/src")
+	inputs.file("${crateDir}/Cargo.toml")
+	inputs.property('libStem', libStem)
+	inputs.property('skip', skip)
+	inputs.property('extraTargets', extraTargets)
+	outputs.dir(nativesDir)
+
+	doLast {
+		def outDir = nativesDir.get().asFile
+		outDir.mkdirs()
+
+		if (skip) {
+			logger.lifecycle("[nexomod] Skipping the native core (-Pnexo_native_skip=true); the jar will ship without it.")
+			return
+		}
+
+		// Runs a command and hands back the exit code plus combined output. Uses
+		// ProcessBuilder rather than project.exec, which Gradle 9 no longer
+		// offers, and rather than an Exec task, which cannot express the
+		// "missing cargo is not an error" case below.
+		//
+		// `extraPath` is prepended to the child's PATH. Needed because cargo
+		// shells out to rustc by bare name: finding cargo at an absolute path
+		// while rustc is off PATH gets you as far as
+		// "could not execute process `rustc -vV`", which reads like a broken
+		// Rust install rather than a PATH problem.
+		def run = { List<String> cmd, File cwd, String extraPath = null ->
+			def builder = new ProcessBuilder(cmd).directory(cwd).redirectErrorStream(true)
+			if (extraPath) {
+				// ProcessBuilder's environment map is case-insensitive on
+				// Windows, so the one spelling covers PATH and Path.
+				def env = builder.environment()
+				env['PATH'] = extraPath + File.pathSeparator + (env['PATH'] ?: '')
+			}
+			def proc = builder.start()
+			def text = proc.inputStream.getText('UTF-8')
+			[code: proc.waitFor(), output: text]
+		}
+
+		// The Gradle daemon inherits the environment of whatever launched it,
+		// and a desktop-launched IDE frequently has no ~/.cargo/bin on PATH even
+		// though a shell does.
+		def candidates = []
+		if (cargoOverride) candidates << cargoOverride
+		candidates << 'cargo'
+		candidates << "${System.getProperty('user.home')}/.cargo/bin/cargo".toString()
+
+		def cargo = null
+		def probe = null
+		for (candidate in candidates) {
+			try {
+				def result = run([candidate, '--version'], crateDir)
+				if (result.code == 0) {
+					cargo = candidate
+					probe = result.output.trim()
+					break
+				}
+			} catch (IOException ignored) {
+				// Not on PATH / not executable — try the next candidate.
+			}
+		}
+
+		if (cargo == null) {
+			// Deliberately a warning, not a failure. A contributor without a Rust
+			// toolchain must still be able to build and run the mod: every native
+			// feature is optional and NativeLoader already has to survive a jar
+			// with no library for the running platform (only Linux x86-64 can be
+			// built here, so Windows and macOS jars are in exactly that state).
+			// Failing here would make Rust a hard dependency of the Java build to
+			// buy nothing.
+			logger.warn("[nexomod] cargo not found — building the jar WITHOUT the native core."
+					+ " Native features will disable themselves at runtime."
+					+ " Install Rust (https://rustup.rs) or set -Pnexo_native_cargo=/path/to/cargo.")
+			return
+		}
+		logger.lifecycle("[nexomod] Native core: ${probe}")
+
+		// When cargo came from an absolute path, its siblings (rustc, rustup)
+		// have to be reachable by name for cargo's own subprocess calls.
+		def cargoBin = cargo.contains(File.separator) ? new File(cargo).absoluteFile.parent : null
+
+		// `rustc -vV` is the only authoritative source for the host triple —
+		// deriving it from os.name/os.arch guesses wrong on, among others, musl
+		// and the Windows gnu/msvc split.
+		def hostTriple = null
+		def versionInfo = run(['rustc', '-vV'], crateDir, cargoBin)
+		if (versionInfo.code == 0) {
+			hostTriple = versionInfo.output.readLines()
+					.find { it.startsWith('host:') }?.substring('host:'.length())?.trim()
+		}
+		if (!hostTriple) {
+			logger.warn("[nexomod] Could not determine the Rust host triple; skipping the native core.")
+			return
+		}
+
+		def platformOf = { String triple ->
+			def arch = triple.startsWith('x86_64') ? 'x86_64'
+					: triple.startsWith('aarch64') ? 'aarch64'
+					: null
+			def os = triple.contains('windows') ? 'windows'
+					: (triple.contains('apple') || triple.contains('darwin')) ? 'macos'
+					: triple.contains('linux') ? 'linux'
+					: null
+			(arch && os) ? "${os}-${arch}".toString() : null
+		}
+		def libraryFileOf = { String triple ->
+			triple.contains('windows') ? "${libStem}.dll".toString()
+					: (triple.contains('apple') || triple.contains('darwin')) ? "lib${libStem}.dylib".toString()
+					: "lib${libStem}.so".toString()
+		}
+
+		// The host first, then any cross targets asked for. Cross targets are
+		// opt-in because their std has to be installed (`rustup target add`) and
+		// Windows/macOS additionally need a linker for that platform — none of
+		// which belongs in a routine `./gradlew build`.
+		def targets = ([hostTriple] + extraTargets).unique()
+
+		// One build per jar. Separate --target-dir per variant on purpose:
+		// toggling a Cargo feature invalidates the whole dependency graph, so
+		// sharing one directory would mean recompiling SQLite from source on
+		// every single build instead of only when it actually changes.
+		def variants = [
+				[name: 'light', args: []],
+				[name: 'full', args: ['--features', 'full']]
+		]
+
+		variants.each { variant ->
+			targets.each { triple ->
+				def platform = platformOf(triple)
+				if (platform == null) {
+					logger.warn("[nexomod] No <os>-<arch> mapping for Rust target '${triple}'; skipping it.")
+					return
+				}
+
+				def targetDir = "target/variant-${variant.name}".toString()
+				def command = [cargo, 'build', '--release', '--target', triple, '--target-dir', targetDir] + variant.args
+				def result = run(command, crateDir, cargoBin)
+				if (result.code != 0) {
+					// A failed *host* build means the Rust source is broken, which is
+					// a real error and must not be papered over. A failed cross build
+					// usually means a missing target or linker on this machine, which
+					// is expected everywhere except the release box.
+					if (triple == hostTriple) {
+						logger.error(result.output)
+						throw new GradleException("cargo build failed for the host target ${triple} (${variant.name} variant)")
+					}
+					logger.warn("[nexomod] cargo build failed for cross target ${triple} (${variant.name}); the jar will not contain it."
+							+ " Run `rustup target add ${triple}` and check that a linker for it is installed.")
+					logger.info(result.output)
+					return
+				}
+
+				def built = new File(crateDir, "${targetDir}/${triple}/release/${libraryFileOf(triple)}")
+				if (!built.isFile()) {
+					logger.warn("[nexomod] cargo reported success for ${triple} (${variant.name}) but ${built} is missing; skipping it.")
+					return
+				}
+				def destination = new File(outDir, "${variant.name}/${platform}")
+				destination.mkdirs()
+				def copied = new File(destination, built.name)
+				copied.bytes = built.bytes
+				logger.lifecycle("[nexomod] Native core (${variant.name}) -> assets/nexomod/natives/${platform}/${built.name} (${copied.length()} bytes)")
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// fabric.mod.json, once per variant
+// ---------------------------------------------------------------------------
+//
+// One template (src/main/resources/fabric.mod.json), two token sets. The
+// alternative — two hand-maintained files — drifts silently, and the fields
+// that must stay in sync (depends, icon, license) outnumber the ones that
+// differ.
+//
+// `breaks` is not decoration: without it, installing both jars registers every
+// mixin and every entrypoint twice, which shows up as duplicated buttons and
+// double-applied injections rather than as an error anyone can act on. With it,
+// Fabric refuses to launch and says why.
+def fullManifestTokens = [
+		version         : project.version,
+		mod_id          : 'nexomod',
+		mod_name        : 'Nexo Mod',
+		mod_description : 'The Nexo client mod: features, cosmetics, and UI that make the Nexo launcher feel like a client while staying a normal, portable mod.',
+		// Leading comma: these splice into a JSON array that already has one
+		// element, and are empty strings in the light variant.
+		full_entrypoints: ',\n\t\t\t"dev.nexoclient.nexomod.full.NexoFullFeatures"',
+		full_mixins     : ',\n\t\t"nexomod-full.mixins.json"',
+		sibling_mod_id  : 'nexomod-light'
+]
+def lightManifestTokens = [
+		version         : project.version,
+		mod_id          : 'nexomod-light',
+		mod_name        : 'Nexo Mod Light',
+		mod_description : 'Nexo Mod without the features that hand out information the vanilla game does not: no bedrock hole finder. Account switching, the LAN tunnel, Discord presence, the UI reskin, keybind macros and the position-obscuring suite are all still here.',
+		full_entrypoints: '',
+		full_mixins     : '',
+		sibling_mod_id  : 'nexomod'
+]
+
+// Translation keys that only describe full-only features. Dropped from the
+// light jar's lang file: a jar that ships "Bedrock hole found at %s %s %s" is
+// not one an admin can approve at a glance, whatever its code does.
+//
+// Note macros are NOT in here — they are in src/main and in both jars, so the
+// light build needs their strings.
+//
+// EXTEND THIS when you add a full-only feature with user-visible text. Nothing
+// checks it — a missed prefix leaks a string, a wrong one costs a missing
+// translation in the light build (visible as the raw key on screen).
+def lightLangDropPrefixes = [
+		'nexomod.bedrockHoles.',
+		'nexomod.settings.bedrockHoles',
+		'key.nexomod.bedrockHoles',
+		// The Nexo+ category and everything under it. Note
+		// 'nexomod.settings.macroTriggers' does not swallow
+		// 'nexomod.settings.macros' — prefix matching runs the other way round,
+		// and macros are in src/main and stay in the light jar.
+		'nexomod.settings.full',
+		'nexomod.settings.tactical',
+		'nexomod.settings.armorHud',
+		'nexomod.settings.environment',
+		'nexomod.settings.chunkHistory',
+		'nexomod.settings.macroTriggers',
+		'nexomod.macroTriggers.',
+		'nexomod.ghost.',
+		'key.nexomod.ghostMode'
+]
+// Exceptions to the above, for the case where a src/main key sits under a
+// full-only prefix by accident of naming. Empty today; kept because the drop
+// list matches on prefixes and the next full-only feature may not get a
+// namespace to itself.
+def lightLangKeepPrefixes = []
+
+def lightLangDir = layout.buildDirectory.dir('generated/light-lang')
+
+tasks.register('lightLang') {
+	description = 'Strips full-only translation keys out of the language files for the light jar.'
+
+	def sourceDir = layout.projectDirectory.dir('src/main/resources/assets/nexomod/lang').asFile
+	inputs.dir(sourceDir)
+	inputs.property('dropPrefixes', lightLangDropPrefixes)
+	inputs.property('keepPrefixes', lightLangKeepPrefixes)
+	outputs.dir(lightLangDir)
+
+	doLast {
+		def outDir = lightLangDir.get().asFile
+		outDir.mkdirs()
+		outDir.listFiles()?.each { it.delete() }
+		sourceDir.listFiles({ File f -> f.name.endsWith('.json') } as FileFilter).each { source ->
+			// Parsed and re-serialised rather than filtered line by line:
+			// dropping the last entry of a JSON object with a text filter leaves
+			// a trailing comma, and an invalid lang file is a silent
+			// every-key-missing failure at runtime, not a build error.
+			def entries = new groovy.json.JsonSlurper().parse(source, 'UTF-8')
+			def kept = entries.findAll { key, value ->
+				lightLangKeepPrefixes.any { key.startsWith(it) } || !lightLangDropPrefixes.any { key.startsWith(it) }
+			}
+			def dropped = entries.size() - kept.size()
+			new File(outDir, source.name).write(
+					groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(kept)), 'UTF-8')
+			logger.info("[nexomod] light lang ${source.name}: kept ${kept.size()}, dropped ${dropped}")
+		}
+	}
+}
+
+// The full variant's resources. This is the released jar's path, so it stays
+// the `processResources` of source set `main` and keeps its old name.
 processResources {
-	inputs.property "version", project.version
+	dependsOn tasks.named('cargoBuild')
+
+	inputs.property "manifest", fullManifestTokens
 
 	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+		expand fullManifestTokens
 	}
+
+	// NativeLoader reads exactly this path out of the jar.
+	from(nativesDir.map { it.dir('full') }) {
+		into 'assets/nexomod/natives'
+	}
+}
+
+// The light variant's resources, assembled separately rather than by filtering
+// the full ones: three of the files differ (fabric.mod.json, the lang file, the
+// native library) and only one is a straight copy.
+tasks.register('processLightResources', Sync) {
+	description = 'Builds the light variant\'s resource tree (own fabric.mod.json, own lang file, own native library).'
+	dependsOn tasks.named('cargoBuild'), tasks.named('lightLang')
+
+	inputs.property "manifest", lightManifestTokens
+
+	from(sourceSets.main.resources) {
+		// Replaced wholesale by the lightLang output below.
+		exclude 'assets/nexomod/lang/**'
+		filesMatching("fabric.mod.json") {
+			expand lightManifestTokens
+		}
+	}
+	from(lightLangDir) {
+		into 'assets/nexomod/lang'
+	}
+	from(nativesDir.map { it.dir('light') }) {
+		into 'assets/nexomod/natives'
+	}
+	into layout.buildDirectory.dir('light-resources')
+}
+
+// ---------------------------------------------------------------------------
+// The two jars
+// ---------------------------------------------------------------------------
+//
+// The full jar is the EXISTING `jar` task and keeps the EXISTING artifact name,
+// nexomod-<version>.jar. It is the released product: the launcher
+// (Client/crates/nexo-core/src/nexo_mod.rs) and the website resolver both pick
+// a release's jar asset, and renaming it to nexomod-full-<version>.jar would
+// have gained nothing and risked both. It only grows the `full` source set.
+//
+// Note there is no `remapJar` on this project — MC 26.1+ is unobfuscated, so
+// Loom installs NonRemappedJarTaskConfiguration and `jar` *is* the final
+// artifact, including jar-in-jar nesting.
+tasks.named('jar', Jar) {
+	from sourceSets.full.output
+}
+
+tasks.register('lightJar', Jar) {
+	group = 'build'
+	description = 'Builds nexomod-light-<version>.jar: src/main only, no full-only classes, mixins, natives or strings.'
+
+	archiveBaseName = "${project.archives_base_name}-light"
+
+	// classesDirs, not `output`: `output` drags in build/resources/main, which
+	// holds the *full* fabric.mod.json. That mistake produces a light jar
+	// announcing itself as `nexomod` with a mixin config it doesn't contain —
+	// a startup crash, and one that looks like a mixin bug.
+	from sourceSets.main.output.classesDirs
+	from tasks.named('processLightResources')
+}
+
+// Jar-in-jar for the light jar. The QUIC/Netty/Discord libraries are needed by
+// the LAN tunnel and rich presence, which are in both variants.
+//
+// Loom only wires nesting into the jar task it created the configuration for,
+// and there is no public DSL for "nest the include configuration into this
+// other jar too" on a non-remapping project — RemapJarTask.getNestedJars()
+// exists but RemapJarTask doesn't, here. IncludeConfigurations.nestJars is what
+// Loom itself calls from NonRemappedJarTaskConfiguration; it registers its own
+// uniquely-named processing task, so the include jars get prepared twice (once
+// per jar). That is a few hundred ms of copying, not a rebuild.
+net.fabricmc.loom.configuration.IncludeConfigurations.nestJars(
+		project, tasks.named('lightJar', Jar), configurations.named('include'))
+
+tasks.named('assemble') {
+	dependsOn tasks.named('lightJar')
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -85,4 +518,39 @@ java {
 
 	sourceCompatibility = JavaVersion.VERSION_25
 	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// withSourcesJar() only knows about `main`. The sources jar is published
+// alongside the full jar, so it should describe the full mod.
+tasks.named('sourcesJar', Jar) {
+	from sourceSets.full.allSource
+}
+
+// ---------------------------------------------------------------------------
+// Mixin target verification (opt-in)
+// ---------------------------------------------------------------------------
+//
+// Unobfuscated MC means non-remapping Loom, which means no refmap and no Mixin
+// annotation processor — so nothing here checks that an @Inject names a method
+// that exists. `tools/verify_mixins.py` does that check against the real
+// Minecraft jar; this task only hands it the library classpath (netty, authlib,
+// fabric-loader…), which it cannot discover on its own without guessing at
+// versions in the Gradle cache. The script invokes this itself when the dump is
+// missing, so `python3 tools/verify_mixins.py` is the whole entry point.
+//
+// Deliberately NOT a dependency of `check` or `build`: it needs compiled
+// classes and a resolved classpath, and a mixin check that fails a build for a
+// third-party mod that merely is not installed would be worse than no check.
+tasks.register('mixinVerifyClasspath') {
+	group = 'verification'
+	description = 'Dumps the compile classpath tools/verify_mixins.py resolves mixin targets against.'
+
+	def out = layout.buildDirectory.file('mixin-verify-classpath.txt')
+	def cp = sourceSets.full.compileClasspath
+	inputs.files(cp)
+	outputs.file(out)
+
+	doLast {
+		out.get().asFile.text = cp.files.collect { it.absolutePath }.join(File.pathSeparator)
+	}
 }

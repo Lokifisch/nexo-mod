@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
@@ -12,12 +13,37 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 
 import dev.nexoclient.nexomod.auth.HardwareKey;
-import dev.nexoclient.nexomod.bedrock.BedrockHoleFinder;
+import dev.nexoclient.nexomod.chat.NexoChatFilter;
+import dev.nexoclient.nexomod.chat.NexoChatHistory;
+import dev.nexoclient.nexomod.chat.NexoChatSearch;
 import dev.nexoclient.nexomod.coords.CoordObfuscator;
 import dev.nexoclient.nexomod.discord.NexoDiscordRpc;
+import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
 import dev.nexoclient.nexomod.macro.NexoMacroDispatcher;
+import dev.nexoclient.nexomod.nativecore.NexoNative;
+import dev.nexoclient.nexomod.privacy.NexoLogScrubber;
+import dev.nexoclient.nexomod.servers.NexoQuickConnect;
 
+/**
+ * The client initialiser both build variants share.
+ *
+ * <p>This class is compiled into {@code nexomod} (full) <em>and</em>
+ * {@code nexomod-light}, so it must not name a single class from
+ * {@code src/full} — not in an import, not in a method body, not in a javadoc
+ * {@code @link}. Anything the light jar must not contain is registered by
+ * {@code dev.nexoclient.nexomod.full.NexoFullFeatures}, a second
+ * {@link ClientModInitializer} listed only in the full jar's
+ * {@code fabric.mod.json}.
+ *
+ * <p>The line the split follows is <em>what triggers a thing</em>, not how
+ * convenient it is. Everything registered here is either passive (the badge,
+ * the reskin), privacy-preserving (coordinate obscuring), or fired by a key the
+ * player pressed — {@link NexoMacroDispatcher} is macros, and a macro is a
+ * keybind that types for you, which is why it is in the light jar. Automation
+ * that runs off world state with no player input, and anything that reports
+ * information vanilla withholds, belongs on the other side.
+ */
 public class NexoMod implements ClientModInitializer {
 	public static final String MOD_ID = "nexomod";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
@@ -38,12 +64,44 @@ public class NexoMod implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		LOGGER.info("[nexomod] Initialised.");
+		// First, so anything registered below can ask NexoNative.isAvailable()
+		// and pick its code path once instead of re-checking per call. Never
+		// throws: a platform with no native library logs one WARN and carries
+		// on with those features off.
+		NexoNative.bootstrap();
+		// Immediately after, and before anything else this mod does: from here
+		// on every line any mod or the game itself writes goes through the
+		// scrubber first. A no-op when the native core is absent.
+		NexoLogScrubber.install();
 		HardwareKey.warmUp();
 		CommandRegistrationCallback.EVENT.register((dispatcher, ignoredRegistryAccess, ignoredEnvironment) -> LanTunnel.registerCommands(dispatcher));
 		NexoMacroDispatcher.register();
 		NexoDiscordRpc.register();
 		CoordObfuscator.register();
-		BedrockHoleFinder.register();
+		NexoHudVisibility.register();
+		NexoChatSearch.register();
+		NexoQuickConnect.register();
+		ClientLifecycleEvents.CLIENT_STOPPING.register(NexoMod::onClientStopping);
+	}
+
+	/**
+	 * Releases everything held on the native side, in dependency order: the
+	 * handles first, then the library.
+	 *
+	 * <p>{@code NexoNative.shutdown()} drops every handle on its own, so the two
+	 * calls above it are not strictly required — but {@code chatDbClose} is also
+	 * what flushes the database, and a close that happens implicitly during a
+	 * pool teardown is not the same promise. All three are no-ops when the
+	 * library never loaded.
+	 */
+	private static void onClientStopping(net.minecraft.client.Minecraft client) {
+		NexoChatHistory.close();
+		NexoChatFilter.closeIfOpen();
+		// Before the library goes: a wrapped appender left pointing at a dead
+		// scrubber handle would answer every remaining shutdown line with a
+		// withheld placeholder instead of the line.
+		NexoLogScrubber.uninstall();
+		NexoNative.shutdown();
 	}
 
 	/**

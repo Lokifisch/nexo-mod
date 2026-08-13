@@ -1,4 +1,4 @@
-package dev.nexoclient.nexomod.bedrock;
+package dev.nexoclient.nexomod.full.bedrock;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;

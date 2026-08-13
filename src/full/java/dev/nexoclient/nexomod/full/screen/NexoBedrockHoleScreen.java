@@ -1,11 +1,15 @@
-package dev.nexoclient.nexomod.screen;
+package dev.nexoclient.nexomod.full.screen;
 
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-import dev.nexoclient.nexomod.bedrock.BedrockHoleFinder;
+import dev.nexoclient.nexomod.screen.NexoConfig;
+import dev.nexoclient.nexomod.screen.NexoIntSlider;
+import dev.nexoclient.nexomod.screen.NexoOptionScreen;
+import dev.nexoclient.nexomod.screen.NexoSettingsOptionList;
+import dev.nexoclient.nexomod.full.bedrock.BedrockHoleFinder;
 import dev.nexoclient.nexomod.screen.NexoConfig.BedrockHoleRadius;
 
 /**

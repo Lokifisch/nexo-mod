@@ -6,16 +6,26 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.nexoclient.nexomod.NexoMod;
+import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
 
-/** Prepends the Nexo badge to your own row in the tab (player list) overlay. */
+/**
+ * Prepends the Nexo badge to your own row in the tab (player list) overlay.
+ *
+ * <p>Skipped entirely while {@link NexoHudVisibility#hidden()} — the tab list is
+ * in more screenshots than any other overlay, so the badge has to be one of the
+ * things the clean-screenshot toggle takes away.
+ */
 @Mixin(PlayerTabOverlay.class)
 public class TabListBadgeMixin {
 	@Inject(method = "getNameForDisplay", at = @At("RETURN"), cancellable = true)
 	private void nexomod$badgeOwnRow(PlayerInfo playerInfo, CallbackInfoReturnable<Component> cir) {
+		if (NexoHudVisibility.hidden()) {
+			return;
+		}
 		var localPlayer = Minecraft.getInstance().player;
 		if (localPlayer == null || !localPlayer.getGameProfile().id().equals(playerInfo.getProfile().id())) {
 			return;

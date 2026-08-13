@@ -1,4 +1,4 @@
-package dev.nexoclient.nexomod.bedrock;
+package dev.nexoclient.nexomod.full.bedrock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,8 +18,8 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
-import dev.nexoclient.nexomod.bedrock.BedrockHole.Band;
-import dev.nexoclient.nexomod.bedrock.BedrockHole.Kind;
+import dev.nexoclient.nexomod.full.bedrock.BedrockHole.Band;
+import dev.nexoclient.nexomod.full.bedrock.BedrockHole.Kind;
 
 /**
  * Finds pockets of non-bedrock sealed inside a bedrock boundary layer.

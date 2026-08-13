@@ -1,0 +1,106 @@
+[package]
+name = "nexo-core"
+version = "0.4.0"
+edition = "2024"
+# The floor the code actually needs. Kept as a Cargo constraint rather than a
+# rust-toolchain.toml pin so a contributor with a stock stable toolchain can
+# build the mod without rustup downloading a second one (see
+# rust-toolchain.toml for why that matters here but not in ../../Client).
+rust-version = "1.95"
+license = "MIT"
+description = "Native core for Nexo Mod: chat history, log scrubbing, chat filtering, and chunk history, exposed to the JVM over JNI."
+# Never goes to crates.io — it only exists to be dlopen'd by the mod.
+publish = false
+
+[lib]
+# libnexo_core.so / nexo_core.dll / libnexo_core.dylib. NativeLoader.java and
+# the cargoBuild task in ../build.gradle both hardcode this stem; changing it
+# means changing all three.
+name = "nexo_core"
+# cdylib only: nothing links this as a Rust dependency, the JVM dlopen's it.
+# `cargo test` still works — the test profile builds its own harness binary and
+# ignores crate-type.
+crate-type = ["cdylib"]
+
+# The mod ships two jars built from one tree: `nexomod-light`, which contains
+# nothing that supplies information or automation vanilla doesn't, and
+# `nexomod` (full), which contains everything. Each jar bundles its **own**
+# build of this library, so the split has to exist here too — shipping the full
+# .so inside the light jar would put the capability on disk regardless of what
+# the Java side is willing to call.
+#
+# Default (no features) = light. `--features full` = full.
+#
+# Anything gated on `full` must be gated in three places that have to agree:
+# the module in `lib.rs`, the JNI entry points in `ffi.rs`, and the Java
+# declarations (which live in `src/full/java/.../full/nativecore/`, so the
+# light jar cannot name a symbol its library does not export). The bitmask
+# `nativeFeatures()` reports is how Java tells the two builds apart at runtime.
+[features]
+default = []
+full = []
+
+[dependencies]
+# Raw JNI bindings. 0.22 is the current line (0.21 is what most tutorials
+# show); the difference that matters here is that JNIEnv methods take
+# `&mut self`, which is why every FFI entry point below binds `mut env`.
+jni = "0.22"
+
+# Storage for the chat history and the chunk history. MIT, as is
+# libsqlite3-sys; SQLite itself is public domain. Every dependency here is
+# MIT/Apache-2.0-or-looser, which the mod's own MIT licence requires.
+#
+# `bundled` is not optional: it compiles SQLite from the vendored amalgamation
+# into this .so instead of linking the system libsqlite3. Linking the system
+# one would make the jar's behaviour depend on whatever SQLite the player's
+# distro shipped — including whether it was built with FTS5, which is a
+# compile-time option and is *off* in some distro builds. A chat search that
+# works on the dev machine and reports "no such module: fts5" on a user's is
+# exactly the class of bug nobody can debug remotely. The bundled build defines
+# SQLITE_ENABLE_FTS5 unconditionally (see libsqlite3-sys' build.rs), so the
+# feature is guaranteed present wherever this library loads at all.
+#
+# Cost: a C compiler is needed to build this crate, and ~1 MB of the shipped
+# .so is SQLite. Both are accepted — the Gradle side already treats a failed
+# native build as "ship without natives" rather than a hard failure.
+#
+# `hooks` costs nothing (it is an empty feature list — no extra crates, no
+# extra C) and buys the one thing per-row cancellation checks cannot: a
+# `progress_handler` that aborts a statement *while SQLite is still inside it*.
+# Both long queries here (`ORDER BY ts DESC` over an FTS match set, and a
+# region scan) do their expensive work before the first row is stepped, so a
+# loop that only polls `CancelToken` between rows would not notice a cancel
+# until the work was already done.
+rusqlite = { version = "0.40", features = ["bundled", "hooks"] }
+
+# The scrubber's redaction rules and the chat filter's user patterns. MIT OR
+# Apache-2.0. Chosen over hand-rolled matching mostly for one property: the
+# `regex` crate has no backtracking, so its match time is linear in the input
+# regardless of the pattern. The chat filter compiles *user-supplied* patterns
+# and runs them on the network thread, where a backtracking engine would turn
+# a pasted `(a+)+b` into a frozen client.
+regex = "1"
+
+# Chunk-snapshot compression. MIT OR Apache-2.0.
+#
+# `default-features = false` + `rust_backend` selects miniz_oxide, which is
+# pure Rust: no second C dependency, and nothing extra to get building when the
+# release machine cross-compiles this crate for Windows and macOS. zstd would
+# compress a little better and faster, but it is another C library to
+# cross-build for a payload that is already only a few kilobytes per chunk, and
+# the whole point of the size cap in `chunks.rs` is that the store is bounded
+# by row count rather than by how well any one row compresses.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+# Symbols must stay: the JVM resolves native methods by dlsym'ing
+# Java_dev_nexoclient_..., so stripping them would break every native call
+# with an UnsatisfiedLinkError. Debug info is dead weight in a shipped jar.
+strip = "debuginfo"
+# NOT negotiable: catch_unwind is the only thing standing between a Rust panic
+# and a hard JVM crash, and it is a no-op under panic = "abort". Anything that
+# sets abort here (a profile override, a workspace inherit) silently turns
+# every bug in this crate into a Minecraft crash with no Java stack trace.
+panic = "unwind"

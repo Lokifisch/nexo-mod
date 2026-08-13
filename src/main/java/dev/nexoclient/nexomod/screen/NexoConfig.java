@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.sounds.SoundSource;
 
 /** Persisted look-and-feel settings for the menu re-skin. */
 public final class NexoConfig {
@@ -22,6 +23,36 @@ public final class NexoConfig {
 	/** Slider bounds for the bedrock hole finder's size filter, in blocks. */
 	public static final int MIN_HOLE_SIZE_FLOOR = 1;
 	public static final int MAX_HOLE_SIZE_CEILING = 64;
+
+	/** Slider bounds for the tactical indicator's hearing range, in blocks. */
+	public static final int MIN_TACTICAL_RANGE = 8;
+	public static final int MAX_TACTICAL_RANGE = 128;
+
+	/**
+	 * Sound categories the tactical indicator listens to out of the box, as a
+	 * bitmask over {@code SoundSource.ordinal()}.
+	 *
+	 * <p>Hostile, neutral, players and blocks — the four that mean something is
+	 * happening near you. Music, records, weather, ambient, voice and UI are
+	 * off: they are either not positional or fire constantly, and an arrow for
+	 * every raindrop is an arrow for nothing.
+	 *
+	 * <p>Stored as an int rather than a set of named booleans so a category
+	 * added by a future Minecraft version costs no migration: an unknown ordinal
+	 * simply reads as off. Built from the enum constants rather than written out
+	 * as literal bits, so a reordering upstream cannot silently turn "hostile
+	 * mobs" into "music".
+	 */
+	public static final int DEFAULT_TACTICAL_CATEGORIES = categoryMask(
+			SoundSource.HOSTILE, SoundSource.NEUTRAL, SoundSource.PLAYERS, SoundSource.BLOCKS);
+
+	private static int categoryMask(SoundSource... sources) {
+		int mask = 0;
+		for (SoundSource source : sources) {
+			mask |= 1 << source.ordinal();
+		}
+		return mask;
+	}
 
 	public enum BackgroundStyle {
 		STARFIELD,
@@ -82,6 +113,38 @@ public final class NexoConfig {
 		CUSTOM
 	}
 
+	/**
+	 * Fixed client-side time of day, as an offset into the 24000-tick day.
+	 *
+	 * <p>Purely a rendering choice — see
+	 * {@code dev.nexoclient.nexomod.full.environment.NexoEnvironmentOverride}
+	 * for why overriding the client clock cannot change gameplay.
+	 */
+	public enum TimeOverride {
+		OFF(-1),
+		SUNRISE(23000),
+		DAY(1000),
+		NOON(6000),
+		SUNSET(12000),
+		NIGHT(15000),
+		MIDNIGHT(18000);
+
+		/** Ticks into the day, or -1 for "don't touch the clock". */
+		public final int dayTime;
+
+		TimeOverride(int dayTime) {
+			this.dayTime = dayTime;
+		}
+	}
+
+	/** Fixed client-side weather appearance. */
+	public enum WeatherOverride {
+		OFF,
+		CLEAR,
+		RAIN,
+		THUNDER
+	}
+
 	/** How far out from the player the bedrock hole finder scans, in chunks. */
 	public enum BedrockHoleRadius {
 		CHUNKS_4(4),
@@ -115,6 +178,35 @@ public final class NexoConfig {
 	private boolean bedrockHoleChatEnabled = true;
 	private boolean bedrockHoleToastEnabled;
 	private boolean bedrockHoleSoundEnabled = true;
+
+	// ------------------------------------------------------------------
+	// Chat (src/main — both jars)
+	// ------------------------------------------------------------------
+	private boolean chatHistoryEnabled;
+	private boolean chatFilterEnabled = true;
+
+	// ------------------------------------------------------------------
+	// Full-jar features
+	// ------------------------------------------------------------------
+	//
+	// These live here, in src/main, for the same reason the bedrock-hole
+	// settings above do: NexoConfig is one properties file and one loader, and
+	// splitting it per variant would mean two files, two save paths and a merge
+	// question nobody has an answer for. What must not cross the line is *code*
+	// — the screens that edit these are in src/full and reach the hub through
+	// NexoExtraCategories, so the light jar has the fields and no way to see or
+	// use them.
+	private boolean tacticalEnabled;
+	private int tacticalRange = 48;
+	private int tacticalCategoryMask = DEFAULT_TACTICAL_CATEGORIES;
+	private boolean tacticalLabelsEnabled = true;
+	private boolean armorHudEnabled;
+	private int armorHudWarnPercent = 20;
+	private boolean armorHudOffhandEnabled = true;
+	private TimeOverride timeOverride = TimeOverride.OFF;
+	private WeatherOverride weatherOverride = WeatherOverride.OFF;
+	private boolean chunkHistoryEnabled;
+	private boolean macroTriggersEnabled;
 
 	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity, boolean discordRpcEnabled, ObscurePreset obscurePreset, boolean obscureCoordinatesEnabled, boolean obscureBlockRotationEnabled, boolean obscureBedrockFloorEnabled) {
 		this.customMenusEnabled = customMenusEnabled;
@@ -358,6 +450,161 @@ public final class NexoConfig {
 		return bedrockHoleChatEnabled || bedrockHoleToastEnabled || bedrockHoleSoundEnabled;
 	}
 
+	// ------------------------------------------------------------------
+	// Chat
+	// ------------------------------------------------------------------
+
+	/**
+	 * Whether incoming chat is written to the local history database.
+	 *
+	 * <p>Defaults to <b>off</b>. Everything else in this file changes how the
+	 * player's own client looks or behaves; this one writes down what other
+	 * people said, and turning that on is a decision to ask for rather than to
+	 * make on someone's behalf — even though the file never leaves the machine.
+	 */
+	public boolean chatHistoryEnabled() {
+		return chatHistoryEnabled;
+	}
+
+	public void setChatHistoryEnabled(boolean enabled) {
+		this.chatHistoryEnabled = enabled;
+		save();
+	}
+
+	/** Whether the pattern list is applied to incoming chat. Harmless with no patterns, so it defaults on. */
+	public boolean chatFilterEnabled() {
+		return chatFilterEnabled;
+	}
+
+	public void setChatFilterEnabled(boolean enabled) {
+		this.chatFilterEnabled = enabled;
+		save();
+	}
+
+	// ------------------------------------------------------------------
+	// Tactical sound indicator (full jar only)
+	// ------------------------------------------------------------------
+
+	public boolean tacticalEnabled() {
+		return tacticalEnabled;
+	}
+
+	public void setTacticalEnabled(boolean enabled) {
+		this.tacticalEnabled = enabled;
+		save();
+	}
+
+	/** How far away a sound can be and still produce an indicator, in blocks. */
+	public int tacticalRange() {
+		return tacticalRange;
+	}
+
+	public void setTacticalRange(int range) {
+		this.tacticalRange = Math.clamp(range, MIN_TACTICAL_RANGE, MAX_TACTICAL_RANGE);
+		save();
+	}
+
+	/** Bitmask over {@code SoundSource.ordinal()}; see {@link #DEFAULT_TACTICAL_CATEGORIES}. */
+	public int tacticalCategoryMask() {
+		return tacticalCategoryMask;
+	}
+
+	public boolean tacticalCategoryEnabled(SoundSource source) {
+		return (tacticalCategoryMask & (1 << source.ordinal())) != 0;
+	}
+
+	public void setTacticalCategoryEnabled(SoundSource source, boolean enabled) {
+		int bit = 1 << source.ordinal();
+		this.tacticalCategoryMask = enabled ? (tacticalCategoryMask | bit) : (tacticalCategoryMask & ~bit);
+		save();
+	}
+
+	/** Whether each indicator carries the sound's subtitle text, the way vanilla subtitles do. */
+	public boolean tacticalLabelsEnabled() {
+		return tacticalLabelsEnabled;
+	}
+
+	public void setTacticalLabelsEnabled(boolean enabled) {
+		this.tacticalLabelsEnabled = enabled;
+		save();
+	}
+
+	// ------------------------------------------------------------------
+	// Smart armor HUD (full jar only)
+	// ------------------------------------------------------------------
+
+	public boolean armorHudEnabled() {
+		return armorHudEnabled;
+	}
+
+	public void setArmorHudEnabled(boolean enabled) {
+		this.armorHudEnabled = enabled;
+		save();
+	}
+
+	/** Remaining-durability percentage at or below which a piece is drawn as a warning. */
+	public int armorHudWarnPercent() {
+		return armorHudWarnPercent;
+	}
+
+	public void setArmorHudWarnPercent(int percent) {
+		this.armorHudWarnPercent = Math.clamp(percent, 0, 100);
+		save();
+	}
+
+	public boolean armorHudOffhandEnabled() {
+		return armorHudOffhandEnabled;
+	}
+
+	public void setArmorHudOffhandEnabled(boolean enabled) {
+		this.armorHudOffhandEnabled = enabled;
+		save();
+	}
+
+	// ------------------------------------------------------------------
+	// Client-side environment override (full jar only)
+	// ------------------------------------------------------------------
+
+	public TimeOverride timeOverride() {
+		return timeOverride;
+	}
+
+	public void setTimeOverride(TimeOverride override) {
+		this.timeOverride = override;
+		save();
+	}
+
+	public WeatherOverride weatherOverride() {
+		return weatherOverride;
+	}
+
+	public void setWeatherOverride(WeatherOverride override) {
+		this.weatherOverride = override;
+		save();
+	}
+
+	// ------------------------------------------------------------------
+	// Chunk history / state-triggered macros (full jar only)
+	// ------------------------------------------------------------------
+
+	public boolean chunkHistoryEnabled() {
+		return chunkHistoryEnabled;
+	}
+
+	public void setChunkHistoryEnabled(boolean enabled) {
+		this.chunkHistoryEnabled = enabled;
+		save();
+	}
+
+	public boolean macroTriggersEnabled() {
+		return macroTriggersEnabled;
+	}
+
+	public void setMacroTriggersEnabled(boolean enabled) {
+		this.macroTriggersEnabled = enabled;
+		save();
+	}
+
 	private static NexoConfig load() {
 		Properties props = new Properties();
 		if (Files.exists(PATH)) {
@@ -380,7 +627,38 @@ public final class NexoConfig {
 		ObscurePreset obscurePreset = enumOrDefault(ObscurePreset.class, props.getProperty("obscurePreset"),
 				obscureCoordinatesEnabled ? ObscurePreset.CUSTOM : ObscurePreset.NONE);
 		return new NexoConfig(customMenusEnabled, customFontEnabled, backgroundStyle, matrixColor, matrixDensity, discordRpcEnabled, obscurePreset, obscureCoordinatesEnabled, obscureBlockRotationEnabled, obscureBedrockFloorEnabled)
-				.withBedrockHoleSettings(props);
+				.withBedrockHoleSettings(props)
+				.withChatSettings(props)
+				.withFullFeatureSettings(props);
+	}
+
+	/** @see #withBedrockHoleSettings for why these are applied after construction. */
+	private NexoConfig withChatSettings(Properties props) {
+		chatHistoryEnabled = Boolean.parseBoolean(props.getProperty("chatHistoryEnabled", "false"));
+		chatFilterEnabled = Boolean.parseBoolean(props.getProperty("chatFilterEnabled", "true"));
+		return this;
+	}
+
+	/**
+	 * Settings only the full jar's screens can edit. Loaded unconditionally: the
+	 * light jar has no way to change them, but it must still round-trip them
+	 * rather than delete them, or running the light jar once would silently wipe
+	 * the full jar's configuration.
+	 */
+	private NexoConfig withFullFeatureSettings(Properties props) {
+		tacticalEnabled = Boolean.parseBoolean(props.getProperty("tacticalEnabled", "false"));
+		tacticalRange = boundedIntOrDefault(props.getProperty("tacticalRange"), 48, MIN_TACTICAL_RANGE, MAX_TACTICAL_RANGE);
+		tacticalCategoryMask = boundedIntOrDefault(props.getProperty("tacticalCategoryMask"),
+				DEFAULT_TACTICAL_CATEGORIES, 0, Integer.MAX_VALUE);
+		tacticalLabelsEnabled = Boolean.parseBoolean(props.getProperty("tacticalLabelsEnabled", "true"));
+		armorHudEnabled = Boolean.parseBoolean(props.getProperty("armorHudEnabled", "false"));
+		armorHudWarnPercent = boundedIntOrDefault(props.getProperty("armorHudWarnPercent"), 20, 0, 100);
+		armorHudOffhandEnabled = Boolean.parseBoolean(props.getProperty("armorHudOffhandEnabled", "true"));
+		timeOverride = enumOrDefault(TimeOverride.class, props.getProperty("timeOverride"), TimeOverride.OFF);
+		weatherOverride = enumOrDefault(WeatherOverride.class, props.getProperty("weatherOverride"), WeatherOverride.OFF);
+		chunkHistoryEnabled = Boolean.parseBoolean(props.getProperty("chunkHistoryEnabled", "false"));
+		macroTriggersEnabled = Boolean.parseBoolean(props.getProperty("macroTriggersEnabled", "false"));
+		return this;
 	}
 
 	/**
@@ -399,6 +677,23 @@ public final class NexoConfig {
 		bedrockHoleToastEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleToastEnabled", "false"));
 		bedrockHoleSoundEnabled = Boolean.parseBoolean(props.getProperty("bedrockHoleSoundEnabled", "true"));
 		return this;
+	}
+
+	/**
+	 * Like {@link #intOrDefault}, but with the bounds passed in.
+	 * {@code intOrDefault} clamps to the bedrock-hole size range specifically,
+	 * which is wrong for every setting that isn't one — reusing it for the
+	 * tactical range would silently cap it at 64 blocks.
+	 */
+	private static int boundedIntOrDefault(String value, int fallback, int min, int max) {
+		if (value == null) {
+			return fallback;
+		}
+		try {
+			return Math.clamp(Integer.parseInt(value.trim()), min, max);
+		} catch (NumberFormatException e) {
+			return fallback;
+		}
 	}
 
 	private static int intOrDefault(String value, int fallback) {
@@ -444,6 +739,19 @@ public final class NexoConfig {
 		props.setProperty("bedrockHoleChatEnabled", Boolean.toString(bedrockHoleChatEnabled));
 		props.setProperty("bedrockHoleToastEnabled", Boolean.toString(bedrockHoleToastEnabled));
 		props.setProperty("bedrockHoleSoundEnabled", Boolean.toString(bedrockHoleSoundEnabled));
+		props.setProperty("chatHistoryEnabled", Boolean.toString(chatHistoryEnabled));
+		props.setProperty("chatFilterEnabled", Boolean.toString(chatFilterEnabled));
+		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));
+		props.setProperty("tacticalRange", Integer.toString(tacticalRange));
+		props.setProperty("tacticalCategoryMask", Integer.toString(tacticalCategoryMask));
+		props.setProperty("tacticalLabelsEnabled", Boolean.toString(tacticalLabelsEnabled));
+		props.setProperty("armorHudEnabled", Boolean.toString(armorHudEnabled));
+		props.setProperty("armorHudWarnPercent", Integer.toString(armorHudWarnPercent));
+		props.setProperty("armorHudOffhandEnabled", Boolean.toString(armorHudOffhandEnabled));
+		props.setProperty("timeOverride", timeOverride.name());
+		props.setProperty("weatherOverride", weatherOverride.name());
+		props.setProperty("chunkHistoryEnabled", Boolean.toString(chunkHistoryEnabled));
+		props.setProperty("macroTriggersEnabled", Boolean.toString(macroTriggersEnabled));
 		try {
 			Files.createDirectories(PATH.getParent());
 			try (OutputStream out = Files.newOutputStream(PATH)) {
