@@ -62,6 +62,24 @@ public final class MicrosoftAuth {
 	private static final String MINECRAFT_LOGIN_URL = "https://api.minecraftservices.com/authentication/login_with_xbox";
 	private static final String MINECRAFT_PROFILE_URL = "https://api.minecraftservices.com/minecraft/profile";
 
+	/**
+	 * Always show the account picker, even when the browser already has a live
+	 * Microsoft session.
+	 *
+	 * <p>Without this, Microsoft silently signs the browser's current account in
+	 * again, so adding a <em>second</em> account meant leaving the game, signing
+	 * out at microsoft.com, coming back, and signing in — every time. Nexo keeps
+	 * several accounts and exists partly to switch between them, so picking one
+	 * is the normal case here, not the exception.
+	 *
+	 * <p>Deliberately not {@code login}, which would force a full
+	 * re-authentication and make people retype a password they already gave.
+	 *
+	 * <p>Must stay in step with the launcher's {@code auth.rs}: both halves sign
+	 * into the same account store.
+	 */
+	private static final String PROMPT = "select_account";
+
 	private MicrosoftAuth() {}
 
 	public static class AuthException extends RuntimeException {
@@ -154,7 +172,8 @@ public final class MicrosoftAuth {
 					+ "&response_type=code"
 					+ "&redirect_uri=" + urlEncode(REDIRECT_URI)
 					+ "&scope=" + urlEncode(SCOPE)
-					+ "&state=" + urlEncode(state);
+					+ "&state=" + urlEncode(state)
+					+ "&prompt=" + urlEncode(PROMPT);
 			LOGGER.info("Opening browser for Microsoft sign-in");
 			Util.getPlatform().openUri(URI.create(authorizeUrl));
 
