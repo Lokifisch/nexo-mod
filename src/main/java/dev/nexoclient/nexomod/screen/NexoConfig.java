@@ -6,6 +6,10 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,11 +196,17 @@ public final class NexoConfig {
 	 */
 	private boolean badgeSyncEnabled = true;
 	/**
-	 * Whether the roster is believed to hold this account. Persisted rather
-	 * than inferred, so that switching the setting off still removes the
-	 * account later even if the game happened to be offline at the time.
+	 * The accounts this installation believes are in the roster. Persisted
+	 * rather than inferred, so that switching the setting off still removes
+	 * them later even if the game happened to be offline at the time.
+	 *
+	 * <p>A set of accounts and not one flag, because registration is per
+	 * account while this file is per instance. As a single boolean, the first
+	 * account to register made every later one look already-done: a second
+	 * account launched from the same instance — or picked in Nexo's own account
+	 * switcher — silently never registered and stayed invisible to everyone.
 	 */
-	private boolean badgeSyncRegistered;
+	private final Set<UUID> badgeSyncRegisteredAccounts = ConcurrentHashMap.newKeySet();
 
 	// ------------------------------------------------------------------
 	// Full-jar features
@@ -510,13 +520,22 @@ public final class NexoConfig {
 		dev.nexoclient.nexomod.badge.NexoBadges.onSettingChanged(enabled);
 	}
 
-	public boolean badgeSyncRegistered() {
-		return badgeSyncRegistered;
+	public boolean badgeSyncRegistered(UUID account) {
+		return badgeSyncRegisteredAccounts.contains(account);
 	}
 
-	public void setBadgeSyncRegistered(boolean registered) {
-		this.badgeSyncRegistered = registered;
-		save();
+	public void setBadgeSyncRegistered(UUID account, boolean registered) {
+		boolean changed = registered
+				? badgeSyncRegisteredAccounts.add(account)
+				: badgeSyncRegisteredAccounts.remove(account);
+		if (changed) {
+			save();
+		}
+	}
+
+	/** The accounts still believed to be in the roster, for the opt-out sweep. */
+	public Set<UUID> badgeSyncRegisteredAccounts() {
+		return Set.copyOf(badgeSyncRegisteredAccounts);
 	}
 
 	// ------------------------------------------------------------------
@@ -680,7 +699,21 @@ public final class NexoConfig {
 
 	private NexoConfig withBadgeSettings(Properties props) {
 		badgeSyncEnabled = Boolean.parseBoolean(props.getProperty("badgeSyncEnabled", "true"));
-		badgeSyncRegistered = Boolean.parseBoolean(props.getProperty("badgeSyncRegistered", "false"));
+		// The pre-0.6.1 `badgeSyncRegistered` boolean is deliberately not read.
+		// It said "somebody here is registered" without saying who, so there is
+		// nothing to migrate it to. Dropping it re-registers on the next start,
+		// which is idempotent on the service side and costs one request.
+		for (String part : props.getProperty("badgeSyncRegisteredAccounts", "").split(",")) {
+			String trimmed = part.trim();
+			if (trimmed.isEmpty()) {
+				continue;
+			}
+			try {
+				badgeSyncRegisteredAccounts.add(UUID.fromString(trimmed));
+			} catch (IllegalArgumentException e) {
+				LOGGER.warn("Ignoring malformed badge account id {}", trimmed);
+			}
+		}
 		return this;
 	}
 
@@ -787,7 +820,10 @@ public final class NexoConfig {
 		props.setProperty("chatHistoryEnabled", Boolean.toString(chatHistoryEnabled));
 		props.setProperty("chatFilterEnabled", Boolean.toString(chatFilterEnabled));
 		props.setProperty("badgeSyncEnabled", Boolean.toString(badgeSyncEnabled));
-		props.setProperty("badgeSyncRegistered", Boolean.toString(badgeSyncRegistered));
+		props.setProperty("badgeSyncRegisteredAccounts", badgeSyncRegisteredAccounts.stream()
+				.map(UUID::toString)
+				.sorted()
+				.collect(Collectors.joining(",")));
 		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));
 		props.setProperty("tacticalRange", Integer.toString(tacticalRange));
 		props.setProperty("tacticalCategoryMask", Integer.toString(tacticalCategoryMask));

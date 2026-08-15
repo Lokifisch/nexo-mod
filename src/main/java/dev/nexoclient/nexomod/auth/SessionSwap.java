@@ -13,6 +13,7 @@ import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import net.minecraft.util.Util;
 
 import dev.nexoclient.nexomod.NexoMod;
+import dev.nexoclient.nexomod.badge.NexoBadges;
 import dev.nexoclient.nexomod.mixin.MinecraftUserAccessor;
 
 /**
@@ -34,6 +35,10 @@ public final class SessionSwap {
 		} else {
 			apply(user);
 		}
+		// The badge roster registers accounts, not installations, so the one
+		// just switched to has to announce itself — otherwise it stays invisible
+		// to every other Nexo player until the game is restarted.
+		NexoBadges.onAccountChanged();
 	}
 
 	/** Switches back to whatever account this game process was actually launched with. */
@@ -44,6 +49,7 @@ public final class SessionSwap {
 			// Without this the store keeps claiming the previously active stored
 			// account, and everything that displays "current account" lies.
 			AccountStore.get().markActive(user.getProfileId());
+			NexoBadges.onAccountChanged();
 		});
 	}
 
