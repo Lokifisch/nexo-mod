@@ -170,9 +170,4 @@ public final class NexoBadges {
 			worker.execute(NexoBadges::reconcile);
 		}
 	}
-
-	/** For the settings screen: how many other players this client knows about. */
-	public static int rosterSize() {
-		return ROSTER.size();
-	}
 }
