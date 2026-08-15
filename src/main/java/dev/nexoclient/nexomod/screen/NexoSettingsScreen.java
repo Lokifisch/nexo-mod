@@ -4,6 +4,7 @@ import java.util.function.Supplier;
 
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.GridLayout;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.screens.Screen;
@@ -54,6 +55,12 @@ public class NexoSettingsScreen extends Screen {
 						dev.nexoclient.nexomod.discord.DiscordRichPresence.get().clearActivity();
 					}
 				}));
+		// Tooltipped, unlike its neighbours: this one publishes something about
+		// the player to a service, and a bare on/off would not say so.
+		helper.addChild(CycleButton.onOffBuilder(NexoConfig.get().badgeSyncEnabled())
+				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.badgeSync.tooltip")))
+				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.badgeSync"),
+						(button, value) -> NexoConfig.get().setBadgeSyncEnabled(value)));
 		layout.addToContents(grid);
 
 		layout.addToFooter(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(200).build());

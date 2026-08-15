@@ -34,6 +34,8 @@
 	"nexomod.settings.servers": "Quick Servers...",
 	"nexomod.settings.macros": "Macros...",
 	"nexomod.settings.discordRpc": "Discord Rich Presence",
+	"nexomod.settings.badgeSync": "Nexo Badges",
+	"nexomod.settings.badgeSync.tooltip": "Show the Nexo badge on other players who also use Nexo, and let them see yours. Your account is published to the Nexo badge list as a one-way hash \u2014 never your name, and never who you play with. Turning this off removes you from the list.",
 	"nexomod.settings.customMenus": "Custom Menus",
 	"nexomod.settings.customFont": "Custom Font",
 	"nexomod.settings.background": "Background",

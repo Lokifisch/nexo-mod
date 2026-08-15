@@ -23,13 +23,20 @@ Narrator accessibility feature — a gap in this dev machine's Loom run
 environment specifically, not something the real launcher hits).
 
 **First real feature shipped:** a small first-party badge (the Nexo logo,
-via a custom bitmap-font glyph) prepended to your own name in the tab
-list (`PlayerTabOverlay`) and your own nametag
+via a custom bitmap-font glyph) prepended to a player's name in the tab
+list (`PlayerTabOverlay`) and their nametag
 (`LivingEntityRenderer#extractRenderState`) — see
-`Mod/src/main/java/dev/nexoclient/nexomod/`. Scoped to your own name only:
-showing it on *other* players who also have Nexo Mod needs a network
-protocol to broadcast who has it installed, which doesn't exist yet (see
-Phase 2).
+`Mod/src/main/java/dev/nexoclient/nexomod/`.
+
+**Badges are now cross-player (2026-08-15).** They used to be scoped to your
+own name because nothing could tell which *other* players had the mod. That
+is still true inside the game — Nexo Mod is client-only and a vanilla server
+discards custom payloads it doesn't recognise, so the fact cannot travel
+between two clients over the connection — so it is answered out of band
+instead, by `BadgeService/` (see below). The rendering side lives in
+`dev.nexoclient.nexomod.badge`; both mixins now ask
+`NexoBadges.hasBadge(uuid)` rather than checking for the local player, and
+your own badge still needs no network at all.
 
 ---
 
@@ -102,6 +109,29 @@ not a one-time build. Three ways to go:
 
 **Recommendation: A now, structured as C** — ship without a backend, but
 don't paint ourselves into a corner if you want shared cosmetics later.
+
+### 0.3 — DECIDED 2026-08-15: **B, scoped to one thing**
+
+A backend exists: `BadgeService/`, a Flask blueprint mounted into
+lokifisch.dev. It does exactly one job — answer "which players use Nexo" —
+and it does it **without** the session issuance that step 2 above describes.
+There is no Nexo account and no Nexo session token. A client proves it owns
+a UUID through Mojang's public join/hasJoined handshake, the service records
+a truncated hash of that UUID, and that is the whole data model.
+
+Two things worth carrying forward if this ever grows into cosmetics:
+
+- **The lookup direction is the design.** Clients download the whole roster
+  and match locally; they never tell the service who is standing next to
+  them. The obvious alternative — upload the tab list, ask which are members
+  — is simpler and would have handed this project a log of who plays with
+  whom, which is a strange thing for an anti-doxxing mod to be collecting.
+  Any future "what is player X wearing" feature has the same fork in it, and
+  should take the same branch.
+- **The standing objection to a backend was hosting**, and that turned out
+  cheaper than assumed: the roster is a cacheable blob with an ETag, so a
+  worker serves it out of memory, and clients keep the last copy on disk.
+  The Pi being down means badges go stale, not that anything breaks.
 
 ---
 

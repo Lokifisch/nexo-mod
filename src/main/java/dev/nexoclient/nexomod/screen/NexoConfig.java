@@ -185,6 +185,19 @@ public final class NexoConfig {
 	private boolean chatHistoryEnabled;
 	private boolean chatFilterEnabled = true;
 
+	/**
+	 * Whether this client publishes itself to the badge roster and shows other
+	 * Nexo players' badges. On by default: a recognition network in which
+	 * everyone has opted out recognises nobody.
+	 */
+	private boolean badgeSyncEnabled = true;
+	/**
+	 * Whether the roster is believed to hold this account. Persisted rather
+	 * than inferred, so that switching the setting off still removes the
+	 * account later even if the game happened to be offline at the time.
+	 */
+	private boolean badgeSyncRegistered;
+
 	// ------------------------------------------------------------------
 	// Full-jar features
 	// ------------------------------------------------------------------
@@ -482,6 +495,31 @@ public final class NexoConfig {
 	}
 
 	// ------------------------------------------------------------------
+	// Badge sync
+	// ------------------------------------------------------------------
+
+	public boolean badgeSyncEnabled() {
+		return badgeSyncEnabled;
+	}
+
+	public void setBadgeSyncEnabled(boolean enabled) {
+		this.badgeSyncEnabled = enabled;
+		save();
+		// Applies the change now — leaving the account in the roster until the
+		// next restart would make "off" mean nothing to everyone else.
+		dev.nexoclient.nexomod.badge.NexoBadges.onSettingChanged(enabled);
+	}
+
+	public boolean badgeSyncRegistered() {
+		return badgeSyncRegistered;
+	}
+
+	public void setBadgeSyncRegistered(boolean registered) {
+		this.badgeSyncRegistered = registered;
+		save();
+	}
+
+	// ------------------------------------------------------------------
 	// Tactical sound indicator (full jar only)
 	// ------------------------------------------------------------------
 
@@ -629,6 +667,7 @@ public final class NexoConfig {
 		return new NexoConfig(customMenusEnabled, customFontEnabled, backgroundStyle, matrixColor, matrixDensity, discordRpcEnabled, obscurePreset, obscureCoordinatesEnabled, obscureBlockRotationEnabled, obscureBedrockFloorEnabled)
 				.withBedrockHoleSettings(props)
 				.withChatSettings(props)
+				.withBadgeSettings(props)
 				.withFullFeatureSettings(props);
 	}
 
@@ -636,6 +675,12 @@ public final class NexoConfig {
 	private NexoConfig withChatSettings(Properties props) {
 		chatHistoryEnabled = Boolean.parseBoolean(props.getProperty("chatHistoryEnabled", "false"));
 		chatFilterEnabled = Boolean.parseBoolean(props.getProperty("chatFilterEnabled", "true"));
+		return this;
+	}
+
+	private NexoConfig withBadgeSettings(Properties props) {
+		badgeSyncEnabled = Boolean.parseBoolean(props.getProperty("badgeSyncEnabled", "true"));
+		badgeSyncRegistered = Boolean.parseBoolean(props.getProperty("badgeSyncRegistered", "false"));
 		return this;
 	}
 
@@ -741,6 +786,8 @@ public final class NexoConfig {
 		props.setProperty("bedrockHoleSoundEnabled", Boolean.toString(bedrockHoleSoundEnabled));
 		props.setProperty("chatHistoryEnabled", Boolean.toString(chatHistoryEnabled));
 		props.setProperty("chatFilterEnabled", Boolean.toString(chatFilterEnabled));
+		props.setProperty("badgeSyncEnabled", Boolean.toString(badgeSyncEnabled));
+		props.setProperty("badgeSyncRegistered", Boolean.toString(badgeSyncRegistered));
 		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));
 		props.setProperty("tacticalRange", Integer.toString(tacticalRange));
 		props.setProperty("tacticalCategoryMask", Integer.toString(tacticalCategoryMask));

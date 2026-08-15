@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 
 import dev.nexoclient.nexomod.auth.HardwareKey;
+import dev.nexoclient.nexomod.badge.NexoBadges;
 import dev.nexoclient.nexomod.chat.NexoChatFilter;
 import dev.nexoclient.nexomod.chat.NexoChatHistory;
 import dev.nexoclient.nexomod.chat.NexoChatSearch;
@@ -81,6 +82,7 @@ public class NexoMod implements ClientModInitializer {
 		NexoHudVisibility.register();
 		NexoChatSearch.register();
 		NexoQuickConnect.register();
+		NexoBadges.register();
 		ClientLifecycleEvents.CLIENT_STOPPING.register(NexoMod::onClientStopping);
 	}
 
@@ -95,6 +97,7 @@ public class NexoMod implements ClientModInitializer {
 	 * library never loaded.
 	 */
 	private static void onClientStopping(net.minecraft.client.Minecraft client) {
+		NexoBadges.shutdown();
 		NexoChatHistory.close();
 		NexoChatFilter.closeIfOpen();
 		// Before the library goes: a wrapped appender left pointing at a dead
@@ -105,10 +108,16 @@ public class NexoMod implements ClientModInitializer {
 	}
 
 	/**
-	 * Prepends the Nexo badge glyph to a name. Only meant to be applied to the
-	 * local player's own name right now — there's no network protocol yet for
-	 * telling which other players have Nexo Mod installed, so showing this on
-	 * anyone else's name would be a lie.
+	 * Prepends the Nexo badge glyph to a name.
+	 *
+	 * <p>Apply it only to names {@link dev.nexoclient.nexomod.badge.NexoBadges#hasBadge}
+	 * vouches for. It used to be restricted to the local player, because
+	 * nothing could tell which other players had the mod — Nexo Mod is
+	 * client-only and a vanilla server discards custom payloads it does not
+	 * recognise, so the fact cannot travel between two clients inside the game.
+	 * That check now lives in {@code NexoBadges}, which answers from a roster
+	 * fetched out of band; putting this glyph on a name without asking it would
+	 * still be a lie.
 	 */
 	public static MutableComponent withBadge(Component name) {
 		return Component.literal(BADGE_GLYPH)
