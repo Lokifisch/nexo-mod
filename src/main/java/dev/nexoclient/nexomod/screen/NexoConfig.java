@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
@@ -200,13 +201,22 @@ public final class NexoConfig {
 	 * rather than inferred, so that switching the setting off still removes
 	 * them later even if the game happened to be offline at the time.
 	 *
-	 * <p>A set of accounts and not one flag, because registration is per
-	 * account while this file is per instance. As a single boolean, the first
-	 * account to register made every later one look already-done: a second
-	 * account launched from the same instance — or picked in Nexo's own account
+	 * <p>Keyed by account and not one flag, because registration is per account
+	 * while this file is per instance. As a single boolean, the first account
+	 * to register made every later one look already-done: a second account
+	 * launched from the same instance — or picked in Nexo's own account
 	 * switcher — silently never registered and stayed invisible to everyone.
+	 *
+	 * <p>The value is <em>when</em> it last registered, in epoch seconds, not
+	 * merely that it did. Registration is what refreshes the service's
+	 * `last_seen`, and the roster drops an account that has not been seen in
+	 * sixty days — so a build that registered once and never again would have
+	 * every one of its players silently vanish two months later while they were
+	 * still playing daily. It re-registers once a day instead; the service
+	 * overwrites a single timestamp, so this costs it no extra storage and
+	 * keeps no history.
 	 */
-	private final Set<UUID> badgeSyncRegisteredAccounts = ConcurrentHashMap.newKeySet();
+	private final Map<UUID, Long> badgeSyncRegisteredAccounts = new ConcurrentHashMap<>();
 
 	// ------------------------------------------------------------------
 	// Full-jar features
@@ -521,21 +531,38 @@ public final class NexoConfig {
 	}
 
 	public boolean badgeSyncRegistered(UUID account) {
-		return badgeSyncRegisteredAccounts.contains(account);
+		return badgeSyncRegisteredAccounts.containsKey(account);
+	}
+
+	/**
+	 * When this account last registered, in epoch seconds, or 0 if never.
+	 *
+	 * <p>Zero is also what an entry written by 0.6.1 reads as, because that
+	 * build recorded only that an account was registered and not when — so
+	 * upgrading re-registers everyone once, which is what puts them back on a
+	 * clock instead of drifting towards being pruned.
+	 */
+	public long badgeSyncRegisteredAt(UUID account) {
+		return badgeSyncRegisteredAccounts.getOrDefault(account, 0L);
 	}
 
 	public void setBadgeSyncRegistered(UUID account, boolean registered) {
 		boolean changed = registered
-				? badgeSyncRegisteredAccounts.add(account)
-				: badgeSyncRegisteredAccounts.remove(account);
+				? !Long.valueOf(nowSeconds()).equals(
+						badgeSyncRegisteredAccounts.put(account, nowSeconds()))
+				: badgeSyncRegisteredAccounts.remove(account) != null;
 		if (changed) {
 			save();
 		}
 	}
 
+	private static long nowSeconds() {
+		return System.currentTimeMillis() / 1000L;
+	}
+
 	/** The accounts still believed to be in the roster, for the opt-out sweep. */
 	public Set<UUID> badgeSyncRegisteredAccounts() {
-		return Set.copyOf(badgeSyncRegisteredAccounts);
+		return Set.copyOf(badgeSyncRegisteredAccounts.keySet());
 	}
 
 	// ------------------------------------------------------------------
@@ -708,8 +735,21 @@ public final class NexoConfig {
 			if (trimmed.isEmpty()) {
 				continue;
 			}
+			// `uuid=epoch` since 0.6.2. A bare `uuid` is what 0.6.1 wrote; it
+			// reads as "registered, but at an unknown time", which the daily
+			// check treats as due and re-registers on the next launch.
+			int split = trimmed.indexOf('=');
+			String id = split < 0 ? trimmed : trimmed.substring(0, split);
+			long at = 0L;
+			if (split >= 0) {
+				try {
+					at = Long.parseLong(trimmed.substring(split + 1).trim());
+				} catch (NumberFormatException e) {
+					at = 0L;
+				}
+			}
 			try {
-				badgeSyncRegisteredAccounts.add(UUID.fromString(trimmed));
+				badgeSyncRegisteredAccounts.put(UUID.fromString(id.trim()), at);
 			} catch (IllegalArgumentException e) {
 				LOGGER.warn("Ignoring malformed badge account id {}", trimmed);
 			}
@@ -820,8 +860,9 @@ public final class NexoConfig {
 		props.setProperty("chatHistoryEnabled", Boolean.toString(chatHistoryEnabled));
 		props.setProperty("chatFilterEnabled", Boolean.toString(chatFilterEnabled));
 		props.setProperty("badgeSyncEnabled", Boolean.toString(badgeSyncEnabled));
-		props.setProperty("badgeSyncRegisteredAccounts", badgeSyncRegisteredAccounts.stream()
-				.map(UUID::toString)
+		props.setProperty("badgeSyncRegisteredAccounts", badgeSyncRegisteredAccounts.entrySet()
+				.stream()
+				.map(entry -> entry.getKey() + "=" + entry.getValue())
 				.sorted()
 				.collect(Collectors.joining(",")));
 		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));

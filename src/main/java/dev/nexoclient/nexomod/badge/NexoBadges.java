@@ -44,9 +44,33 @@ public final class NexoBadges {
 	 */
 	private static final long REGISTER_DELAY_SECONDS = 20;
 
+	/**
+	 * How stale a registration may get before it is renewed.
+	 *
+	 * <p>Registering is what refreshes the service's `last_seen`, and the
+	 * roster drops an account that has not been seen in sixty days. Doing it
+	 * once and never again — which is what 0.6.1 does — means every player
+	 * silently falls off the roster two months after installing, while still
+	 * playing daily. Once a day keeps them on it and makes the service's
+	 * "active in the last 24 hours" figure mean what it says.
+	 *
+	 * <p>It costs one Mojang handshake per player per day, and no extra
+	 * storage: the service overwrites a single timestamp rather than appending,
+	 * so renewing does not build up a history of when anyone played.
+	 */
+	private static final long REGISTER_REFRESH_SECONDS = 24 * 60 * 60;
+
 	private static final BadgeService SERVICE = new BadgeService();
 	private static final BadgeRoster ROSTER = new BadgeRoster();
 	private static final BadgeIdentity IDENTITY = new BadgeIdentity(SERVICE);
+	private static final BadgePresence PRESENCE = new BadgePresence(SERVICE);
+
+	/**
+	 * Seconds between heartbeats. Starts at the client's default and is
+	 * replaced by whatever the service asks for, so the cadence can be changed
+	 * without every player having to update.
+	 */
+	private static volatile long beatInterval = BadgePresence.DEFAULT_INTERVAL_SECONDS;
 
 	/**
 	 * Shortest gap between refreshes triggered by seeing an unregistered
@@ -82,6 +106,39 @@ public final class NexoBadges {
 		worker.schedule(NexoBadges::reconcile, REGISTER_DELAY_SECONDS, TimeUnit.SECONDS);
 		worker.scheduleWithFixedDelay(NexoBadges::refreshRoster,
 				REGISTER_DELAY_SECONDS + 5, REFRESH_MINUTES * 60, TimeUnit.SECONDS);
+		// Self-rescheduling rather than a fixed delay, because the interval is
+		// the service's to choose and can change between one beat and the next.
+		worker.schedule(NexoBadges::beat, REGISTER_DELAY_SECONDS + 10, TimeUnit.SECONDS);
+	}
+
+	/**
+	 * One heartbeat, then books the next one.
+	 *
+	 * <p>Gated on the same setting as everything else here. Presence carries no
+	 * identity, so it is not the thing the toggle is really about — but someone
+	 * who switched badge sync off asked this mod to stop talking to the
+	 * service, and quietly continuing to would be the wrong reading of that.
+	 */
+	private static void beat() {
+		try {
+			if (NexoConfig.get().badgeSyncEnabled()) {
+				long asked = PRESENCE.beat();
+				// Clamped so a wrong or hostile answer cannot turn every client
+				// into a hot loop against the service, or park them for a week.
+				if (asked > 0) {
+					beatInterval = Math.clamp(asked, 30, 3600);
+				}
+			}
+		} catch (RuntimeException e) {
+			NexoMod.LOGGER.warn("[nexomod] Badge presence pass failed.", e);
+		} finally {
+			// In a finally block on purpose: a beat that throws must not be the
+			// end of the heartbeat for the rest of the session.
+			ScheduledExecutorService current = worker;
+			if (current != null && !current.isShutdown()) {
+				current.schedule(NexoBadges::beat, beatInterval, TimeUnit.SECONDS);
+			}
+		}
 	}
 
 	public static void shutdown() {
@@ -171,10 +228,15 @@ public final class NexoBadges {
 			UUID account = user.getProfileId();
 
 			if (config.badgeSyncEnabled()) {
-				if (!config.badgeSyncRegistered(account) && attemptedThisSession.add(account)) {
+				if (registrationDue(config, account) && attemptedThisSession.add(account)) {
+					boolean renewal = config.badgeSyncRegistered(account);
 					if (IDENTITY.register(user)) {
 						config.setBadgeSyncRegistered(account, true);
-						NexoMod.LOGGER.info("[nexomod] Badge sync: registered as {}.", user.getName());
+						if (renewal) {
+							NexoMod.LOGGER.debug("[nexomod] Badge sync: renewed {}.", user.getName());
+						} else {
+							NexoMod.LOGGER.info("[nexomod] Badge sync: registered as {}.", user.getName());
+						}
 					} else {
 						// Dropped again so the next start, account switch or
 						// toggle retries rather than giving up for good.
@@ -192,6 +254,23 @@ public final class NexoBadges {
 			// A background thread that dies takes the periodic refresh with it.
 			NexoMod.LOGGER.warn("[nexomod] Badge sync pass failed.", e);
 		}
+	}
+
+	/**
+	 * Whether this account needs to (re-)register.
+	 *
+	 * <p>True for one never registered, and for one whose registration has gone
+	 * stale — see {@link #REGISTER_REFRESH_SECONDS} for why staleness matters
+	 * at all. A clock that has jumped backwards reads as due rather than as
+	 * never-due, which costs one extra request instead of stranding the account
+	 * until the clock catches up.
+	 */
+	private static boolean registrationDue(NexoConfig config, UUID account) {
+		if (!config.badgeSyncRegistered(account)) {
+			return true;
+		}
+		long age = System.currentTimeMillis() / 1000L - config.badgeSyncRegisteredAt(account);
+		return age >= REGISTER_REFRESH_SECONDS || age < 0;
 	}
 
 	/**
