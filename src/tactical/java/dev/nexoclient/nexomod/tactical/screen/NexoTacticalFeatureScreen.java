@@ -53,7 +53,6 @@ public class NexoTacticalFeatureScreen extends NexoOptionScreen {
 	private static void addRows(NexoSettingsOptionList list) {
 		NexoConfig config = NexoConfig.get();
 		addRadarRows(list, config);
-		addArmorRows(list, config);
 		addEnvironmentRows(list, config);
 		addChunkRows(list, config);
 		addTriggerRows(list, config);
@@ -88,28 +87,6 @@ public class NexoTacticalFeatureScreen extends NexoOptionScreen {
 									Component.translatable("soundCategory." + source.getName())),
 							(button, value) -> config.setTacticalCategoryEnabled(source, value)));
 		}
-	}
-
-	private static void addArmorRows(NexoSettingsOptionList list, NexoConfig config) {
-		list.addWidgetRow(CycleButton.onOffBuilder(config.armorHudEnabled())
-				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.armorHud.enabled.tooltip")))
-				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(),
-						Component.translatable("nexomod.settings.armorHud.enabled"),
-						(button, value) -> {
-							config.setArmorHudEnabled(value);
-							list.rebuildRows();
-						}));
-		if (!config.armorHudEnabled()) {
-			return;
-		}
-		NexoIntSlider warn = new NexoIntSlider(list.rowX(), 0, list.rowWidth(), list.rowHeight(),
-				"nexomod.settings.armorHud.warn", 0, 100, config.armorHudWarnPercent(), config::setArmorHudWarnPercent);
-		warn.setTooltip(Tooltip.create(Component.translatable("nexomod.settings.armorHud.warn.tooltip")));
-		list.addWidgetRow(warn);
-		list.addWidgetRow(CycleButton.onOffBuilder(config.armorHudOffhandEnabled())
-				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(),
-						Component.translatable("nexomod.settings.armorHud.offhand"),
-						(button, value) -> config.setArmorHudOffhandEnabled(value)));
 	}
 
 	private static void addEnvironmentRows(NexoSettingsOptionList list, NexoConfig config) {

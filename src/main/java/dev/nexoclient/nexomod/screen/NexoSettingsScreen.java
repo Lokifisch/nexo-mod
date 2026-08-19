@@ -40,6 +40,7 @@ public class NexoSettingsScreen extends Screen {
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.positionObscuring"), () -> new NexoPositionObscuringScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.chat"), () -> new NexoChatScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.servers"), () -> new NexoQuickServerScreen(this)));
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.cosmeticsMenu"), () -> new NexoCosmeticsScreen(this)));
 		// Bedrock Holes used to be named here. It lives in src/full now and this
 		// class is compiled into the light jar too, so it arrives through the
 		// registry instead — empty in light, one entry in full. Macros stayed
@@ -61,6 +62,11 @@ public class NexoSettingsScreen extends Screen {
 				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.badgeSync.tooltip")))
 				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.badgeSync"),
 						(button, value) -> NexoConfig.get().setBadgeSyncEnabled(value)));
+		// Same reasoning as badgeSync above: this one also talks to a service.
+		helper.addChild(CycleButton.onOffBuilder(NexoConfig.get().cosmeticsEnabled())
+				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.cosmetics.tooltip")))
+				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.cosmetics"),
+						(button, value) -> NexoConfig.get().setCosmeticsEnabled(value)));
 		layout.addToContents(grid);
 
 		layout.addToFooter(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(200).build());

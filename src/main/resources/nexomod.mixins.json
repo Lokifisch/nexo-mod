@@ -24,7 +24,12 @@
 		"XaeroMinimapCoordsMixin",
 		"XaeroWorldMapCoordsMixin",
 		"ChatMessageInterceptMixin",
-		"ChatSenderCaptureMixin"
+		"ChatSenderCaptureMixin",
+		"AvatarRenderStateCosmeticMixin",
+		"AvatarCosmeticExtractMixin",
+		"VanillaCapeSuppressionMixin",
+		"ActionbarLogMixin",
+		"PickupLogMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -190,6 +190,29 @@ public final class NexoConfig {
 	private boolean chatHistoryEnabled;
 	private boolean chatFilterEnabled = true;
 
+	// ------------------------------------------------------------------
+	// QoL overlay (src/main — both jars; see hud.NexoQolMenu)
+	// ------------------------------------------------------------------
+	private boolean keystrokesHudEnabled;
+	private boolean cpsCounterEnabled;
+	private boolean statsHudEnabled;
+	private boolean potionHudEnabled;
+	private boolean comboCounterEnabled;
+	private boolean actionbarLogEnabled;
+	private boolean pickupLogEnabled;
+
+	/**
+	 * Moved here from the "Full-jar features" block below: armor HUD started as
+	 * a Tactical-only feature but only ever surfaces information already on
+	 * the inventory screen, so there was no reason to keep it exclusive once
+	 * it had a settings surface of its own (the QoL menu) instead of piggy-
+	 * backing on the Tactical settings screen.
+	 */
+	private boolean armorHudEnabled;
+	private int armorHudWarnPercent = 20;
+	private boolean armorHudOffhandEnabled = true;
+	private boolean armorHudHeldItemEnabled;
+
 	/**
 	 * Whether this client publishes itself to the badge roster and shows other
 	 * Nexo players' badges. On by default: a recognition network in which
@@ -218,6 +241,15 @@ public final class NexoConfig {
 	 */
 	private final Map<UUID, Long> badgeSyncRegisteredAccounts = new ConcurrentHashMap<>();
 
+	/**
+	 * Whether this client syncs cosmetics with the cosmetics service: fetching
+	 * the catalog, resolving what other players have equipped, and answering
+	 * equip/purchase actions. On by default, same reasoning as
+	 * {@link #badgeSyncEnabled} — a marketplace nobody opted into showing
+	 * shows nothing to anyone.
+	 */
+	private boolean cosmeticsEnabled = true;
+
 	// ------------------------------------------------------------------
 	// Full-jar features
 	// ------------------------------------------------------------------
@@ -233,12 +265,10 @@ public final class NexoConfig {
 	private int tacticalRange = 48;
 	private int tacticalCategoryMask = DEFAULT_TACTICAL_CATEGORIES;
 	private boolean tacticalLabelsEnabled = true;
-	private boolean armorHudEnabled;
-	private int armorHudWarnPercent = 20;
-	private boolean armorHudOffhandEnabled = true;
 	private TimeOverride timeOverride = TimeOverride.OFF;
 	private WeatherOverride weatherOverride = WeatherOverride.OFF;
 	private boolean chunkHistoryEnabled;
+	private boolean chunkBorderOverlayEnabled;
 	private boolean macroTriggersEnabled;
 
 	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity, boolean discordRpcEnabled, ObscurePreset obscurePreset, boolean obscureCoordinatesEnabled, boolean obscureBlockRotationEnabled, boolean obscureBedrockFloorEnabled) {
@@ -566,6 +596,87 @@ public final class NexoConfig {
 	}
 
 	// ------------------------------------------------------------------
+	// Cosmetics sync
+	// ------------------------------------------------------------------
+
+	public boolean cosmeticsEnabled() {
+		return cosmeticsEnabled;
+	}
+
+	public void setCosmeticsEnabled(boolean enabled) {
+		this.cosmeticsEnabled = enabled;
+		save();
+		dev.nexoclient.nexomod.cosmetics.NexoCosmetics.onSettingChanged(enabled);
+	}
+
+	// ------------------------------------------------------------------
+	// QoL overlay
+	// ------------------------------------------------------------------
+
+	public boolean keystrokesHudEnabled() {
+		return keystrokesHudEnabled;
+	}
+
+	public void setKeystrokesHudEnabled(boolean enabled) {
+		this.keystrokesHudEnabled = enabled;
+		save();
+	}
+
+	public boolean cpsCounterEnabled() {
+		return cpsCounterEnabled;
+	}
+
+	public void setCpsCounterEnabled(boolean enabled) {
+		this.cpsCounterEnabled = enabled;
+		save();
+	}
+
+	public boolean statsHudEnabled() {
+		return statsHudEnabled;
+	}
+
+	public void setStatsHudEnabled(boolean enabled) {
+		this.statsHudEnabled = enabled;
+		save();
+	}
+
+	public boolean potionHudEnabled() {
+		return potionHudEnabled;
+	}
+
+	public void setPotionHudEnabled(boolean enabled) {
+		this.potionHudEnabled = enabled;
+		save();
+	}
+
+	public boolean comboCounterEnabled() {
+		return comboCounterEnabled;
+	}
+
+	public void setComboCounterEnabled(boolean enabled) {
+		this.comboCounterEnabled = enabled;
+		save();
+	}
+
+	public boolean actionbarLogEnabled() {
+		return actionbarLogEnabled;
+	}
+
+	public void setActionbarLogEnabled(boolean enabled) {
+		this.actionbarLogEnabled = enabled;
+		save();
+	}
+
+	public boolean pickupLogEnabled() {
+		return pickupLogEnabled;
+	}
+
+	public void setPickupLogEnabled(boolean enabled) {
+		this.pickupLogEnabled = enabled;
+		save();
+	}
+
+	// ------------------------------------------------------------------
 	// Tactical sound indicator (full jar only)
 	// ------------------------------------------------------------------
 
@@ -614,7 +725,7 @@ public final class NexoConfig {
 	}
 
 	// ------------------------------------------------------------------
-	// Smart armor HUD (full jar only)
+	// Smart armor HUD (src/main — both jars; see hud.NexoArmorHud)
 	// ------------------------------------------------------------------
 
 	public boolean armorHudEnabled() {
@@ -642,6 +753,15 @@ public final class NexoConfig {
 
 	public void setArmorHudOffhandEnabled(boolean enabled) {
 		this.armorHudOffhandEnabled = enabled;
+		save();
+	}
+
+	public boolean armorHudHeldItemEnabled() {
+		return armorHudHeldItemEnabled;
+	}
+
+	public void setArmorHudHeldItemEnabled(boolean enabled) {
+		this.armorHudHeldItemEnabled = enabled;
 		save();
 	}
 
@@ -680,6 +800,15 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean chunkBorderOverlayEnabled() {
+		return chunkBorderOverlayEnabled;
+	}
+
+	public void setChunkBorderOverlayEnabled(boolean enabled) {
+		this.chunkBorderOverlayEnabled = enabled;
+		save();
+	}
+
 	public boolean macroTriggersEnabled() {
 		return macroTriggersEnabled;
 	}
@@ -714,7 +843,37 @@ public final class NexoConfig {
 				.withBedrockHoleSettings(props)
 				.withChatSettings(props)
 				.withBadgeSettings(props)
+				.withCosmeticsSettings(props)
+				.withQolOverlaySettings(props)
+				.withArmorHudSettings(props)
 				.withFullFeatureSettings(props);
+	}
+
+	/** @see #withBedrockHoleSettings for why these are applied after construction. */
+	private NexoConfig withArmorHudSettings(Properties props) {
+		armorHudEnabled = Boolean.parseBoolean(props.getProperty("armorHudEnabled", "false"));
+		armorHudWarnPercent = boundedIntOrDefault(props.getProperty("armorHudWarnPercent"), 20, 0, 100);
+		armorHudOffhandEnabled = Boolean.parseBoolean(props.getProperty("armorHudOffhandEnabled", "true"));
+		armorHudHeldItemEnabled = Boolean.parseBoolean(props.getProperty("armorHudHeldItemEnabled", "false"));
+		return this;
+	}
+
+	/** @see #withBedrockHoleSettings for why these are applied after construction. */
+	private NexoConfig withCosmeticsSettings(Properties props) {
+		cosmeticsEnabled = Boolean.parseBoolean(props.getProperty("cosmeticsEnabled", "true"));
+		return this;
+	}
+
+	/** @see #withBedrockHoleSettings for why these are applied after construction. */
+	private NexoConfig withQolOverlaySettings(Properties props) {
+		keystrokesHudEnabled = Boolean.parseBoolean(props.getProperty("keystrokesHudEnabled", "false"));
+		cpsCounterEnabled = Boolean.parseBoolean(props.getProperty("cpsCounterEnabled", "false"));
+		statsHudEnabled = Boolean.parseBoolean(props.getProperty("statsHudEnabled", "false"));
+		potionHudEnabled = Boolean.parseBoolean(props.getProperty("potionHudEnabled", "false"));
+		comboCounterEnabled = Boolean.parseBoolean(props.getProperty("comboCounterEnabled", "false"));
+		actionbarLogEnabled = Boolean.parseBoolean(props.getProperty("actionbarLogEnabled", "false"));
+		pickupLogEnabled = Boolean.parseBoolean(props.getProperty("pickupLogEnabled", "false"));
+		return this;
 	}
 
 	/** @see #withBedrockHoleSettings for why these are applied after construction. */
@@ -769,12 +928,10 @@ public final class NexoConfig {
 		tacticalCategoryMask = boundedIntOrDefault(props.getProperty("tacticalCategoryMask"),
 				DEFAULT_TACTICAL_CATEGORIES, 0, Integer.MAX_VALUE);
 		tacticalLabelsEnabled = Boolean.parseBoolean(props.getProperty("tacticalLabelsEnabled", "true"));
-		armorHudEnabled = Boolean.parseBoolean(props.getProperty("armorHudEnabled", "false"));
-		armorHudWarnPercent = boundedIntOrDefault(props.getProperty("armorHudWarnPercent"), 20, 0, 100);
-		armorHudOffhandEnabled = Boolean.parseBoolean(props.getProperty("armorHudOffhandEnabled", "true"));
 		timeOverride = enumOrDefault(TimeOverride.class, props.getProperty("timeOverride"), TimeOverride.OFF);
 		weatherOverride = enumOrDefault(WeatherOverride.class, props.getProperty("weatherOverride"), WeatherOverride.OFF);
 		chunkHistoryEnabled = Boolean.parseBoolean(props.getProperty("chunkHistoryEnabled", "false"));
+		chunkBorderOverlayEnabled = Boolean.parseBoolean(props.getProperty("chunkBorderOverlayEnabled", "false"));
 		macroTriggersEnabled = Boolean.parseBoolean(props.getProperty("macroTriggersEnabled", "false"));
 		return this;
 	}
@@ -865,6 +1022,14 @@ public final class NexoConfig {
 				.map(entry -> entry.getKey() + "=" + entry.getValue())
 				.sorted()
 				.collect(Collectors.joining(",")));
+		props.setProperty("cosmeticsEnabled", Boolean.toString(cosmeticsEnabled));
+		props.setProperty("keystrokesHudEnabled", Boolean.toString(keystrokesHudEnabled));
+		props.setProperty("cpsCounterEnabled", Boolean.toString(cpsCounterEnabled));
+		props.setProperty("statsHudEnabled", Boolean.toString(statsHudEnabled));
+		props.setProperty("potionHudEnabled", Boolean.toString(potionHudEnabled));
+		props.setProperty("comboCounterEnabled", Boolean.toString(comboCounterEnabled));
+		props.setProperty("actionbarLogEnabled", Boolean.toString(actionbarLogEnabled));
+		props.setProperty("pickupLogEnabled", Boolean.toString(pickupLogEnabled));
 		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));
 		props.setProperty("tacticalRange", Integer.toString(tacticalRange));
 		props.setProperty("tacticalCategoryMask", Integer.toString(tacticalCategoryMask));
@@ -872,9 +1037,11 @@ public final class NexoConfig {
 		props.setProperty("armorHudEnabled", Boolean.toString(armorHudEnabled));
 		props.setProperty("armorHudWarnPercent", Integer.toString(armorHudWarnPercent));
 		props.setProperty("armorHudOffhandEnabled", Boolean.toString(armorHudOffhandEnabled));
+		props.setProperty("armorHudHeldItemEnabled", Boolean.toString(armorHudHeldItemEnabled));
 		props.setProperty("timeOverride", timeOverride.name());
 		props.setProperty("weatherOverride", weatherOverride.name());
 		props.setProperty("chunkHistoryEnabled", Boolean.toString(chunkHistoryEnabled));
+		props.setProperty("chunkBorderOverlayEnabled", Boolean.toString(chunkBorderOverlayEnabled));
 		props.setProperty("macroTriggersEnabled", Boolean.toString(macroTriggersEnabled));
 		try {
 			Files.createDirectories(PATH.getParent());

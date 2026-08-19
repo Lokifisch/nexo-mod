@@ -7,15 +7,18 @@ import net.minecraft.network.chat.Component;
 
 import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.tactical.bedrock.BedrockHoleFinder;
+import dev.nexoclient.nexomod.tactical.chunkborder.NexoChunkBorderOverlay;
 import dev.nexoclient.nexomod.tactical.chunks.NexoChunkHistory;
 import dev.nexoclient.nexomod.tactical.ghost.NexoGhostMode;
-import dev.nexoclient.nexomod.tactical.hud.NexoArmorHud;
 import dev.nexoclient.nexomod.tactical.macro.NexoMacroTriggers;
 import dev.nexoclient.nexomod.tactical.screen.NexoBedrockHoleScreen;
+import dev.nexoclient.nexomod.tactical.screen.NexoChunkBorderConfigScreen;
 import dev.nexoclient.nexomod.tactical.screen.NexoTacticalFeatureScreen;
 import dev.nexoclient.nexomod.tactical.sound.NexoSoundRadar;
 import dev.nexoclient.nexomod.tactical.sound.NexoSoundRadarHud;
+import dev.nexoclient.nexomod.screen.NexoConfig;
 import dev.nexoclient.nexomod.screen.NexoExtraCategories;
+import dev.nexoclient.nexomod.screen.NexoQolModules;
 
 /**
  * The second {@link ClientModInitializer}, listed only in the full jar's
@@ -68,10 +71,10 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		NexoMod.LOGGER.info("[nexomod] Full feature set enabled.");
 		BedrockHoleFinder.register();
 		NexoSoundRadarHud.register();
-		NexoArmorHud.register();
 		NexoChunkHistory.register();
 		NexoGhostMode.register();
 		NexoMacroTriggers.register();
+		NexoChunkBorderOverlay.register();
 
 		// A bearing to something in a world you have left is nonsense, and a
 		// stale ping would otherwise survive into the next server.
@@ -90,5 +93,12 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		// directly.
 		NexoExtraCategories.register(Component.translatable("nexomod.settings.bedrockHoles"), NexoBedrockHoleScreen::new);
 		NexoExtraCategories.register(Component.translatable("nexomod.settings.tactical"), NexoTacticalFeatureScreen::new);
+
+		// The one QoL-menu row src/main cannot add directly — see NexoQolModules.
+		NexoConfig config = NexoConfig.get();
+		NexoQolModules.register(Component.translatable("nexomod.qol.chunkBorder"),
+				Component.translatable("nexomod.qol.chunkBorder.description"),
+				config::chunkBorderOverlayEnabled,
+				parent -> new NexoChunkBorderConfigScreen(parent));
 	}
 }

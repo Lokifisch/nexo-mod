@@ -18,8 +18,18 @@ import dev.nexoclient.nexomod.chat.NexoChatFilter;
 import dev.nexoclient.nexomod.chat.NexoChatHistory;
 import dev.nexoclient.nexomod.chat.NexoChatSearch;
 import dev.nexoclient.nexomod.coords.CoordObfuscator;
+import dev.nexoclient.nexomod.cosmetics.NexoCosmetics;
+import dev.nexoclient.nexomod.cosmetics.NexoCosmeticsRenderer;
 import dev.nexoclient.nexomod.discord.NexoDiscordRpc;
+import dev.nexoclient.nexomod.hud.NexoArmorHud;
+import dev.nexoclient.nexomod.hud.NexoComboCounter;
+import dev.nexoclient.nexomod.hud.NexoCpsCounter;
+import dev.nexoclient.nexomod.hud.NexoFadingLogHud;
 import dev.nexoclient.nexomod.hud.NexoHudVisibility;
+import dev.nexoclient.nexomod.hud.NexoKeystrokesHud;
+import dev.nexoclient.nexomod.hud.NexoPotionHud;
+import dev.nexoclient.nexomod.hud.NexoQolMenu;
+import dev.nexoclient.nexomod.hud.NexoStatsHud;
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
 import dev.nexoclient.nexomod.macro.NexoMacroDispatcher;
 import dev.nexoclient.nexomod.nativecore.NexoNative;
@@ -83,6 +93,25 @@ public class NexoMod implements ClientModInitializer {
 		NexoChatSearch.register();
 		NexoQuickConnect.register();
 		NexoBadges.register();
+		NexoCosmeticsRenderer.register();
+		NexoCosmetics.register();
+		// Temporary one-shot confirmation lines while tracking down a report that
+		// armor HUD renders nothing despite being enabled and armor equipped —
+		// these narrow down whether one of these four calls is silently throwing
+		// and aborting the rest of this method. Remove once that's resolved.
+		NexoQolMenu.register();
+		LOGGER.info("[nexomod] Registered QoL menu.");
+		NexoKeystrokesHud.register();
+		LOGGER.info("[nexomod] Registered keystrokes HUD.");
+		NexoCpsCounter.register();
+		LOGGER.info("[nexomod] Registered CPS counter.");
+		NexoArmorHud.register();
+		LOGGER.info("[nexomod] Registered armor HUD.");
+		NexoStatsHud.register();
+		NexoPotionHud.register();
+		NexoComboCounter.register();
+		NexoFadingLogHud.ACTIONBAR.register();
+		NexoFadingLogHud.PICKUPS.register();
 		ClientLifecycleEvents.CLIENT_STOPPING.register(NexoMod::onClientStopping);
 	}
 
@@ -98,6 +127,7 @@ public class NexoMod implements ClientModInitializer {
 	 */
 	private static void onClientStopping(net.minecraft.client.Minecraft client) {
 		NexoBadges.shutdown();
+		NexoCosmetics.shutdown();
 		NexoChatHistory.close();
 		NexoChatFilter.closeIfOpen();
 		// Before the library goes: a wrapped appender left pointing at a dead

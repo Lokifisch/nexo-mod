@@ -15,6 +15,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.screen.NexoBackground;
+import dev.nexoclient.nexomod.screen.NexoHudEditorScreen;
+import dev.nexoclient.nexomod.screen.NexoQolOverlayScreen;
 
 /**
  * Replaces vanilla's dirt-blur/panorama background on every menu-style
@@ -66,6 +68,13 @@ public abstract class NeonMenuBackgroundMixin {
 				|| screen instanceof PauseScreen
 				|| screen instanceof ChatScreen
 				|| screen instanceof GenericMessageScreen
-				|| screen instanceof WinScreen;
+				|| screen instanceof WinScreen
+				// The QoL overlay's whole visual point is the real, blurred game
+				// showing through — replacing it with the neon starfield would be
+				// exactly the "overtaken" look it's deliberately avoiding.
+				|| screen instanceof NexoQolOverlayScreen
+				// Same reasoning, more strongly: the editor needs the crisp real
+				// game (not even blurred) to align things precisely against it.
+				|| screen instanceof NexoHudEditorScreen;
 	}
 }

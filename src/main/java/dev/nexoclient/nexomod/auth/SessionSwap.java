@@ -14,6 +14,7 @@ import net.minecraft.util.Util;
 
 import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.badge.NexoBadges;
+import dev.nexoclient.nexomod.cosmetics.NexoCosmetics;
 import dev.nexoclient.nexomod.mixin.MinecraftUserAccessor;
 
 /**
@@ -39,6 +40,7 @@ public final class SessionSwap {
 		// just switched to has to announce itself — otherwise it stays invisible
 		// to every other Nexo player until the game is restarted.
 		NexoBadges.onAccountChanged();
+		NexoCosmetics.onAccountChanged();
 	}
 
 	/** Switches back to whatever account this game process was actually launched with. */
@@ -50,6 +52,7 @@ public final class SessionSwap {
 			// account, and everything that displays "current account" lies.
 			AccountStore.get().markActive(user.getProfileId());
 			NexoBadges.onAccountChanged();
+			NexoCosmetics.onAccountChanged();
 		});
 	}
 

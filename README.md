@@ -47,21 +47,40 @@ The mod ships as two jars from one source tree: `nexomod` and `nexomod-light`. T
 
 The built jar lands in `build/libs/`. Drop it into your instance's `mods/` folder alongside Fabric API.
 
+Chat archive/filter, chunk memory, and the other features marked "backed by the native core" above are implemented in `rust-core/` — a Rust JNI library, cross-compiled per platform and bundled into the jar by the `cargoBuild` Gradle task, loaded at runtime by `dev.nexoclient.nexomod.nativecore`. `-Pnexo_native_skip=true` builds without it (those features just don't appear). The Java↔Rust boundary is normative in `rust-core/FFI_CONTRACT.md`; change both sides together.
+
 ## Releases
 
-[Nexo Client](https://github.com/Lokifisch/nexo-client)'s in-app installer fetches releases directly from this repo's GitHub Releases API, so every release must publish two assets:
+[Nexo Client](https://github.com/Lokifisch/nexo-client)'s in-app installer and the website's download page both resolve releases from this repo's GitHub Releases API, so every release must publish, for **both editions**, plus one shared manifest:
 
-- the built jar (`nexomod-<version>.jar`)
-- `manifest.json`, declaring what it targets:
+- `nexomod-<version>.jar` (Tactical) and `nexomod-legit-<version>.jar` (Legit)
+- `manifest.json`, declaring what each targets:
   ```json
   {
+  	"mod_version": "0.6.2",
   	"minecraft_version": "26.1.2",
   	"loader": "fabric",
-  	"mod_version": "0.1.0"
+  	"default_edition": "tactical",
+  	"editions": {
+  		"tactical": {
+  			"file": "nexomod-0.6.2.jar",
+  			"mod_id": "nexomod",
+  			"name": "Tactical",
+  			"description": "Every feature, including the ones some servers count as an advantage."
+  		},
+  		"legit": {
+  			"file": "nexomod-legit-0.6.2.jar",
+  			"mod_id": "nexomod-legit",
+  			"name": "Legit",
+  			"description": "Nothing that grants information or automation vanilla withholds — approvable without an audit."
+  		}
+  	}
   }
   ```
 
-The installer reads `manifest.json` to decide compatibility — it never assumes a fixed target version, so this must stay accurate for every release.
+Both consumers read `editions[*].file` out of `manifest.json` rather than guessing from asset names — never assume a fixed target version or a single jar, this must stay accurate for every release. A release missing an edition's jar, or `manifest.json` itself, breaks the installer path and the website's download button for that edition.
+
+There is no release CI: `./gradlew build` already produces both jars in `build/libs/` (`assemble` depends on both `jar` and `legitJar`), so releasing is bump `mod_version` in `gradle.properties`, build, hand-write `manifest.json`, and `gh release create` with all three files attached.
 
 ## Third-party code
 
