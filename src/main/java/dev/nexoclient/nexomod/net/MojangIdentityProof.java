@@ -29,8 +29,8 @@ import net.minecraft.client.User;
  *       joined under that id, which is what proves ownership.</li>
  * </ol>
  *
- * <p>Extracted out of the badge feature so a second feature needing the same
- * proof (cosmetics) does not reimplement the Mojang handshake a second time.
+ * <p>Extracted out of the badge feature so another feature needing the same
+ * proof does not reimplement the Mojang handshake a second time.
  * What differs per feature — which endpoint gets the proof and what else the
  * request body carries — stays with the caller; only the challenge-then-join
  * mechanics live here.

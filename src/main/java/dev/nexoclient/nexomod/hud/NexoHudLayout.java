@@ -47,7 +47,14 @@ public final class NexoHudLayout {
 
 	/** Every HUD element the editor can drag. Adding one here is the only step needed to make it editable. */
 	public enum Element {
-		KEYSTROKES, CPS, ARMOR, STATS, POTION, COMBO, ACTIONBAR_LOG, PICKUP_LOG
+		KEYSTROKES, CPS, ARMOR, STATS, POTION, COMBO, ACTIONBAR_LOG, PICKUP_LOG, INVENTORY,
+		/**
+		 * Vanilla's own HUD pieces, moved by translating the pose vanilla draws
+		 * under rather than by any position of ours — see {@link NexoVanillaHud}.
+		 * Their stored position is still an absolute screen position like every
+		 * other entry here; the offset is derived from it at draw time.
+		 */
+		VANILLA_ACTIONBAR, VANILLA_POTIONS, VANILLA_SCOREBOARD, VANILLA_BOSS_BAR
 	}
 
 	/** Top-left pixel position plus a size multiplier, applied to the element's own nominal size. */

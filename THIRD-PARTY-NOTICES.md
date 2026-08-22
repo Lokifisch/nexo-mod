@@ -272,3 +272,52 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
+
+## RedLime/DetailArmorBar
+
+`assets/nexomod/textures/gui/armor_bar.png` — the armour bar's icon atlas —
+is taken **unchanged** from
+[Detail Armor Bar](https://github.com/RedLime/DetailArmorBar), used under the
+MIT License. It is the only vendored *asset* in this repo, which is why this
+file now ships inside both jars rather than only living here: a jar on a
+release page is a copy, and MIT asks the notice to travel with every copy.
+
+The code in `dev.nexoclient.nexomod.hud.NexoArmorBar` /
+`NexoArmorBarLayout` / `NexoArmorBarEffects` is **not** a port. Detail Armor
+Bar targets 1.21.4 and draws through `Tessellator`, `RenderSystem.setShader`
+and `BufferRenderer`, none of which exist in 26.1; and where it patches
+`InGameHud.renderArmor` with a mixin, this replaces Fabric's
+`VanillaHudElements.ARMOR_BAR` and needs none. What was taken from it, beyond
+the artwork, is the *idea* that armour is counted in points rather than icons,
+so one icon can be half one piece and half another — plus the protection
+colours and the pulse timings, which are conventions worth matching rather
+than reinventing.
+
+Fresh Armor Bar, which prompted the feature, is LGPL-3.0 and was **not**
+read. It contributed the notion of reacting to the damage type; the
+implementation here is written against `LivingEntity.getLastDamageSource`
+and `DamageTypeTags` from scratch.
+
+```
+MIT License
+
+Copyright (c) 2021 RedLime
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

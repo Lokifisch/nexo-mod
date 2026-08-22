@@ -33,6 +33,25 @@ public final class NexoConfig {
 	public static final int MIN_TACTICAL_RANGE = 8;
 	public static final int MAX_TACTICAL_RANGE = 128;
 
+	/** Slider bounds for the zoom key's magnification. 1 would be no zoom at all. */
+	public static final int ZOOM_FACTOR_MIN = 2;
+	public static final int ZOOM_FACTOR_MAX = 10;
+
+	/**
+	 * Slider bounds for the light-level overlay. The radius ceiling is
+	 * deliberately low: the scan is cubic in it, and 32 already means 65×65×17
+	 * block reads per scan.
+	 */
+	public static final int LIGHT_OVERLAY_RADIUS_MIN = 4;
+	public static final int LIGHT_OVERLAY_RADIUS_MAX = 32;
+	/** 0 means "pitch dark only"; 15 would mark every surface in the world. */
+	public static final int LIGHT_OVERLAY_THRESHOLD_MIN = 0;
+	public static final int LIGHT_OVERLAY_THRESHOLD_MAX = 15;
+
+	/** Freecam fly speed multiplier. Held sprint triples whatever this is. */
+	public static final int FREECAM_SPEED_MIN = 1;
+	public static final int FREECAM_SPEED_MAX = 10;
+
 	/**
 	 * Sound categories the tactical indicator listens to out of the box, as a
 	 * bitmask over {@code SoundSource.ordinal()}.
@@ -104,6 +123,32 @@ public final class NexoConfig {
 			MatrixDensity[] values = values();
 			return values[(ordinal() + 1) % values.length];
 		}
+	}
+
+	/**
+	 * How the armour HUD writes a piece's remaining durability.
+	 *
+	 * <p>{@code PERCENT} is the default because the number that matters is "how
+	 * much is left" and the maximum differs per material — 250 is nearly full for
+	 * netherite and nearly gone for a golden helmet. {@code VALUES} shows the raw
+	 * {@code remaining/max} instead, for anyone who counts hits rather than
+	 * eyeballing a fraction. {@code NONE} drops the text and leaves the icon and
+	 * vanilla damage bar, which is the compact option for a horizontal bar.
+	 */
+	public enum ArmorDurabilityMode {
+		PERCENT,
+		VALUES,
+		NONE
+	}
+
+	/**
+	 * Whether armour pieces stack downward or run along a line. {@code HORIZONTAL}
+	 * is what makes the HUD usable parked at the bottom of the screen next to the
+	 * hotbar, where a six-row column would not fit.
+	 */
+	public enum ArmorOrientation {
+		VERTICAL,
+		HORIZONTAL
 	}
 
 	/**
@@ -200,6 +245,27 @@ public final class NexoConfig {
 	private boolean comboCounterEnabled;
 	private boolean actionbarLogEnabled;
 	private boolean pickupLogEnabled;
+	private boolean inventoryHudEnabled;
+	/** Default true — the panel is the existing look, and an update should not silently restyle it. */
+	private boolean inventoryHudBackgroundEnabled = true;
+
+	/**
+	 * HUD cleaner. Every one of these defaults to false: they hide vanilla
+	 * elements, so any other default would change what an existing install draws
+	 * the moment it updates. The first two are only worth turning on once their
+	 * Nexo replacements are on — see {@code NexoHudCleaner}.
+	 */
+	private boolean hideVanillaActionbar;
+	private boolean hideVanillaPotionIcons;
+	private boolean hideScoreboard;
+	private boolean hideBossBars;
+
+	private boolean damageNumbersEnabled;
+
+	private boolean zoomEnabled;
+	/** Stored as a whole number because the slider is integer-only; divided into the camera FOV. */
+	private int zoomFactor = 4;
+	private boolean zoomSmoothEnabled = true;
 
 	/**
 	 * Moved here from the "Full-jar features" block below: armor HUD started as
@@ -212,6 +278,24 @@ public final class NexoConfig {
 	private int armorHudWarnPercent = 20;
 	private boolean armorHudOffhandEnabled = true;
 	private boolean armorHudHeldItemEnabled;
+	private ArmorDurabilityMode armorHudDurabilityMode = ArmorDurabilityMode.PERCENT;
+	private ArmorOrientation armorHudOrientation = ArmorOrientation.VERTICAL;
+
+	/**
+	 * The detailed armour bar — a different feature from the armor HUD above,
+	 * however close the names sit. That one is a column of equipped pieces and
+	 * their durability; this one replaces the ten grey shields on the vanilla
+	 * HUD. The sub-toggles all default on because they only mean anything once
+	 * the master is enabled, and someone who turns it on wants what it does.
+	 */
+	private boolean armorBarEnabled;
+	private boolean armorBarMaterials = true;
+	private boolean armorBarEnchants = true;
+	private boolean armorBarThorns = true;
+	private boolean armorBarDurability = true;
+	private boolean armorBarMending = true;
+	private boolean armorBarDamageFeedback = true;
+	private boolean armorBarDetail = true;
 
 	/**
 	 * Whether this client publishes itself to the badge roster and shows other
@@ -241,15 +325,6 @@ public final class NexoConfig {
 	 */
 	private final Map<UUID, Long> badgeSyncRegisteredAccounts = new ConcurrentHashMap<>();
 
-	/**
-	 * Whether this client syncs cosmetics with the cosmetics service: fetching
-	 * the catalog, resolving what other players have equipped, and answering
-	 * equip/purchase actions. On by default, same reasoning as
-	 * {@link #badgeSyncEnabled} — a marketplace nobody opted into showing
-	 * shows nothing to anyone.
-	 */
-	private boolean cosmeticsEnabled = true;
-
 	// ------------------------------------------------------------------
 	// Full-jar features
 	// ------------------------------------------------------------------
@@ -269,6 +344,12 @@ public final class NexoConfig {
 	private WeatherOverride weatherOverride = WeatherOverride.OFF;
 	private boolean chunkHistoryEnabled;
 	private boolean chunkBorderOverlayEnabled;
+	private boolean lightOverlayEnabled;
+	private int lightOverlayRadius = 16;
+	private int lightOverlayThreshold = 0;
+	private boolean lightOverlayShowSafe;
+	private boolean freecamEnabled;
+	private int freecamSpeed = 2;
 	private boolean macroTriggersEnabled;
 
 	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity, boolean discordRpcEnabled, ObscurePreset obscurePreset, boolean obscureCoordinatesEnabled, boolean obscureBlockRotationEnabled, boolean obscureBedrockFloorEnabled) {
@@ -596,20 +677,6 @@ public final class NexoConfig {
 	}
 
 	// ------------------------------------------------------------------
-	// Cosmetics sync
-	// ------------------------------------------------------------------
-
-	public boolean cosmeticsEnabled() {
-		return cosmeticsEnabled;
-	}
-
-	public void setCosmeticsEnabled(boolean enabled) {
-		this.cosmeticsEnabled = enabled;
-		save();
-		dev.nexoclient.nexomod.cosmetics.NexoCosmetics.onSettingChanged(enabled);
-	}
-
-	// ------------------------------------------------------------------
 	// QoL overlay
 	// ------------------------------------------------------------------
 
@@ -676,6 +743,114 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean inventoryHudEnabled() {
+		return inventoryHudEnabled;
+	}
+
+	public void setInventoryHudEnabled(boolean enabled) {
+		this.inventoryHudEnabled = enabled;
+		save();
+	}
+
+	public boolean inventoryHudBackgroundEnabled() {
+		return inventoryHudBackgroundEnabled;
+	}
+
+	public void setInventoryHudBackgroundEnabled(boolean enabled) {
+		this.inventoryHudBackgroundEnabled = enabled;
+		save();
+	}
+
+	public boolean hideVanillaActionbar() {
+		return hideVanillaActionbar;
+	}
+
+	public void setHideVanillaActionbar(boolean hide) {
+		this.hideVanillaActionbar = hide;
+		save();
+	}
+
+	public boolean hideVanillaPotionIcons() {
+		return hideVanillaPotionIcons;
+	}
+
+	public void setHideVanillaPotionIcons(boolean hide) {
+		this.hideVanillaPotionIcons = hide;
+		save();
+	}
+
+	public boolean hideScoreboard() {
+		return hideScoreboard;
+	}
+
+	public void setHideScoreboard(boolean hide) {
+		this.hideScoreboard = hide;
+		save();
+	}
+
+	public boolean hideBossBars() {
+		return hideBossBars;
+	}
+
+	public void setHideBossBars(boolean hide) {
+		this.hideBossBars = hide;
+		save();
+	}
+
+	/** Whether the HUD cleaner is hiding anything at all — drives its QoL row's on/off tint. */
+	public boolean hudCleanerActive() {
+		return hideVanillaActionbar || hideVanillaPotionIcons || hideScoreboard || hideBossBars;
+	}
+
+	/**
+	 * All four hide toggles at once, for the QoL row's pill — that row shows one
+	 * on/off state derived from four settings, so the pill has to write all four
+	 * or it could not honour what it displays. Saves once rather than four times.
+	 */
+	public void setHudCleanerAll(boolean hide) {
+		this.hideVanillaActionbar = hide;
+		this.hideVanillaPotionIcons = hide;
+		this.hideScoreboard = hide;
+		this.hideBossBars = hide;
+		save();
+	}
+
+	public boolean damageNumbersEnabled() {
+		return damageNumbersEnabled;
+	}
+
+	public void setDamageNumbersEnabled(boolean enabled) {
+		this.damageNumbersEnabled = enabled;
+		save();
+	}
+
+	public boolean zoomEnabled() {
+		return zoomEnabled;
+	}
+
+	public void setZoomEnabled(boolean enabled) {
+		this.zoomEnabled = enabled;
+		save();
+	}
+
+	public int zoomFactor() {
+		return zoomFactor;
+	}
+
+	public void setZoomFactor(int factor) {
+		this.zoomFactor = Math.clamp(factor, ZOOM_FACTOR_MIN, ZOOM_FACTOR_MAX);
+		save();
+	}
+
+	public boolean zoomSmoothEnabled() {
+		return zoomSmoothEnabled;
+	}
+
+	public void setZoomSmoothEnabled(boolean enabled) {
+		this.zoomSmoothEnabled = enabled;
+		save();
+	}
+
 	// ------------------------------------------------------------------
 	// Tactical sound indicator (full jar only)
 	// ------------------------------------------------------------------
@@ -725,6 +900,87 @@ public final class NexoConfig {
 	}
 
 	// ------------------------------------------------------------------
+	// Detailed armour bar (src/main — both jars; see hud.NexoArmorBar)
+	// ------------------------------------------------------------------
+
+	public boolean armorBarEnabled() {
+		return armorBarEnabled;
+	}
+
+	public void setArmorBarEnabled(boolean enabled) {
+		this.armorBarEnabled = enabled;
+		save();
+	}
+
+	/** Colour each icon by what the armour is made of, rather than all grey. */
+	public boolean armorBarMaterials() {
+		return armorBarMaterials;
+	}
+
+	public void setArmorBarMaterials(boolean enabled) {
+		this.armorBarMaterials = enabled;
+		save();
+	}
+
+	/** The Protection-family aura. */
+	public boolean armorBarEnchants() {
+		return armorBarEnchants;
+	}
+
+	public void setArmorBarEnchants(boolean enabled) {
+		this.armorBarEnchants = enabled;
+		save();
+	}
+
+	public boolean armorBarThorns() {
+		return armorBarThorns;
+	}
+
+	public void setArmorBarThorns(boolean enabled) {
+		this.armorBarThorns = enabled;
+		save();
+	}
+
+	/** Red pulse over the icons a nearly-broken piece is paying for. */
+	public boolean armorBarDurability() {
+		return armorBarDurability;
+	}
+
+	public void setArmorBarDurability(boolean enabled) {
+		this.armorBarDurability = enabled;
+		save();
+	}
+
+	public boolean armorBarMending() {
+		return armorBarMending;
+	}
+
+	public void setArmorBarMending(boolean enabled) {
+		this.armorBarMending = enabled;
+		save();
+	}
+
+	/** React to a hit in the colour of whatever caused it. */
+	public boolean armorBarDamageFeedback() {
+		return armorBarDamageFeedback;
+	}
+
+	public void setArmorBarDamageFeedback(boolean enabled) {
+		this.armorBarDamageFeedback = enabled;
+		save();
+	}
+
+	/** Enchantment sheen and armour-trim colours — the two "this piece is special" hints. */
+	public boolean armorBarDetail() {
+		return armorBarDetail;
+	}
+
+	public void setArmorBarDetail(boolean enabled) {
+		this.armorBarDetail = enabled;
+		save();
+	}
+
+	// ------------------------------------------------------------------
 	// Smart armor HUD (src/main — both jars; see hud.NexoArmorHud)
 	// ------------------------------------------------------------------
 
@@ -762,6 +1018,24 @@ public final class NexoConfig {
 
 	public void setArmorHudHeldItemEnabled(boolean enabled) {
 		this.armorHudHeldItemEnabled = enabled;
+		save();
+	}
+
+	public ArmorDurabilityMode armorHudDurabilityMode() {
+		return armorHudDurabilityMode;
+	}
+
+	public void setArmorHudDurabilityMode(ArmorDurabilityMode mode) {
+		this.armorHudDurabilityMode = mode;
+		save();
+	}
+
+	public ArmorOrientation armorHudOrientation() {
+		return armorHudOrientation;
+	}
+
+	public void setArmorHudOrientation(ArmorOrientation orientation) {
+		this.armorHudOrientation = orientation;
 		save();
 	}
 
@@ -809,6 +1083,60 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean lightOverlayEnabled() {
+		return lightOverlayEnabled;
+	}
+
+	public void setLightOverlayEnabled(boolean enabled) {
+		this.lightOverlayEnabled = enabled;
+		save();
+	}
+
+	public int lightOverlayRadius() {
+		return lightOverlayRadius;
+	}
+
+	public void setLightOverlayRadius(int radius) {
+		this.lightOverlayRadius = Math.clamp(radius, LIGHT_OVERLAY_RADIUS_MIN, LIGHT_OVERLAY_RADIUS_MAX);
+		save();
+	}
+
+	public int lightOverlayThreshold() {
+		return lightOverlayThreshold;
+	}
+
+	public void setLightOverlayThreshold(int threshold) {
+		this.lightOverlayThreshold = Math.clamp(threshold, LIGHT_OVERLAY_THRESHOLD_MIN, LIGHT_OVERLAY_THRESHOLD_MAX);
+		save();
+	}
+
+	public boolean lightOverlayShowSafe() {
+		return lightOverlayShowSafe;
+	}
+
+	public void setLightOverlayShowSafe(boolean show) {
+		this.lightOverlayShowSafe = show;
+		save();
+	}
+
+	public boolean freecamEnabled() {
+		return freecamEnabled;
+	}
+
+	public void setFreecamEnabled(boolean enabled) {
+		this.freecamEnabled = enabled;
+		save();
+	}
+
+	public int freecamSpeed() {
+		return freecamSpeed;
+	}
+
+	public void setFreecamSpeed(int speed) {
+		this.freecamSpeed = Math.clamp(speed, FREECAM_SPEED_MIN, FREECAM_SPEED_MAX);
+		save();
+	}
+
 	public boolean macroTriggersEnabled() {
 		return macroTriggersEnabled;
 	}
@@ -843,7 +1171,6 @@ public final class NexoConfig {
 				.withBedrockHoleSettings(props)
 				.withChatSettings(props)
 				.withBadgeSettings(props)
-				.withCosmeticsSettings(props)
 				.withQolOverlaySettings(props)
 				.withArmorHudSettings(props)
 				.withFullFeatureSettings(props);
@@ -855,14 +1182,19 @@ public final class NexoConfig {
 		armorHudWarnPercent = boundedIntOrDefault(props.getProperty("armorHudWarnPercent"), 20, 0, 100);
 		armorHudOffhandEnabled = Boolean.parseBoolean(props.getProperty("armorHudOffhandEnabled", "true"));
 		armorHudHeldItemEnabled = Boolean.parseBoolean(props.getProperty("armorHudHeldItemEnabled", "false"));
+		armorHudDurabilityMode = enumOrDefault(ArmorDurabilityMode.class, props.getProperty("armorHudDurabilityMode"), ArmorDurabilityMode.PERCENT);
+		armorHudOrientation = enumOrDefault(ArmorOrientation.class, props.getProperty("armorHudOrientation"), ArmorOrientation.VERTICAL);
+		armorBarEnabled = Boolean.parseBoolean(props.getProperty("armorBarEnabled", "false"));
+		armorBarMaterials = Boolean.parseBoolean(props.getProperty("armorBarMaterials", "true"));
+		armorBarEnchants = Boolean.parseBoolean(props.getProperty("armorBarEnchants", "true"));
+		armorBarThorns = Boolean.parseBoolean(props.getProperty("armorBarThorns", "true"));
+		armorBarDurability = Boolean.parseBoolean(props.getProperty("armorBarDurability", "true"));
+		armorBarMending = Boolean.parseBoolean(props.getProperty("armorBarMending", "true"));
+		armorBarDamageFeedback = Boolean.parseBoolean(props.getProperty("armorBarDamageFeedback", "true"));
+		armorBarDetail = Boolean.parseBoolean(props.getProperty("armorBarDetail", "true"));
 		return this;
 	}
 
-	/** @see #withBedrockHoleSettings for why these are applied after construction. */
-	private NexoConfig withCosmeticsSettings(Properties props) {
-		cosmeticsEnabled = Boolean.parseBoolean(props.getProperty("cosmeticsEnabled", "true"));
-		return this;
-	}
 
 	/** @see #withBedrockHoleSettings for why these are applied after construction. */
 	private NexoConfig withQolOverlaySettings(Properties props) {
@@ -873,6 +1205,16 @@ public final class NexoConfig {
 		comboCounterEnabled = Boolean.parseBoolean(props.getProperty("comboCounterEnabled", "false"));
 		actionbarLogEnabled = Boolean.parseBoolean(props.getProperty("actionbarLogEnabled", "false"));
 		pickupLogEnabled = Boolean.parseBoolean(props.getProperty("pickupLogEnabled", "false"));
+		inventoryHudEnabled = Boolean.parseBoolean(props.getProperty("inventoryHudEnabled", "false"));
+		inventoryHudBackgroundEnabled = Boolean.parseBoolean(props.getProperty("inventoryHudBackgroundEnabled", "true"));
+		hideVanillaActionbar = Boolean.parseBoolean(props.getProperty("hideVanillaActionbar", "false"));
+		hideVanillaPotionIcons = Boolean.parseBoolean(props.getProperty("hideVanillaPotionIcons", "false"));
+		hideScoreboard = Boolean.parseBoolean(props.getProperty("hideScoreboard", "false"));
+		hideBossBars = Boolean.parseBoolean(props.getProperty("hideBossBars", "false"));
+		damageNumbersEnabled = Boolean.parseBoolean(props.getProperty("damageNumbersEnabled", "false"));
+		zoomEnabled = Boolean.parseBoolean(props.getProperty("zoomEnabled", "false"));
+		zoomFactor = boundedIntOrDefault(props.getProperty("zoomFactor"), 4, ZOOM_FACTOR_MIN, ZOOM_FACTOR_MAX);
+		zoomSmoothEnabled = Boolean.parseBoolean(props.getProperty("zoomSmoothEnabled", "true"));
 		return this;
 	}
 
@@ -932,6 +1274,15 @@ public final class NexoConfig {
 		weatherOverride = enumOrDefault(WeatherOverride.class, props.getProperty("weatherOverride"), WeatherOverride.OFF);
 		chunkHistoryEnabled = Boolean.parseBoolean(props.getProperty("chunkHistoryEnabled", "false"));
 		chunkBorderOverlayEnabled = Boolean.parseBoolean(props.getProperty("chunkBorderOverlayEnabled", "false"));
+		lightOverlayEnabled = Boolean.parseBoolean(props.getProperty("lightOverlayEnabled", "false"));
+		lightOverlayRadius = boundedIntOrDefault(props.getProperty("lightOverlayRadius"), 16,
+				LIGHT_OVERLAY_RADIUS_MIN, LIGHT_OVERLAY_RADIUS_MAX);
+		lightOverlayThreshold = boundedIntOrDefault(props.getProperty("lightOverlayThreshold"), 0,
+				LIGHT_OVERLAY_THRESHOLD_MIN, LIGHT_OVERLAY_THRESHOLD_MAX);
+		lightOverlayShowSafe = Boolean.parseBoolean(props.getProperty("lightOverlayShowSafe", "false"));
+		freecamEnabled = Boolean.parseBoolean(props.getProperty("freecamEnabled", "false"));
+		freecamSpeed = boundedIntOrDefault(props.getProperty("freecamSpeed"), 2,
+				FREECAM_SPEED_MIN, FREECAM_SPEED_MAX);
 		macroTriggersEnabled = Boolean.parseBoolean(props.getProperty("macroTriggersEnabled", "false"));
 		return this;
 	}
@@ -1022,7 +1373,6 @@ public final class NexoConfig {
 				.map(entry -> entry.getKey() + "=" + entry.getValue())
 				.sorted()
 				.collect(Collectors.joining(",")));
-		props.setProperty("cosmeticsEnabled", Boolean.toString(cosmeticsEnabled));
 		props.setProperty("keystrokesHudEnabled", Boolean.toString(keystrokesHudEnabled));
 		props.setProperty("cpsCounterEnabled", Boolean.toString(cpsCounterEnabled));
 		props.setProperty("statsHudEnabled", Boolean.toString(statsHudEnabled));
@@ -1030,6 +1380,16 @@ public final class NexoConfig {
 		props.setProperty("comboCounterEnabled", Boolean.toString(comboCounterEnabled));
 		props.setProperty("actionbarLogEnabled", Boolean.toString(actionbarLogEnabled));
 		props.setProperty("pickupLogEnabled", Boolean.toString(pickupLogEnabled));
+		props.setProperty("inventoryHudEnabled", Boolean.toString(inventoryHudEnabled));
+		props.setProperty("inventoryHudBackgroundEnabled", Boolean.toString(inventoryHudBackgroundEnabled));
+		props.setProperty("hideVanillaActionbar", Boolean.toString(hideVanillaActionbar));
+		props.setProperty("hideVanillaPotionIcons", Boolean.toString(hideVanillaPotionIcons));
+		props.setProperty("hideScoreboard", Boolean.toString(hideScoreboard));
+		props.setProperty("hideBossBars", Boolean.toString(hideBossBars));
+		props.setProperty("damageNumbersEnabled", Boolean.toString(damageNumbersEnabled));
+		props.setProperty("zoomEnabled", Boolean.toString(zoomEnabled));
+		props.setProperty("zoomFactor", Integer.toString(zoomFactor));
+		props.setProperty("zoomSmoothEnabled", Boolean.toString(zoomSmoothEnabled));
 		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));
 		props.setProperty("tacticalRange", Integer.toString(tacticalRange));
 		props.setProperty("tacticalCategoryMask", Integer.toString(tacticalCategoryMask));
@@ -1038,10 +1398,26 @@ public final class NexoConfig {
 		props.setProperty("armorHudWarnPercent", Integer.toString(armorHudWarnPercent));
 		props.setProperty("armorHudOffhandEnabled", Boolean.toString(armorHudOffhandEnabled));
 		props.setProperty("armorHudHeldItemEnabled", Boolean.toString(armorHudHeldItemEnabled));
+		props.setProperty("armorHudDurabilityMode", armorHudDurabilityMode.name());
+		props.setProperty("armorHudOrientation", armorHudOrientation.name());
+		props.setProperty("armorBarEnabled", Boolean.toString(armorBarEnabled));
+		props.setProperty("armorBarMaterials", Boolean.toString(armorBarMaterials));
+		props.setProperty("armorBarEnchants", Boolean.toString(armorBarEnchants));
+		props.setProperty("armorBarThorns", Boolean.toString(armorBarThorns));
+		props.setProperty("armorBarDurability", Boolean.toString(armorBarDurability));
+		props.setProperty("armorBarMending", Boolean.toString(armorBarMending));
+		props.setProperty("armorBarDamageFeedback", Boolean.toString(armorBarDamageFeedback));
+		props.setProperty("armorBarDetail", Boolean.toString(armorBarDetail));
 		props.setProperty("timeOverride", timeOverride.name());
 		props.setProperty("weatherOverride", weatherOverride.name());
 		props.setProperty("chunkHistoryEnabled", Boolean.toString(chunkHistoryEnabled));
 		props.setProperty("chunkBorderOverlayEnabled", Boolean.toString(chunkBorderOverlayEnabled));
+		props.setProperty("lightOverlayEnabled", Boolean.toString(lightOverlayEnabled));
+		props.setProperty("lightOverlayRadius", Integer.toString(lightOverlayRadius));
+		props.setProperty("lightOverlayThreshold", Integer.toString(lightOverlayThreshold));
+		props.setProperty("lightOverlayShowSafe", Boolean.toString(lightOverlayShowSafe));
+		props.setProperty("freecamEnabled", Boolean.toString(freecamEnabled));
+		props.setProperty("freecamSpeed", Integer.toString(freecamSpeed));
 		props.setProperty("macroTriggersEnabled", Boolean.toString(macroTriggersEnabled));
 		try {
 			Files.createDirectories(PATH.getParent());

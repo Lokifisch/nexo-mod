@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import net.minecraft.client.gui.components.ScrollableLayout;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.ConfirmScreen;
@@ -24,6 +25,16 @@ import dev.nexoclient.nexomod.auth.SessionSwap;
 public class AccountSwitcherScreen extends NexoModalScreen {
 	private static final int ROW_WIDTH = 240;
 	private static final int ROW_HEIGHT = 24;
+	private static final int ROW_SPACING = 4;
+	/** Account rows shown at once; past this the list scrolls. */
+	private static final int VISIBLE_ROWS = 5;
+	/** The "..." logout button sharing each row with the account itself. */
+	private static final int LOGOUT_BUTTON_WIDTH = 20;
+
+	/** Rebuilt per init() for the same reason {@link NexoModalScreen}'s layout is. */
+	private LinearLayout accountList;
+	private ScrollableLayout accountScroll;
+	private int rowCount;
 
 	public AccountSwitcherScreen(Screen parent) {
 		super(Component.translatable("nexomod.accounts.title"), parent);
@@ -34,6 +45,7 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 		super.init();
 		LauncherAccount.captureIfNeeded();
 
+		accountList = LinearLayout.vertical().spacing(ROW_SPACING);
 		layout.defaultCellSetting().alignHorizontallyCenter();
 		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
 
@@ -42,17 +54,28 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 		// it's the only source that also covers the launcher's own un-stored account.
 		UUID activeUuid = minecraft.getUser().getProfileId();
 
+		rowCount = 0;
 		for (RowEntry entry : buildRows(store)) {
-			LinearLayout row = layout.addChild(LinearLayout.horizontal().spacing(4));
+			LinearLayout row = accountList.addChild(LinearLayout.horizontal().spacing(4));
 			boolean isCurrent = activeUuid != null && activeUuid.equals(entry.uuid);
 			boolean isOffline = entry.storedAccount() != null && entry.storedAccount().offline();
 			row.addChild(new AccountRowWidget(0, 0, ROW_WIDTH, ROW_HEIGHT, entry.uuid, entry.name, isCurrent, entry.isLauncherAccount, isOffline,
 					() -> switchTo(entry)));
 
-			NexoButton logoutButton = NexoButton.builder(Component.literal("..."), () -> confirmLogout(entry)).size(20, ROW_HEIGHT).build();
+			NexoButton logoutButton = NexoButton.builder(Component.literal("..."), () -> confirmLogout(entry)).size(LOGOUT_BUTTON_WIDTH, ROW_HEIGHT).build();
 			logoutButton.active = !entry.isLauncherAccount;
 			row.addChild(logoutButton);
+			rowCount++;
 		}
+
+		// Measure before wrapping — see NexoQolOverlayScreen.init() for why an
+		// unmeasured content layout makes ScrollableLayout hide its own rows.
+		accountList.arrangeElements();
+		// maxHeight is set for real in repositionElements; this value only has to
+		// be non-zero for the container to be constructible.
+		accountScroll = new ScrollableLayout(minecraft, accountList, listMaxHeight());
+		accountScroll.setMinWidth(ROW_WIDTH + ROW_SPACING + LOGOUT_BUTTON_WIDTH);
+		layout.addChild(accountScroll);
 
 		LinearLayout buttonRow = layout.addChild(LinearLayout.horizontal().spacing(4));
 		buttonRow.defaultCellSetting().paddingTop(10);
@@ -60,8 +83,30 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 		buttonRow.addChild(NexoButton.builder(Component.translatable("nexomod.accounts.offline"), () -> minecraft.setScreen(new OfflineLoginScreen(this))).build());
 		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_DONE, this::onClose).build());
 
-		layout.visitWidgets(this::addRenderableWidget);
-		repositionElements();
+		finishLayout();
+	}
+
+	/**
+	 * {@link #VISIBLE_ROWS} rows at most, but never more than there are accounts —
+	 * one signed-in account should get a one-row panel, not a tall box with four
+	 * empty slots — and never more than the window can hold above the title and
+	 * the button row.
+	 */
+	private int listMaxHeight() {
+		int wanted = VISIBLE_ROWS * ROW_HEIGHT + (VISIBLE_ROWS - 1) * ROW_SPACING;
+		int content = Math.max(1, rowCount) * ROW_HEIGHT + Math.max(0, rowCount - 1) * ROW_SPACING;
+		int available = height - 120;
+		return Math.max(ROW_HEIGHT, Math.min(Math.min(wanted, content), available));
+	}
+
+	@Override
+	protected void repositionElements() {
+		// Guards the super call made from NexoModalScreen.init(), before init()
+		// here has had a chance to build the scroll area.
+		if (accountScroll != null) {
+			accountScroll.setMaxHeight(listMaxHeight());
+		}
+		super.repositionElements();
 	}
 
 	private record RowEntry(UUID uuid, String name, boolean isLauncherAccount, MinecraftAccount storedAccount) {}

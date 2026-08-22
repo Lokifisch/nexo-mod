@@ -20,6 +20,7 @@ The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client) �
 - **Quick server switching** — a short list of favourite servers you can jump between without going back through the pause menu and the multiplayer list. Reachable from Nexo Settings → Quick Servers or from a keybind while you're in a world; it disconnects the way the pause menu's Disconnect button does and then connects.
 - **Nexo badges** — the Nexo logo next to your name in the tab list and above your head, and next to the names of other players who also use Nexo. Nothing inside the game can carry that fact between two clients — the mod is client-only and a vanilla server drops custom payloads it doesn't recognise — so it comes from a small roster service instead: your client downloads the set of Nexo users every half hour and matches names against it locally. It never uploads who is playing near you, and what it publishes about you is a one-way hash of your UUID, proven with Mojang's own session handshake so nobody can claim someone else's badge. Your own badge needs no network at all. On by default, and turning it off in Nexo Settings removes you from the list rather than just hiding it.
 - **Clean-screenshot toggle** — one keybind that takes everything Nexo draws off the screen at once: badges, the inventory watermark, the neon re-skin. In-memory only, so a restart never leaves you looking at a mod that seems uninstalled, and there's no resource reload.
+- **Detailed armour bar** — replaces vanilla's ten identical grey shields with a bar that says what the armour is made of (leather takes its dye; modded armour falls back to plain iron rather than vanishing), which Protection enchantment is on it, whether a piece is one hit from breaking, and what just hit you — fire, explosion, projectile or fall, each in its own colour. Damage that ignores armour deliberately draws nothing, because saying the armour helped would be a lie. Armour is counted in points rather than icons, so one shield can be half diamond and half iron where two pieces meet, and armour past twenty collapses into pips rather than growing a second row into the health bar. Every part of it toggles separately in the QoL menu; off by default, and turning it off gives you vanilla's bar back rather than a gap.
 
 ### Nexo+ (full jar only)
 
@@ -90,7 +91,10 @@ This mod adapts real, working code from a couple of MIT-licensed open-source pro
 - [axieum/authme](https://github.com/axieum/authme) — Microsoft OAuth sign-in flow
 - [JnCrMx/discord-game-sdk4j](https://github.com/JnCrMx/discord-game-sdk4j) (MIT) — pure-Java implementation of Discord's local RPC protocol, used as a dependency (not vendored) for Rich Presence
 - [Fix85/SelfNametag](https://github.com/Fix85/SelfNametag) — own-nametag visibility technique
+- [RedLime/DetailArmorBar](https://github.com/RedLime/DetailArmorBar) (MIT) — the armour bar's icon atlas, vendored unchanged; the code around it is not a port
 - [Noto Sans](https://fonts.google.com/noto) (Google, SIL OFL) — bundled UI font
+
+`THIRD-PARTY-NOTICES.md` ships inside both jars as well as living here, since the vendored artwork's licence asks for its notice to travel with every copy.
 
 ## License
 

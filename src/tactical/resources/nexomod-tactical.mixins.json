@@ -6,7 +6,8 @@
 		"BedrockHoleWallOverlayMixin",
 		"SoundDirectionMixin",
 		"ClientClockOverrideMixin",
-		"WeatherOverrideMixin"
+		"WeatherOverrideMixin",
+		"FreecamCameraMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

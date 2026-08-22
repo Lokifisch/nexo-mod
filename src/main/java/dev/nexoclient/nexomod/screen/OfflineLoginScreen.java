@@ -37,8 +37,7 @@ public class OfflineLoginScreen extends NexoModalScreen {
 		buttonRow.addChild(NexoButton.builder(Component.translatable("nexomod.login.offline.play"), this::play).build());
 		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_CANCEL, () -> minecraft.setScreen(parent)).build());
 
-		layout.visitWidgets(this::addRenderableWidget);
-		repositionElements();
+		finishLayout();
 		setInitialFocus(usernameBox);
 	}
 

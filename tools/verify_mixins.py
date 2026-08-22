@@ -1041,8 +1041,8 @@ def main():
     configs = [
         (root / "src/main/resources/nexomod.mixins.json",
          root / "build/classes/java/main"),
-        (root / "src/full/resources/nexomod-tactical.mixins.json",
-         root / "build/classes/java/full"),
+        (root / "src/tactical/resources/nexomod-tactical.mixins.json",
+         root / "build/classes/java/tactical"),
     ]
 
     all_summaries = []
@@ -1073,8 +1073,8 @@ def main():
                        "it will never be applied")
 
         # staleness guard: a .class older than its .java is a lie
-        src_dir = (root / "src/main/java" if "full" not in str(classes_dir)
-                   else root / "src/full/java") / pkg
+        src_dir = (root / "src/main/java" if "tactical" not in str(classes_dir)
+                   else root / "src/tactical/java") / pkg
         for java in sorted(src_dir.glob("*.java")):
             cls = pkg_dir / (java.stem + ".class")
             if cls.exists() and cls.stat().st_mtime < java.stat().st_mtime:

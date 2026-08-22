@@ -25,11 +25,9 @@
 		"XaeroWorldMapCoordsMixin",
 		"ChatMessageInterceptMixin",
 		"ChatSenderCaptureMixin",
-		"AvatarRenderStateCosmeticMixin",
-		"AvatarCosmeticExtractMixin",
-		"VanillaCapeSuppressionMixin",
 		"ActionbarLogMixin",
-		"PickupLogMixin"
+		"PickupLogMixin",
+		"CameraZoomMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

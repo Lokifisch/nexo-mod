@@ -3,6 +3,8 @@ package dev.nexoclient.nexomod.hud;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.joml.Matrix3x2fStack;
+
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
@@ -60,10 +62,19 @@ public final class NexoArmorHud implements HudElement {
 	private static final int TEXT_GAP = 4;
 	private static final int TEXT_WIDTH_ESTIMATE = 30;
 
-	/** Armour slots (4) plus main hand and off-hand — the most rows this ever draws at once. */
+	/** Armour slots (4) plus main hand and off-hand — the most cells this ever draws at once. */
 	private static final int NOMINAL_ROWS = 6;
 	private static final int NOMINAL_WIDTH = ICON + TEXT_GAP + TEXT_WIDTH_ESTIMATE;
 	private static final int NOMINAL_HEIGHT = ROW_HEIGHT * NOMINAL_ROWS;
+	/**
+	 * Laid out along a line instead of down a column, a cell is the icon with its
+	 * label centred underneath rather than beside it — putting the text to the
+	 * side would make the bar {@code 6 × (16 + 4 + 30)} = 300px wide.
+	 */
+	private static final int H_CELL_WIDTH = ICON + 4;
+	private static final int H_CELL_HEIGHT = ICON + 10;
+	/** Durability text under a horizontal icon is drawn this much smaller — see drawHorizontal. */
+	private static final float H_LABEL_SCALE = 0.5F;
 
 	/** Top to bottom, the order the pieces sit on the body. */
 	private static final EquipmentSlot[] ARMOR = {
@@ -81,14 +92,32 @@ public final class NexoArmorHud implements HudElement {
 		HudElementRegistry.attachElementAfter(VanillaHudElements.ARMOR_BAR, ID, new NexoArmorHud());
 	}
 
-	/** Where this element draws right now — shared by rendering and the layout editor. */
+	/**
+	 * Where this element draws right now — shared by rendering and the layout
+	 * editor. The nominal box swaps its axes with the orientation, and the default
+	 * position follows: a column hugs the right edge, a bar centres itself just
+	 * above the hotbar, which is the "lying along the bottom" placement horizontal
+	 * mode exists for. A saved override still wins over both.
+	 */
 	public static ScreenRectangle resolveBounds(int guiWidth, int guiHeight) {
+		boolean horizontal = NexoConfig.get().armorHudOrientation() == NexoConfig.ArmorOrientation.HORIZONTAL;
 		NexoHudLayout.Position override = NexoHudLayout.get().get(NexoHudLayout.Element.ARMOR);
 		float scale = override != null ? override.scale : 1f;
-		int width = Math.round(NOMINAL_WIDTH * scale);
-		int height = Math.round(NOMINAL_HEIGHT * scale);
-		int x = override != null ? override.x : guiWidth - EDGE_MARGIN - width;
-		int y = override != null ? override.y : (guiHeight - height) / 2;
+		int width = Math.round((horizontal ? H_CELL_WIDTH * NOMINAL_ROWS : NOMINAL_WIDTH) * scale);
+		int height = Math.round((horizontal ? H_CELL_HEIGHT : NOMINAL_HEIGHT) * scale);
+		int x;
+		int y;
+		if (override != null) {
+			x = override.x;
+			y = override.y;
+		} else if (horizontal) {
+			x = (guiWidth - width) / 2;
+			// Clear of the hotbar (22px) and the status bars stacked above it.
+			y = guiHeight - height - 22 - EDGE_MARGIN - 12;
+		} else {
+			x = guiWidth - EDGE_MARGIN - width;
+			y = (guiHeight - height) / 2;
+		}
 		return NexoHudBounds.clamp(x, y, width, height, guiWidth, guiHeight);
 	}
 
@@ -160,6 +189,16 @@ public final class NexoArmorHud implements HudElement {
 		diagnose("drawing " + rows.size() + " row(s) at bounds=" + bounds
 				+ " guiSize=" + graphics.guiWidth() + "x" + graphics.guiHeight()
 				+ " override=" + (override == null ? "none" : override.x + "," + override.y + "@" + override.scale));
+		if (config.armorHudOrientation() == NexoConfig.ArmorOrientation.HORIZONTAL) {
+			drawHorizontal(graphics, client, player, rows, bounds, scale, config);
+		} else {
+			drawVertical(graphics, client, player, rows, bounds, scale, config);
+		}
+	}
+
+	/** A column against an edge: icon on the right, durability text to its left. */
+	private static void drawVertical(GuiGraphicsExtractor graphics, Minecraft client, LocalPlayer player,
+			List<ItemStack> rows, ScreenRectangle bounds, float scale, NexoConfig config) {
 		int icon = Math.round(ICON * scale);
 		int rowHeight = Math.round(ROW_HEIGHT * scale);
 		int textGap = Math.round(TEXT_GAP * scale);
@@ -176,7 +215,7 @@ public final class NexoArmorHud implements HudElement {
 			graphics.item(player, stack, iconX, y, 0);
 			graphics.itemDecorations(font, stack, iconX, y);
 
-			Component label = durabilityLabel(stack);
+			Component label = durabilityLabel(stack, config.armorHudDurabilityMode());
 			if (label != null) {
 				int width = font.width(label);
 				graphics.text(font, label, iconX - textGap - width, y + ((icon - font.lineHeight) / 2) + 1,
@@ -187,14 +226,54 @@ public final class NexoArmorHud implements HudElement {
 	}
 
 	/**
-	 * Remaining durability as a percentage, or null for an item that cannot
-	 * break. A percentage is used rather than "137/250" because the number that
-	 * matters is "how much is left", and the maximum differs per material — 250
-	 * is nearly full for netherite and nearly gone for a golden helmet.
+	 * A bar along a line: icons side by side with their labels centred
+	 * underneath. The label is drawn at half scale because "1561/1561" under a
+	 * 16px icon is otherwise three times wider than the icon it belongs to, and
+	 * the whole point of this mode is a strip that fits under the hotbar.
 	 */
-	private static Component durabilityLabel(ItemStack stack) {
-		if (!stack.isDamageableItem()) {
+	private static void drawHorizontal(GuiGraphicsExtractor graphics, Minecraft client, LocalPlayer player,
+			List<ItemStack> rows, ScreenRectangle bounds, float scale, NexoConfig config) {
+		int icon = Math.round(ICON * scale);
+		int cellWidth = Math.round(H_CELL_WIDTH * scale);
+		Font font = client.font;
+
+		int x = bounds.left() + (bounds.width() - rows.size() * cellWidth) / 2;
+		int y = bounds.top();
+
+		for (ItemStack stack : rows) {
+			int iconX = x + (cellWidth - icon) / 2;
+			graphics.item(player, stack, iconX, y, 0);
+			graphics.itemDecorations(font, stack, iconX, y);
+
+			Component label = durabilityLabel(stack, config.armorHudDurabilityMode());
+			if (label != null) {
+				Matrix3x2fStack pose = graphics.pose();
+				pose.pushMatrix();
+				pose.scale(H_LABEL_SCALE, H_LABEL_SCALE);
+				int width = Math.round(font.width(label) * H_LABEL_SCALE * scale);
+				int labelX = x + (cellWidth - width) / 2;
+				int labelY = y + icon + 1;
+				graphics.text(font, label,
+						Math.round(labelX / H_LABEL_SCALE), Math.round(labelY / H_LABEL_SCALE),
+						colorFor(stack, config.armorHudWarnPercent()));
+				pose.popMatrix();
+			}
+			x += cellWidth;
+		}
+	}
+
+	/**
+	 * Remaining durability in whichever form the config asks for, or null when
+	 * there is nothing to say — an item that cannot break, or
+	 * {@link NexoConfig.ArmorDurabilityMode#NONE}.
+	 */
+	private static Component durabilityLabel(ItemStack stack, NexoConfig.ArmorDurabilityMode mode) {
+		if (!stack.isDamageableItem() || mode == NexoConfig.ArmorDurabilityMode.NONE) {
 			return null;
+		}
+		if (mode == NexoConfig.ArmorDurabilityMode.VALUES) {
+			int max = stack.getMaxDamage();
+			return Component.literal((max - stack.getDamageValue()) + "/" + max);
 		}
 		return Component.literal(remainingPercent(stack) + "%");
 	}

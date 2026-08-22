@@ -32,7 +32,6 @@ public class NexoPotionConfigScreen extends NexoModalScreen {
 						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
-		layout.visitWidgets(this::addRenderableWidget);
-		repositionElements();
+		finishLayout();
 	}
 }

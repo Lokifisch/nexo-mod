@@ -38,6 +38,17 @@ public final class NexoStyle {
 	}
 
 	/**
+	 * The same color at {@code factor} of its current opacity — for fading a
+	 * palette constant in or out without writing the ARGB shuffle at every
+	 * call site. Scales the existing alpha rather than replacing it, so a
+	 * constant that is already translucent stays proportionally so.
+	 */
+	static int fade(int color, float factor) {
+		int alpha = (int) (((color >>> 24) & 0xFF) * Mth.clamp(factor, 0F, 1F));
+		return (alpha << 24) | (color & 0xFFFFFF);
+	}
+
+	/**
 	 * A full hue sweep, for accents meant to read as a rainbow rather than as the
 	 * brand ramp {@link #cycle} walks. Saturation and value are pinned high so it
 	 * stays legible against dark rock at every hue.

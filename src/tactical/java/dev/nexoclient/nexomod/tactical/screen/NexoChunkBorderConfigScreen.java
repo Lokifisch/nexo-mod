@@ -33,7 +33,6 @@ public class NexoChunkBorderConfigScreen extends NexoModalScreen {
 					minecraft.setScreen(new NexoChunkBorderConfigScreen(parent));
 				}));
 
-		layout.visitWidgets(this::addRenderableWidget);
-		repositionElements();
+		finishLayout();
 	}
 }

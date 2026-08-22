@@ -336,7 +336,7 @@ def tacticalManifestTokens = [
 		version         : project.version,
 		mod_id          : 'nexomod',
 		mod_name        : 'Nexo Mod Tactical',
-		mod_description : 'The Nexo client mod: features, cosmetics, and UI that make the Nexo launcher feel like a client while staying a normal, portable mod.',
+		mod_description : 'The Nexo client mod: features and UI that make the Nexo launcher feel like a client while staying a normal, portable mod.',
 		// Leading comma: these splice into a JSON array that already has one
 		// element, and are empty strings in the light variant.
 		tactical_entrypoints: ',\n\t\t\t"dev.nexoclient.nexomod.tactical.NexoTacticalFeatures"',
@@ -373,13 +373,28 @@ def legitLangDropPrefixes = [
 		// and macros are in src/main and stay in the light jar.
 		'nexomod.settings.full',
 		'nexomod.settings.tactical',
-		'nexomod.settings.armorHud',
+		// NOT 'nexomod.settings.armorHud' — the Armor HUD moved to src/main and
+		// ships in both jars. Dropping its keys left the light build rendering
+		// the raw 'nexomod.settings.armorHud.enabled' as the QoL menu's Armor
+		// row title, in the armor config screen and in the HUD editor label.
 		'nexomod.settings.environment',
 		'nexomod.settings.chunkHistory',
 		'nexomod.settings.macroTriggers',
 		'nexomod.macroTriggers.',
 		'nexomod.ghost.',
-		'key.nexomod.ghostMode'
+		'key.nexomod.ghostMode',
+		// Two Stats HUD lines registered from NexoTacticalFeatures, not from
+		// NexoStatsHud — the rest of 'nexomod.stats.' is src/main and stays.
+		'nexomod.stats.light',
+		'nexomod.stats.hostiles',
+		// Tactical-only QoL-menu rows. These sit under 'nexomod.qol.' with the
+		// light jar's own modules, so they have to be named one by one rather
+		// than dropped by a shared prefix. chunkBorder was leaking into the light
+		// jar before these were added.
+		'nexomod.qol.chunkBorder',
+		'nexomod.qol.lightOverlay',
+		'nexomod.qol.freecam',
+		'key.nexomod.freecam'
 ]
 // Exceptions to the above, for the case where a src/main key sits under a
 // full-only prefix by accident of naming. Empty today; kept because the drop
@@ -477,8 +492,16 @@ tasks.register('processLegitResources', Sync) {
 // Note there is no `remapJar` on this project — MC 26.1+ is unobfuscated, so
 // Loom installs NonRemappedJarTaskConfiguration and `jar` *is* the final
 // artifact, including jar-in-jar nesting.
+// Both jars carry THIRD-PARTY-NOTICES.md at their root. Documentation would be
+// enough for the ported code, but the armour bar's icon atlas is vendored
+// artwork under MIT, and MIT asks for its notice to travel with every copy of
+// the thing — a jar on a release page is a copy. One file rather than a second
+// notice inside src/main/resources, because two would drift.
+def thirdPartyNotices = layout.projectDirectory.file('THIRD-PARTY-NOTICES.md')
+
 tasks.named('jar', Jar) {
 	from sourceSets.tactical.output
+	from thirdPartyNotices
 }
 
 tasks.register('legitJar', Jar) {
@@ -493,6 +516,7 @@ tasks.register('legitJar', Jar) {
 	// a startup crash, and one that looks like a mixin bug.
 	from sourceSets.main.output.classesDirs
 	from tasks.named('processLegitResources')
+	from thirdPartyNotices
 }
 
 // Jar-in-jar for the light jar. The QUIC/Netty/Discord libraries are needed by
@@ -555,5 +579,15 @@ tasks.register('mixinVerifyClasspath') {
 
 	doLast {
 		out.get().asFile.text = cp.files.collect { it.absolutePath }.join(File.pathSeparator)
+	}
+}
+
+// Prints the main compile classpath, so tools/geometry-check can compile a
+// single source file against exactly what the mod itself compiles against
+// instead of hand-listing Minecraft's transitive dependencies.
+tasks.register('printCompileClasspath') {
+	def files = sourceSets.main.compileClasspath
+	doLast {
+		println files.asPath
 	}
 }

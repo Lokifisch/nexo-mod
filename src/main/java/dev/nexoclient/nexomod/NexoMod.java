@@ -18,18 +18,22 @@ import dev.nexoclient.nexomod.chat.NexoChatFilter;
 import dev.nexoclient.nexomod.chat.NexoChatHistory;
 import dev.nexoclient.nexomod.chat.NexoChatSearch;
 import dev.nexoclient.nexomod.coords.CoordObfuscator;
-import dev.nexoclient.nexomod.cosmetics.NexoCosmetics;
-import dev.nexoclient.nexomod.cosmetics.NexoCosmeticsRenderer;
 import dev.nexoclient.nexomod.discord.NexoDiscordRpc;
+import dev.nexoclient.nexomod.hud.NexoArmorBar;
+import dev.nexoclient.nexomod.hud.NexoArmorBarEffects;
 import dev.nexoclient.nexomod.hud.NexoArmorHud;
 import dev.nexoclient.nexomod.hud.NexoComboCounter;
 import dev.nexoclient.nexomod.hud.NexoCpsCounter;
+import dev.nexoclient.nexomod.hud.NexoDamageNumbers;
 import dev.nexoclient.nexomod.hud.NexoFadingLogHud;
+import dev.nexoclient.nexomod.hud.NexoHudCleaner;
 import dev.nexoclient.nexomod.hud.NexoHudVisibility;
+import dev.nexoclient.nexomod.hud.NexoInventoryHud;
 import dev.nexoclient.nexomod.hud.NexoKeystrokesHud;
 import dev.nexoclient.nexomod.hud.NexoPotionHud;
 import dev.nexoclient.nexomod.hud.NexoQolMenu;
 import dev.nexoclient.nexomod.hud.NexoStatsHud;
+import dev.nexoclient.nexomod.zoom.NexoZoom;
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
 import dev.nexoclient.nexomod.macro.NexoMacroDispatcher;
 import dev.nexoclient.nexomod.nativecore.NexoNative;
@@ -93,8 +97,6 @@ public class NexoMod implements ClientModInitializer {
 		NexoChatSearch.register();
 		NexoQuickConnect.register();
 		NexoBadges.register();
-		NexoCosmeticsRenderer.register();
-		NexoCosmetics.register();
 		// Temporary one-shot confirmation lines while tracking down a report that
 		// armor HUD renders nothing despite being enabled and armor equipped —
 		// these narrow down whether one of these four calls is silently throwing
@@ -107,11 +109,20 @@ public class NexoMod implements ClientModInitializer {
 		LOGGER.info("[nexomod] Registered CPS counter.");
 		NexoArmorHud.register();
 		LOGGER.info("[nexomod] Registered armor HUD.");
+		NexoArmorBarEffects.register();
+		NexoArmorBar.register();
 		NexoStatsHud.register();
 		NexoPotionHud.register();
 		NexoComboCounter.register();
 		NexoFadingLogHud.ACTIONBAR.register();
 		NexoFadingLogHud.PICKUPS.register();
+		NexoInventoryHud.register();
+		NexoDamageNumbers.register();
+		NexoZoom.register();
+		// Last of the HUD registrations on purpose: this one wraps vanilla
+		// elements rather than adding its own, and wrapping is cheapest to reason
+		// about once every Nexo element that might replace one is already in.
+		NexoHudCleaner.register();
 		ClientLifecycleEvents.CLIENT_STOPPING.register(NexoMod::onClientStopping);
 	}
 
@@ -127,7 +138,6 @@ public class NexoMod implements ClientModInitializer {
 	 */
 	private static void onClientStopping(net.minecraft.client.Minecraft client) {
 		NexoBadges.shutdown();
-		NexoCosmetics.shutdown();
 		NexoChatHistory.close();
 		NexoChatFilter.closeIfOpen();
 		// Before the library goes: a wrapped appender left pointing at a dead

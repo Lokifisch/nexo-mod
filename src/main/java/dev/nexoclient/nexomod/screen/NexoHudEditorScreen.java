@@ -1,5 +1,6 @@
 package dev.nexoclient.nexomod.screen;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 
@@ -16,9 +17,11 @@ import dev.nexoclient.nexomod.hud.NexoComboCounter;
 import dev.nexoclient.nexomod.hud.NexoCpsCounter;
 import dev.nexoclient.nexomod.hud.NexoFadingLogHud;
 import dev.nexoclient.nexomod.hud.NexoHudLayout;
+import dev.nexoclient.nexomod.hud.NexoInventoryHud;
 import dev.nexoclient.nexomod.hud.NexoKeystrokesHud;
 import dev.nexoclient.nexomod.hud.NexoPotionHud;
 import dev.nexoclient.nexomod.hud.NexoStatsHud;
+import dev.nexoclient.nexomod.hud.NexoVanillaHud;
 
 /**
  * Drag each Nexo HUD element to move it, drag its bottom-right grip to
@@ -45,7 +48,12 @@ public class NexoHudEditorScreen extends Screen {
 			BiFunction<Integer, Integer, ScreenRectangle> bounds) {
 	}
 
-	private static final List<Draggable> ELEMENTS = List.of(
+	/**
+	 * Everything Nexo draws itself. Vanilla's own movable pieces are appended by
+	 * {@link #elements()} rather than listed here, since which of them are
+	 * draggable depends on which are currently visible.
+	 */
+	private static final List<Draggable> NEXO_ELEMENTS = List.of(
 			new Draggable(NexoHudLayout.Element.KEYSTROKES, Component.translatable("nexomod.qol.keystrokes"),
 					NexoKeystrokesHud::resolveBounds),
 			new Draggable(NexoHudLayout.Element.CPS, Component.translatable("nexomod.qol.cps"),
@@ -61,7 +69,26 @@ public class NexoHudEditorScreen extends Screen {
 			new Draggable(NexoHudLayout.Element.ACTIONBAR_LOG, Component.translatable("nexomod.qol.actionbarLog"),
 					NexoFadingLogHud.ACTIONBAR::resolveBounds),
 			new Draggable(NexoHudLayout.Element.PICKUP_LOG, Component.translatable("nexomod.qol.pickupLog"),
-					NexoFadingLogHud.PICKUPS::resolveBounds));
+					NexoFadingLogHud.PICKUPS::resolveBounds),
+			new Draggable(NexoHudLayout.Element.INVENTORY, Component.translatable("nexomod.qol.inventoryHud"),
+					NexoInventoryHud::resolveBounds));
+
+	/**
+	 * Nexo's own elements plus every vanilla piece that is currently on screen.
+	 * A hidden vanilla element is left out on purpose: dragging an outline around
+	 * for something the HUD Cleaner has switched off would move a thing nobody can
+	 * see, and the empty box would read as a bug.
+	 */
+	private static List<Draggable> elements() {
+		List<Draggable> all = new ArrayList<>(NEXO_ELEMENTS);
+		for (NexoVanillaHud.Entry entry : NexoVanillaHud.ENTRIES) {
+			if (entry.hidden().getAsBoolean()) {
+				continue;
+			}
+			all.add(new Draggable(entry.slot(), entry.label(), entry::resolveBounds));
+		}
+		return all;
+	}
 
 	private final Screen parent;
 
@@ -90,7 +117,7 @@ public class NexoHudEditorScreen extends Screen {
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-		for (Draggable d : ELEMENTS) {
+		for (Draggable d : elements()) {
 			ScreenRectangle bounds = d.bounds().apply(graphics.guiWidth(), graphics.guiHeight());
 			int color = d.element() == dragging ? NexoStyle.TEXT_ACTIVE_ACCENT : NexoStyle.BORDER_BRIGHT;
 			drawOutline(graphics, bounds, color);
@@ -109,7 +136,7 @@ public class NexoHudEditorScreen extends Screen {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		if (event.button() == 0) {
-			for (Draggable d : ELEMENTS) {
+			for (Draggable d : elements()) {
 				ScreenRectangle bounds = d.bounds().apply(width, height);
 				int mx = (int) event.x();
 				int my = (int) event.y();

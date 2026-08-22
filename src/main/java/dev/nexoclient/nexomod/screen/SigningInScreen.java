@@ -41,8 +41,7 @@ public class SigningInScreen extends NexoModalScreen {
 		buttonRow.defaultCellSetting().paddingTop(12);
 		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_CANCEL, this::cancelAndClose).build());
 
-		layout.visitWidgets(this::addRenderableWidget);
-		repositionElements();
+		finishLayout();
 	}
 
 	private void cancelAndClose() {

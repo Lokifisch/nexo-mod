@@ -27,12 +27,18 @@ public final class NexoQolModules {
 	private NexoQolModules() {
 	}
 
-	public record Entry(Component name, Component description, BooleanSupplier enabled, Function<Screen, Screen> openConfig) {
+	/**
+	 * @param toggle flips the module without opening anything — what a click on
+	 *               the row's on/off pill runs. See {@link NexoModuleRow#withToggle}.
+	 */
+	public record Entry(Component name, Component description, BooleanSupplier enabled,
+			Runnable toggle, Function<Screen, Screen> openConfig) {
 	}
 
 	/** Called from the full variant's client initialiser. Order of calls is the order shown. */
-	public static void register(Component name, Component description, BooleanSupplier enabled, Function<Screen, Screen> openConfig) {
-		ENTRIES.add(new Entry(name, description, enabled, openConfig));
+	public static void register(Component name, Component description, BooleanSupplier enabled,
+			Runnable toggle, Function<Screen, Screen> openConfig) {
+		ENTRIES.add(new Entry(name, description, enabled, toggle, openConfig));
 	}
 
 	/** Empty in the light build. */

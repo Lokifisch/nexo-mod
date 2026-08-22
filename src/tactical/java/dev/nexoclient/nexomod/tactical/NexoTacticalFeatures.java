@@ -9,12 +9,17 @@ import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.tactical.bedrock.BedrockHoleFinder;
 import dev.nexoclient.nexomod.tactical.chunkborder.NexoChunkBorderOverlay;
 import dev.nexoclient.nexomod.tactical.chunks.NexoChunkHistory;
+import dev.nexoclient.nexomod.tactical.freecam.NexoFreecam;
 import dev.nexoclient.nexomod.tactical.ghost.NexoGhostMode;
+import dev.nexoclient.nexomod.tactical.light.NexoLightOverlay;
 import dev.nexoclient.nexomod.tactical.macro.NexoMacroTriggers;
 import dev.nexoclient.nexomod.tactical.screen.NexoBedrockHoleScreen;
 import dev.nexoclient.nexomod.tactical.screen.NexoChunkBorderConfigScreen;
+import dev.nexoclient.nexomod.tactical.screen.NexoFreecamConfigScreen;
+import dev.nexoclient.nexomod.tactical.screen.NexoLightOverlayConfigScreen;
 import dev.nexoclient.nexomod.tactical.screen.NexoTacticalFeatureScreen;
 import dev.nexoclient.nexomod.tactical.sound.NexoSoundRadar;
+import dev.nexoclient.nexomod.tactical.stats.NexoTacticalStats;
 import dev.nexoclient.nexomod.tactical.sound.NexoSoundRadarHud;
 import dev.nexoclient.nexomod.screen.NexoConfig;
 import dev.nexoclient.nexomod.screen.NexoExtraCategories;
@@ -75,6 +80,11 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		NexoGhostMode.register();
 		NexoMacroTriggers.register();
 		NexoChunkBorderOverlay.register();
+		// Light level and nearby hostiles, the two stats NexoStatsRegistry has
+		// always documented as coming from this side.
+		NexoTacticalStats.register();
+		NexoLightOverlay.register();
+		NexoFreecam.register();
 
 		// A bearing to something in a world you have left is nonsense, and a
 		// stale ping would otherwise survive into the next server.
@@ -99,6 +109,25 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		NexoQolModules.register(Component.translatable("nexomod.qol.chunkBorder"),
 				Component.translatable("nexomod.qol.chunkBorder.description"),
 				config::chunkBorderOverlayEnabled,
+				() -> config.setChunkBorderOverlayEnabled(!config.chunkBorderOverlayEnabled()),
 				parent -> new NexoChunkBorderConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.lightOverlay"),
+				Component.translatable("nexomod.qol.lightOverlay.description"),
+				config::lightOverlayEnabled,
+				() -> config.setLightOverlayEnabled(!config.lightOverlayEnabled()),
+				parent -> new NexoLightOverlayConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.freecam"),
+				Component.translatable("nexomod.qol.freecam.description"),
+				config::freecamEnabled,
+				// Turning it off from the pill has to release a camera that is
+				// already detached, or the view would be stranded where it flew to.
+				() -> {
+					boolean next = !config.freecamEnabled();
+					config.setFreecamEnabled(next);
+					if (!next) {
+						NexoFreecam.disable();
+					}
+				},
+				parent -> new NexoFreecamConfigScreen(parent));
 	}
 }

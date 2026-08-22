@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 
 import dev.nexoclient.nexomod.screen.NexoQolOverlayScreen;
 
@@ -52,5 +53,14 @@ public final class NexoQolMenu {
 	/** Whether `event` is this menu's toggle key — used by the open screen to close on a second press. */
 	public static boolean isToggleKey(KeyEvent event) {
 		return toggleKey != null && toggleKey.matches(event);
+	}
+
+	/**
+	 * The key this menu is currently bound to, for the menu's own "press X to
+	 * close" hint. Read live rather than hardcoding Right Shift, since the
+	 * binding is rebindable through vanilla Controls like any other.
+	 */
+	public static Component toggleKeyName() {
+		return toggleKey == null ? Component.empty() : toggleKey.getTranslatedKeyMessage();
 	}
 }

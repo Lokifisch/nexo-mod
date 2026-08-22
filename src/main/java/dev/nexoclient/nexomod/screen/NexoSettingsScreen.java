@@ -4,6 +4,7 @@ import java.util.function.Supplier;
 
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.ScrollableLayout;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.GridLayout;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
@@ -24,6 +25,9 @@ public class NexoSettingsScreen extends Screen {
 	private final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this);
 	private final Screen lastScreen;
 
+	/** Wraps the category grid so the hub cannot outgrow the window. */
+	private ScrollableLayout scrollArea;
+
 	public NexoSettingsScreen(Screen lastScreen) {
 		super(TITLE);
 		this.lastScreen = lastScreen;
@@ -40,7 +44,6 @@ public class NexoSettingsScreen extends Screen {
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.positionObscuring"), () -> new NexoPositionObscuringScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.chat"), () -> new NexoChatScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.servers"), () -> new NexoQuickServerScreen(this)));
-		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.cosmeticsMenu"), () -> new NexoCosmeticsScreen(this)));
 		// Bedrock Holes used to be named here. It lives in src/full now and this
 		// class is compiled into the light jar too, so it arrives through the
 		// registry instead — empty in light, one entry in full. Macros stayed
@@ -62,12 +65,13 @@ public class NexoSettingsScreen extends Screen {
 				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.badgeSync.tooltip")))
 				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.badgeSync"),
 						(button, value) -> NexoConfig.get().setBadgeSyncEnabled(value)));
-		// Same reasoning as badgeSync above: this one also talks to a service.
-		helper.addChild(CycleButton.onOffBuilder(NexoConfig.get().cosmeticsEnabled())
-				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.cosmetics.tooltip")))
-				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.cosmetics"),
-						(button, value) -> NexoConfig.get().setCosmeticsEnabled(value)));
-		layout.addToContents(grid);
+		// Measured before wrapping, or ScrollableLayout derives a negative scroll
+		// range from a zero-height content layout and hides every row until
+		// something forces a second pass. Same trap as NexoQolOverlayScreen.init().
+		grid.arrangeElements();
+		scrollArea = new ScrollableLayout(minecraft, grid, layout.getContentHeight());
+		scrollArea.setMinWidth(grid.getWidth());
+		layout.addToContents(scrollArea);
 
 		layout.addToFooter(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(200).build());
 		layout.visitWidgets(this::addRenderableWidget);
@@ -76,6 +80,13 @@ public class NexoSettingsScreen extends Screen {
 
 	@Override
 	protected void repositionElements() {
+		if (scrollArea == null) {
+			return;
+		}
+		// Recomputed every pass: the content band between header and footer is a
+		// function of the window height, and this grid grows as Tactical registers
+		// its categories, so "it fits today" is not something to rely on.
+		scrollArea.setMaxHeight(layout.getContentHeight());
 		layout.arrangeElements();
 	}
 
