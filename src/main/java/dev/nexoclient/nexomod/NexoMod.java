@@ -118,7 +118,7 @@ public class NexoMod implements ClientModInitializer {
 		NexoFadingLogHud.PICKUPS.register();
 		NexoInventoryHud.register();
 		NexoDamageNumbers.register();
-		NexoZoom.register();
+		// NexoZoom.register(); disabled for this release: not working correctly yet.
 		// Last of the HUD registrations on purpose: this one wraps vanilla
 		// elements rather than adding its own, and wrapping is cheapest to reason
 		// about once every Nexo element that might replace one is already in.

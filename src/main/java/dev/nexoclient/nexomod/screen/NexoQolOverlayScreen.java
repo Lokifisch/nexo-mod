@@ -170,11 +170,8 @@ public class NexoQolOverlayScreen extends Screen {
 				config::inventoryHudEnabled,
 				() -> config.setInventoryHudEnabled(!config.inventoryHudEnabled()),
 				() -> minecraft.setScreen(new NexoInventoryHudConfigScreen(this)));
-		addRow(Component.translatable("nexomod.qol.zoom"),
-				Component.translatable("nexomod.qol.zoom.description"),
-				config::zoomEnabled,
-				() -> config.setZoomEnabled(!config.zoomEnabled()),
-				() -> minecraft.setScreen(new NexoZoomConfigScreen(this)));
+		// Zoom row disabled for this release: NexoZoom.register() is not called,
+		// so the toggle would control a feature that never runs.
 		addRow(Component.translatable("nexomod.qol.damageNumbers"),
 				Component.translatable("nexomod.qol.damageNumbers.description"),
 				config::damageNumbersEnabled,

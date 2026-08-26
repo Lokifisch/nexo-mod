@@ -84,7 +84,7 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		// always documented as coming from this side.
 		NexoTacticalStats.register();
 		NexoLightOverlay.register();
-		NexoFreecam.register();
+		// NexoFreecam.register(); disabled for this release: not working correctly yet.
 
 		// A bearing to something in a world you have left is nonsense, and a
 		// stale ping would otherwise survive into the next server.
@@ -116,18 +116,7 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 				config::lightOverlayEnabled,
 				() -> config.setLightOverlayEnabled(!config.lightOverlayEnabled()),
 				parent -> new NexoLightOverlayConfigScreen(parent));
-		NexoQolModules.register(Component.translatable("nexomod.qol.freecam"),
-				Component.translatable("nexomod.qol.freecam.description"),
-				config::freecamEnabled,
-				// Turning it off from the pill has to release a camera that is
-				// already detached, or the view would be stranded where it flew to.
-				() -> {
-					boolean next = !config.freecamEnabled();
-					config.setFreecamEnabled(next);
-					if (!next) {
-						NexoFreecam.disable();
-					}
-				},
-				parent -> new NexoFreecamConfigScreen(parent));
+		// Freecam QoL row disabled for this release: NexoFreecam.register() is
+		// not called, so the toggle would control a feature that never runs.
 	}
 }
