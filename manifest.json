@@ -1,0 +1,20 @@
+{
+  "mod_version": "0.6.3",
+  "minecraft_version": "26.1.2",
+  "loader": "fabric",
+  "default_edition": "tactical",
+  "editions": {
+    "tactical": {
+      "file": "nexomod-0.6.3.jar",
+      "mod_id": "nexomod",
+      "name": "Tactical",
+      "description": "Every feature, including the ones some servers count as an advantage."
+    },
+    "legit": {
+      "file": "nexomod-legit-0.6.3.jar",
+      "mod_id": "nexomod-legit",
+      "name": "Legit",
+      "description": "Nothing that grants information or automation vanilla withholds — approvable without an audit."
+    }
+  }
+}

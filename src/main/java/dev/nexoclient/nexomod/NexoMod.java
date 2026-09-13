@@ -30,13 +30,16 @@ import dev.nexoclient.nexomod.hud.NexoHudCleaner;
 import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.hud.NexoInventoryHud;
 import dev.nexoclient.nexomod.hud.NexoKeystrokesHud;
+import dev.nexoclient.nexomod.hud.NexoMiniPlayerHud;
 import dev.nexoclient.nexomod.hud.NexoPotionHud;
 import dev.nexoclient.nexomod.hud.NexoQolMenu;
 import dev.nexoclient.nexomod.hud.NexoStatsHud;
 import dev.nexoclient.nexomod.zoom.NexoZoom;
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
 import dev.nexoclient.nexomod.macro.NexoMacroDispatcher;
+import dev.nexoclient.nexomod.miniplayer.NexoMiniPlayer;
 import dev.nexoclient.nexomod.nativecore.NexoNative;
+import dev.nexoclient.nexomod.paperserver.PaperServerDebug;
 import dev.nexoclient.nexomod.privacy.NexoLogScrubber;
 import dev.nexoclient.nexomod.servers.NexoQuickConnect;
 
@@ -89,7 +92,10 @@ public class NexoMod implements ClientModInitializer {
 		// scrubber first. A no-op when the native core is absent.
 		NexoLogScrubber.install();
 		HardwareKey.warmUp();
-		CommandRegistrationCallback.EVENT.register((dispatcher, ignoredRegistryAccess, ignoredEnvironment) -> LanTunnel.registerCommands(dispatcher));
+		CommandRegistrationCallback.EVENT.register((dispatcher, ignoredRegistryAccess, ignoredEnvironment) -> {
+			LanTunnel.registerCommands(dispatcher);
+			PaperServerDebug.registerCommands(dispatcher);
+		});
 		NexoMacroDispatcher.register();
 		NexoDiscordRpc.register();
 		CoordObfuscator.register();
@@ -118,6 +124,8 @@ public class NexoMod implements ClientModInitializer {
 		NexoFadingLogHud.PICKUPS.register();
 		NexoInventoryHud.register();
 		NexoDamageNumbers.register();
+		NexoMiniPlayer.register();
+		NexoMiniPlayerHud.register();
 		// NexoZoom.register(); disabled for this release: not working correctly yet.
 		// Last of the HUD registrations on purpose: this one wraps vanilla
 		// elements rather than adding its own, and wrapping is cheapest to reason
@@ -138,6 +146,7 @@ public class NexoMod implements ClientModInitializer {
 	 */
 	private static void onClientStopping(net.minecraft.client.Minecraft client) {
 		NexoBadges.shutdown();
+		NexoMiniPlayer.shutdown();
 		NexoChatHistory.close();
 		NexoChatFilter.closeIfOpen();
 		// Before the library goes: a wrapped appender left pointing at a dead

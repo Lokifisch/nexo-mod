@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +26,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import net.fabricmc.loader.api.FabricLoader;
+
+import dev.nexoclient.nexomod.util.NexoPaths;
 
 /**
  * Local storage for saved Minecraft accounts, so switching between them
@@ -60,7 +61,7 @@ public final class AccountStore {
 	 * own instances. This resolves the same OS location the launcher's
 	 * {@code directories} crate does — see {@code Mod/docs/SHARED-ACCOUNT-STORE.md}.
 	 */
-	private static final Path DATA_FILE = sharedDataDir().resolve("accounts.dat");
+	private static final Path DATA_FILE = NexoPaths.sharedDataDir().resolve("accounts.dat");
 	/** Only referenced to clean up installs of the old scheme that kept the key next to the data. */
 	private static final Path LEGACY_KEY_FILE = FabricLoader.getInstance().getConfigDir().resolve("nexomod-accounts.key");
 
@@ -191,32 +192,6 @@ public final class AccountStore {
 		} catch (Exception e) {
 			LOGGER.error("Failed to save accounts", e);
 		}
-	}
-
-	/**
-	 * The launcher's platform data directory, resolved the same way its
-	 * {@code directories} crate does. These paths are a contract between the
-	 * two halves, not a preference.
-	 */
-	private static Path sharedDataDir() {
-		String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-		String home = System.getProperty("user.home", ".");
-
-		if (os.contains("win")) {
-			String appData = System.getenv("APPDATA");
-			Path base = appData != null && !appData.isBlank()
-					? Path.of(appData)
-					: Path.of(home, "AppData", "Roaming");
-			return base.resolve("nexoclient").resolve("nexo").resolve("data");
-		}
-		if (os.contains("mac")) {
-			return Path.of(home, "Library", "Application Support", "dev.nexoclient.nexo");
-		}
-
-		// Linux and the BSDs honour XDG_DATA_HOME when it is set.
-		String xdg = System.getenv("XDG_DATA_HOME");
-		Path base = xdg != null && !xdg.isBlank() ? Path.of(xdg) : Path.of(home, ".local", "share");
-		return base.resolve("nexo");
 	}
 
 	private static void deleteQuietly(Path path) {

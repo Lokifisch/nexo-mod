@@ -1,9 +1,15 @@
 package dev.nexoclient.nexomod.lantunnel;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mojang.brigadier.CommandDispatcher;
+
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -27,7 +33,37 @@ public final class LanTunnel {
 
 	public static volatile LanTunnelSession session;
 
+	/**
+	 * Friend-hosting tunnels for Paper servers (see {@code Mod/ROADMAP.md}
+	 * Phase 7), keyed by server id — separate from {@link #session} above,
+	 * which is the singleplayer "Open to LAN" tunnel and unrelated: a player
+	 * could have a LAN world open and be friend-hosting a Paper server at
+	 * the same time, so the two must not share one slot.
+	 */
+	private static final Map<String, LanTunnelSession> paperTunnels = new ConcurrentHashMap<>();
+
 	private LanTunnel() {}
+
+	/** Tunnels {@code localPort} (the Paper server's game port, never its RCON port) to the relay. */
+	public static LanTunnelSession startForPaperServer(String serverId, int localPort) {
+		stopForPaperServer(serverId);
+		EventLoopGroup group = new NioEventLoopGroup(1);
+		LanTunnelSession newSession = new LanTunnelSession(LocalPortForward.forwardingHandler(group, localPort), group);
+		paperTunnels.put(serverId, newSession);
+		newSession.startAsync();
+		return newSession;
+	}
+
+	public static void stopForPaperServer(String serverId) {
+		LanTunnelSession existing = paperTunnels.remove(serverId);
+		if (existing != null && existing.state != LanTunnelSession.State.STOPPED) {
+			existing.stop();
+		}
+	}
+
+	public static LanTunnelSession paperTunnel(String serverId) {
+		return paperTunnels.get(serverId);
+	}
 
 	public static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("nexolan")

@@ -226,6 +226,43 @@ This is the "easy install" half of the pitch and where `Client/` and
 
 ---
 
+## Phase 7 — Paper server hosting
+
+Goal: convert a singleplayer world into a locally-run Paper server (so
+Bukkit/Paper plugins work on your own world) and back, from both Mod/ and
+Client/, with friend-hosting over the existing LAN tunnel.
+
+- World conversion, both directions — verified against a real Paper 26.1.2
+  build and the real vanilla 26.1.2 dedicated server that MC 26.1.2 unified
+  all dimensions under `<save>/dimensions/<namespace>/<dim>/`, structurally
+  identical between a singleplayer save and a server's world folder, so
+  conversion is a plain recursive copy with no per-dimension remapping. The
+  original singleplayer save is never mutated until the forward conversion
+  is proven successful; convert-back always backs up first.
+- Paper jar resolution via PaperMC's Fill API (`fill.papermc.io/v3`) —
+  `api.papermc.io/v2` is retired.
+- Source RCON (hand-rolled, both languages) as the one control channel for
+  stop/console-command, decoupling "who holds the OS process" from "who
+  can control the server" — either side can start, observe, or stop a
+  server the other side started.
+- A shared `nexo-paper-server.json` registry per server directory, written
+  by both `Mod/` and `Client/` into the existing shared data directory
+  (see `Mod/docs/PAPER-SERVER-REGISTRY.md`, modeled on
+  `SHARED-ACCOUNT-STORE.md`).
+- Explicit, non-silent EULA consent on both sides — never auto-written.
+- A Hangar (hangar.papermc.io) plugin browser, implemented independently
+  in both languages, gated on author/review-state disclosure before
+  install — installing a plugin is arbitrary code execution and is
+  treated as such in the UI.
+- Friend-hosting extends `lantunnel/` with a generic local-port forwarder
+  (`LocalPortForward`) rather than a new relay protocol — the existing
+  `LanTunnelSession`/e4mc relay is already connection-agnostic. Tunnel
+  ownership stays Mod-side even for launcher-started servers; no QUIC
+  stack is added to `Client/` for this.
+- Ships in both jar editions (`nexomod`/`nexomod-legit`, `src/main`) —
+  neutral utility, same split as the LAN tunnel and quick server
+  switching.
+
 ## Suggested v1 cut
 
 If the goal is "have something real to show/use" rather than "build

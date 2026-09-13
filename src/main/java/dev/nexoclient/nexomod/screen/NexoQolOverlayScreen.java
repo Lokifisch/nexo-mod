@@ -170,6 +170,13 @@ public class NexoQolOverlayScreen extends Screen {
 				config::inventoryHudEnabled,
 				() -> config.setInventoryHudEnabled(!config.inventoryHudEnabled()),
 				() -> minecraft.setScreen(new NexoInventoryHudConfigScreen(this)));
+		// Toggles directly on click, like Potato Mode above — nothing to
+		// configure, it just shows whatever the desktop's MPRIS bus reports.
+		addRow(Component.translatable("nexomod.qol.miniPlayer"),
+				Component.translatable("nexomod.qol.miniPlayer.description"),
+				config::miniPlayerEnabled,
+				() -> config.setMiniPlayerEnabled(!config.miniPlayerEnabled()),
+				() -> config.setMiniPlayerEnabled(!config.miniPlayerEnabled()));
 		// Zoom row disabled for this release: NexoZoom.register() is not called,
 		// so the toggle would control a feature that never runs.
 		addRow(Component.translatable("nexomod.qol.damageNumbers"),

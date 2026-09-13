@@ -248,6 +248,7 @@ public final class NexoConfig {
 	private boolean inventoryHudEnabled;
 	/** Default true — the panel is the existing look, and an update should not silently restyle it. */
 	private boolean inventoryHudBackgroundEnabled = true;
+	private boolean miniPlayerEnabled;
 
 	/**
 	 * HUD cleaner. Every one of these defaults to false: they hide vanilla
@@ -752,6 +753,15 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean miniPlayerEnabled() {
+		return miniPlayerEnabled;
+	}
+
+	public void setMiniPlayerEnabled(boolean enabled) {
+		this.miniPlayerEnabled = enabled;
+		save();
+	}
+
 	public boolean inventoryHudBackgroundEnabled() {
 		return inventoryHudBackgroundEnabled;
 	}
@@ -1207,6 +1217,7 @@ public final class NexoConfig {
 		pickupLogEnabled = Boolean.parseBoolean(props.getProperty("pickupLogEnabled", "false"));
 		inventoryHudEnabled = Boolean.parseBoolean(props.getProperty("inventoryHudEnabled", "false"));
 		inventoryHudBackgroundEnabled = Boolean.parseBoolean(props.getProperty("inventoryHudBackgroundEnabled", "true"));
+		miniPlayerEnabled = Boolean.parseBoolean(props.getProperty("miniPlayerEnabled", "false"));
 		hideVanillaActionbar = Boolean.parseBoolean(props.getProperty("hideVanillaActionbar", "false"));
 		hideVanillaPotionIcons = Boolean.parseBoolean(props.getProperty("hideVanillaPotionIcons", "false"));
 		hideScoreboard = Boolean.parseBoolean(props.getProperty("hideScoreboard", "false"));
@@ -1382,6 +1393,7 @@ public final class NexoConfig {
 		props.setProperty("pickupLogEnabled", Boolean.toString(pickupLogEnabled));
 		props.setProperty("inventoryHudEnabled", Boolean.toString(inventoryHudEnabled));
 		props.setProperty("inventoryHudBackgroundEnabled", Boolean.toString(inventoryHudBackgroundEnabled));
+		props.setProperty("miniPlayerEnabled", Boolean.toString(miniPlayerEnabled));
 		props.setProperty("hideVanillaActionbar", Boolean.toString(hideVanillaActionbar));
 		props.setProperty("hideVanillaPotionIcons", Boolean.toString(hideVanillaPotionIcons));
 		props.setProperty("hideScoreboard", Boolean.toString(hideScoreboard));

@@ -125,6 +125,20 @@ dependencies {
 		// bundling a second copy risks a classpath conflict for no benefit.
 		exclude group: "com.google.code.gson", module: "gson"
 	})
+
+	// Mini player (see dev.nexoclient.nexomod.miniplayer) reads whatever the OS
+	// desktop already knows is playing via MPRIS, the Linux session-bus
+	// now-playing standard that Spotify's desktop app and Chromium/Firefox
+	// (hence any SoundCloud/YouTube Music tab) all publish to on their own —
+	// no per-service API key or scraping needed. dbus-java is a pure-Java D-Bus
+	// client: its native-unixsocket transport rides Java 16+'s own
+	// UnixDomainSocketAddress, so this needs no native library and no extra
+	// system package beyond the session bus every Linux desktop already runs.
+	// There is no equivalent bus on Windows/macOS, so the poller simply finds
+	// nothing there and the HUD element never has anything to draw — the same
+	// "absent platform, feature quietly does nothing" shape as the native core.
+	include(implementation("com.github.hypfvieh:dbus-java-core:5.1.1"))
+	include(implementation("com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.1.1"))
 }
 
 // The native core (see rust-core/ and dev.nexoclient.nexomod.nativecore).

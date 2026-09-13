@@ -19,6 +19,7 @@ import dev.nexoclient.nexomod.hud.NexoFadingLogHud;
 import dev.nexoclient.nexomod.hud.NexoHudLayout;
 import dev.nexoclient.nexomod.hud.NexoInventoryHud;
 import dev.nexoclient.nexomod.hud.NexoKeystrokesHud;
+import dev.nexoclient.nexomod.hud.NexoMiniPlayerHud;
 import dev.nexoclient.nexomod.hud.NexoPotionHud;
 import dev.nexoclient.nexomod.hud.NexoStatsHud;
 import dev.nexoclient.nexomod.hud.NexoVanillaHud;
@@ -71,7 +72,9 @@ public class NexoHudEditorScreen extends Screen {
 			new Draggable(NexoHudLayout.Element.PICKUP_LOG, Component.translatable("nexomod.qol.pickupLog"),
 					NexoFadingLogHud.PICKUPS::resolveBounds),
 			new Draggable(NexoHudLayout.Element.INVENTORY, Component.translatable("nexomod.qol.inventoryHud"),
-					NexoInventoryHud::resolveBounds));
+					NexoInventoryHud::resolveBounds),
+			new Draggable(NexoHudLayout.Element.MINI_PLAYER, Component.translatable("nexomod.qol.miniPlayer"),
+					NexoMiniPlayerHud::resolveBounds));
 
 	/**
 	 * Nexo's own elements plus every vanilla piece that is currently on screen.

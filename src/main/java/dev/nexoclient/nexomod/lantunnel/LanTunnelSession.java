@@ -75,6 +75,8 @@ public class LanTunnelSession {
 
 	public State state = State.STARTING;
 	public Throwable failureCause = null;
+	/** Set once the relay assigns one; polled the same way {@link #state} is. */
+	public volatile String domain = null;
 
 	public enum State {
 		STARTING,
@@ -236,7 +238,7 @@ public class LanTunnelSession {
 	private void handleControlMessage(ControlMessageCodec.ControlMessage msg) {
 		if (msg instanceof ControlMessageCodec.DomainAssignmentCompleteMessageClientbound domainMsg) {
 			state = State.STARTED;
-			String domain = domainMsg.domain;
+			domain = domainMsg.domain;
 			LOGGER.info("Domain assigned: {}", domain);
 			announceDomain(domain);
 		} else if (msg instanceof ControlMessageCodec.RequestMessageBroadcastMessageClientbound broadcastMsg) {

@@ -139,6 +139,8 @@
   "nexomod.qol.inventoryHud.description": "Deine 27 Rucksackplätze, dauerhaft sichtbar",
   "nexomod.qol.inventoryHud.background": "Hintergrund",
   "nexomod.qol.inventoryHud.background.description": "Aus lässt die Gegenstände frei schweben, ohne Panel",
+  "nexomod.qol.miniPlayer": "Mini-Player",
+  "nexomod.qol.miniPlayer.description": "Titel aus Spotify/SoundCloud/YTM",
   "nexomod.qol.hudCleaner": "HUD-Aufräumer",
   "nexomod.qol.hudCleaner.description": "Vanilla-HUD-Teile ausblenden, die Nexo ersetzt",
   "nexomod.qol.hudCleaner.actionbar": "Vanilla-Aktionsleiste ausblenden",
