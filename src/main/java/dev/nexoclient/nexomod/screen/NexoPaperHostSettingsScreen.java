@@ -26,21 +26,28 @@ public class NexoPaperHostSettingsScreen extends NexoModalScreen {
 	private static final String[] GAME_MODES = {"survival", "creative", "adventure", "spectator"};
 
 	/** Remembered across opens, same convenience {@code OfflineLoginScreen} gives its username field. */
-	private static String lastGameMode = "survival";
 	private static boolean lastGrantOperator = true;
 	private static boolean lastOnlineMode = true;
 
 	private final Consumer<HostOptions> onHost;
 	private final String playerName;
 
-	private String gameMode = lastGameMode;
+	private String gameMode;
 	private boolean grantOperator = lastGrantOperator;
 	private boolean onlineMode = lastOnlineMode;
 
-	public NexoPaperHostSettingsScreen(Screen parent, String playerName, Consumer<HostOptions> onHost) {
+	/**
+	 * @param detectedGameMode the world's actual current gamemode (one of
+	 *                         {@link #GAME_MODES}), used to seed the cycle
+	 *                         button so hosting a creative world defaults to
+	 *                         granting creative rather than always starting
+	 *                         from survival.
+	 */
+	public NexoPaperHostSettingsScreen(Screen parent, String playerName, String detectedGameMode, Consumer<HostOptions> onHost) {
 		super(Component.translatable("nexomod.paperServer.hostSettings.title"), parent);
 		this.playerName = playerName;
 		this.onHost = onHost;
+		this.gameMode = detectedGameMode;
 	}
 
 	@Override
@@ -79,7 +86,6 @@ public class NexoPaperHostSettingsScreen extends NexoModalScreen {
 	}
 
 	private void host() {
-		lastGameMode = gameMode;
 		lastGrantOperator = grantOperator;
 		lastOnlineMode = onlineMode;
 

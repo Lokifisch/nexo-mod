@@ -34,6 +34,7 @@ import dev.nexoclient.nexomod.hud.NexoMiniPlayerHud;
 import dev.nexoclient.nexomod.hud.NexoPotionHud;
 import dev.nexoclient.nexomod.hud.NexoQolMenu;
 import dev.nexoclient.nexomod.hud.NexoStatsHud;
+import dev.nexoclient.nexomod.norender.NexoNoRender;
 import dev.nexoclient.nexomod.zoom.NexoZoom;
 import dev.nexoclient.nexomod.lantunnel.LanTunnel;
 import dev.nexoclient.nexomod.macro.NexoMacroDispatcher;
@@ -126,7 +127,8 @@ public class NexoMod implements ClientModInitializer {
 		NexoDamageNumbers.register();
 		NexoMiniPlayer.register();
 		NexoMiniPlayerHud.register();
-		// NexoZoom.register(); disabled for this release: not working correctly yet.
+		NexoZoom.register();
+		NexoNoRender.register();
 		// Last of the HUD registrations on purpose: this one wraps vanilla
 		// elements rather than adding its own, and wrapping is cheapest to reason
 		// about once every Nexo element that might replace one is already in.

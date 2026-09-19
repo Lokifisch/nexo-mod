@@ -27,7 +27,7 @@ public final class NexoStyle {
 	public static final int TEXT_DISABLED = 0xFF5A5868;
 	public static final int TEXT_ACTIVE_ACCENT = 0xFF3CFFB0;
 
-	static int mix(int a, int b, float t) {
+	public static int mix(int a, int b, float t) {
 		int aa = (a >>> 24) & 0xFF, ar = (a >>> 16) & 0xFF, ag = (a >>> 8) & 0xFF, ab = a & 0xFF;
 		int ba = (b >>> 24) & 0xFF, br = (b >>> 16) & 0xFF, bg = (b >>> 8) & 0xFF, bb = b & 0xFF;
 		int ra = (int) (aa + (ba - aa) * t);

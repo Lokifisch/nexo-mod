@@ -13,6 +13,9 @@ import dev.nexoclient.nexomod.hud.NexoStatsRegistry;
 public class NexoStatsConfigScreen extends NexoModalScreen {
 	private static final int ROW_WIDTH = 220;
 
+	/** Survives across {@code init()} rebuilds — a fresh {@link NexoTextField} would forget it otherwise. */
+	private String query = "";
+
 	public NexoStatsConfigScreen(Screen parent) {
 		super(Component.translatable("nexomod.stats.title"), parent);
 	}
@@ -30,8 +33,23 @@ public class NexoStatsConfigScreen extends NexoModalScreen {
 				modConfig::statsHudEnabled,
 				() -> modConfig.setStatsHudEnabled(!modConfig.statsHudEnabled())));
 
+		NexoTextField searchField = new NexoTextField(0, 0, ROW_WIDTH, 20);
+		searchField.setHint(Component.translatable("nexomod.stats.search"));
+		searchField.setValue(query);
+		searchField.moveCursorToEnd(false);
+		searchField.setResponder(value -> {
+			query = value;
+			rebuildWidgets();
+		});
+		layout.addChild(searchField);
+		setInitialFocus(searchField);
+
 		NexoStatsConfig config = NexoStatsConfig.get();
+		String needle = query.toLowerCase();
 		for (NexoStatsRegistry.Stat stat : NexoStatsRegistry.stats()) {
+			if (!needle.isEmpty() && !stat.label().getString().toLowerCase().contains(needle)) {
+				continue;
+			}
 			layout.addChild(CycleButton.onOffBuilder(config.isEnabled(stat.id()))
 					.create(0, 0, ROW_WIDTH, 20, stat.label(),
 							(button, value) -> config.setEnabled(stat.id(), value)));

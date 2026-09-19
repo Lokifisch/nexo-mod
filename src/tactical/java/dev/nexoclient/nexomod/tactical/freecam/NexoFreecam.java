@@ -36,12 +36,18 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
  * reports no movement, sends no movement packets, and simply stands there. The
  * original is put back on exit.
  *
- * <p>ponytail: the mouse is deliberately <em>not</em> intercepted. The body
- * still turns with it and the camera reads its yaw/pitch straight off the
- * player, which costs a {@code MouseHandler} mixin and a whole second copy of
- * the look state to avoid — at the price that the body visibly turns while
- * flying. Hook {@code MouseHandler#turnPlayer} and keep local yaw/pitch here
- * if that ever matters.
+ * <h2>Rotation is fully decoupled too</h2>
+ *
+ * <p>The mouse now drives the camera's own {@link #freecamYaw}/{@link
+ * #freecamPitch} instead of the player's real rotation — {@code
+ * FreecamBodyFreezeMixin} cancels {@code Entity#turn(double, double)} for the
+ * local player while active and feeds the same raw deltas into {@link
+ * #turn} here, which replicates that method's own math (0.15 scale, pitch
+ * clamped to [-90, 90]) confirmed straight from this version's bytecode.
+ * Cancelling the real call rather than resetting the rotation afterward
+ * matters: resetting at tick rate would still let the body visibly snap to
+ * the mouse for a frame at a time between corrections, since mouse-look
+ * itself runs at render rate.
  *
  * <p>Every exit path funnels through {@link #disable}, including disconnect —
  * without which a detached camera would survive into the next world with a
@@ -52,10 +58,17 @@ public final class NexoFreecam {
 	private static final double BASE_SPEED = 0.6;
 	private static final double SPRINT_MULTIPLIER = 3.0;
 
+	/** Matches vanilla {@code Entity#turn}'s own scale, so freecam's look feels identical to normal mouse-look. */
+	private static final float TURN_SCALE = 0.15F;
+
 	private static KeyMapping toggleKey;
 
 	private static boolean active;
 	private static Vec3 position = Vec3.ZERO;
+	/** Where the camera was at the end of the previous tick — see {@link #renderPosition}. */
+	private static Vec3 previousPosition = Vec3.ZERO;
+	private static float freecamYaw;
+	private static float freecamPitch;
 	private static ClientInput realInput;
 
 	private NexoFreecam() {
@@ -92,7 +105,11 @@ public final class NexoFreecam {
 			disable();
 			return;
 		}
-		fly(client, client.player);
+		// Snapshotted every tick, moved or not, so renderPosition() always has a
+		// correct segment to interpolate across — the previous tick's resting
+		// point through to wherever this tick ends up.
+		previousPosition = position;
+		fly(client);
 	}
 
 	private static void enable(Minecraft client) {
@@ -101,6 +118,9 @@ public final class NexoFreecam {
 			return;
 		}
 		position = player.getEyePosition();
+		previousPosition = position;
+		freecamYaw = player.getYRot();
+		freecamPitch = player.getXRot();
 		realInput = player.input;
 		player.input = new ClientInput();
 		active = true;
@@ -119,7 +139,7 @@ public final class NexoFreecam {
 		realInput = null;
 	}
 
-	private static void fly(Minecraft client, LocalPlayer player) {
+	private static void fly(Minecraft client) {
 		Options options = client.options;
 		// A screen with keyboard focus must not fly the camera — isDown() stays
 		// true for a key held when a screen opened, and chat would spell words in
@@ -140,7 +160,9 @@ public final class NexoFreecam {
 			return;
 		}
 
-		float yawRadians = player.getYRot() * Mth.DEG_TO_RAD;
+		// The camera's own yaw, not the player's — the two are decoupled now, and
+		// flying relative to the frozen body direction would fight the mouse.
+		float yawRadians = freecamYaw * Mth.DEG_TO_RAD;
 		double sin = Math.sin(yawRadians);
 		double cos = Math.cos(yawRadians);
 		// Horizontal-only forward: looking at your feet shouldn't drive the camera
@@ -159,7 +181,36 @@ public final class NexoFreecam {
 		return active;
 	}
 
-	public static Vec3 position() {
-		return position;
+	/**
+	 * Where the camera should actually render this frame — {@link #position}
+	 * interpolated from {@link #previousPosition} by {@code partialTick}, the
+	 * same blend vanilla's own {@code Camera#alignWithEntity} does between an
+	 * entity's previous- and current-tick position. Without this, the camera
+	 * would only move once per client tick (~20/sec) while frames render far
+	 * more often, which is what made flying look jittery.
+	 */
+	public static Vec3 renderPosition(float partialTick) {
+		return previousPosition.lerp(position, partialTick);
+	}
+
+	/**
+	 * Feeds the same raw deltas vanilla's {@code Entity#turn(double, double)}
+	 * was about to apply to the player into the camera's own look state
+	 * instead — see {@code FreecamBodyFreezeMixin}, which cancels that call
+	 * for the local player while active and calls this. The 0.15 scale and
+	 * pitch clamp match that method exactly (confirmed against this version's
+	 * bytecode), so freecam's own look feels identical to normal mouse-look.
+	 */
+	public static void turn(double yRotDelta, double xRotDelta) {
+		freecamYaw += (float) yRotDelta * TURN_SCALE;
+		freecamPitch = Mth.clamp(freecamPitch + (float) xRotDelta * TURN_SCALE, -90F, 90F);
+	}
+
+	public static float yaw() {
+		return freecamYaw;
+	}
+
+	public static float pitch() {
+		return freecamPitch;
 	}
 }

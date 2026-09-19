@@ -84,9 +84,10 @@ public class NexoPaperServerOptionList extends NexoOptionList {
 			return;
 		}
 		String playerName = Minecraft.getInstance().getUser().getName();
+		String detectedGameMode = singleplayer.getWorldData().getGameType().getSerializedName();
 		addEntry(new NexoOptionList.Entry.ActionButton(dynEntryX, dynEntryWidth, entryHeight,
 				Component.translatable("nexomod.paperServer.convert"), null, -1, button ->
-						Minecraft.getInstance().setScreen(new NexoPaperHostSettingsScreen(screen, playerName,
+						Minecraft.getInstance().setScreen(new NexoPaperHostSettingsScreen(screen, playerName, detectedGameMode,
 								options -> beginConvert(save, worldName, options)))));
 	}
 

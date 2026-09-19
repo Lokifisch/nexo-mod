@@ -18,6 +18,8 @@ import net.minecraft.network.chat.Component;
 
 import dev.nexoclient.nexomod.hud.NexoPotatoMode;
 import dev.nexoclient.nexomod.hud.NexoQolMenu;
+import dev.nexoclient.nexomod.norender.NexoNoRender;
+import dev.nexoclient.nexomod.norender.NexoNoRenderConfig;
 
 /**
  * The right-shift QoL menu: a small floating panel of feature toggles over
@@ -177,8 +179,6 @@ public class NexoQolOverlayScreen extends Screen {
 				config::miniPlayerEnabled,
 				() -> config.setMiniPlayerEnabled(!config.miniPlayerEnabled()),
 				() -> config.setMiniPlayerEnabled(!config.miniPlayerEnabled()));
-		// Zoom row disabled for this release: NexoZoom.register() is not called,
-		// so the toggle would control a feature that never runs.
 		addRow(Component.translatable("nexomod.qol.damageNumbers"),
 				Component.translatable("nexomod.qol.damageNumbers.description"),
 				config::damageNumbersEnabled,
@@ -191,6 +191,21 @@ public class NexoQolOverlayScreen extends Screen {
 				config::hudCleanerActive,
 				() -> config.setHudCleanerAll(!config.hudCleanerActive()),
 				() -> minecraft.setScreen(new NexoHudCleanerConfigScreen(this)));
+		addRow(Component.translatable("nexomod.qol.zoom"),
+				Component.translatable("nexomod.qol.zoom.description"),
+				config::zoomEnabled,
+				() -> config.setZoomEnabled(!config.zoomEnabled()),
+				() -> minecraft.setScreen(new NexoZoomConfigScreen(this)));
+		// The pill reflects and toggles Dynamic specifically, not "is anything
+		// hidden" — manually-hidden entities don't clear when Dynamic is off, so
+		// using the combined state here would show the pill permanently on (and
+		// impossible to turn off by clicking it) the moment any single entity
+		// type was ever hidden by hand.
+		addRow(Component.translatable("nexomod.qol.noRender"),
+				Component.translatable("nexomod.qol.noRender.description"),
+				() -> NexoNoRenderConfig.get().dynamicEnabled(),
+				NexoNoRender::toggleDynamic,
+				() -> minecraft.setScreen(new NexoNoRenderScreen(this)));
 		addModuleRows();
 
 		// Measure the content BEFORE wrapping it. ScrollableLayout's scroll range is

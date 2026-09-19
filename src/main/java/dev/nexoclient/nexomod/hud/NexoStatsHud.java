@@ -23,6 +23,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.food.FoodData;
 
@@ -68,6 +69,16 @@ public final class NexoStatsHud implements HudElement {
 	private static volatile String clockText;
 	private static volatile long clockFormattedAt;
 
+	/**
+	 * Smoothed real milliseconds per server tick, from {@link #recordGameTime}.
+	 * -1 until the first sample lands. TPS and MSPT are both read off this one
+	 * value rather than smoothed separately, so they can never disagree about
+	 * how healthy the server currently looks.
+	 */
+	private static volatile float estimatedMspt = -1F;
+	private static long lastGameTime = -1L;
+	private static long lastGameTimeAtMillis;
+
 	private NexoStatsHud() {
 	}
 
@@ -80,6 +91,11 @@ public final class NexoStatsHud implements HudElement {
 			deaths.set(0);
 			blocksBroken.set(0);
 			wasDead = false;
+			// A tick count from the previous server is meaningless against this
+			// one's — treated as "no sample yet" rather than feeding a garbage
+			// delta into the first packet of the new session.
+			lastGameTime = -1L;
+			estimatedMspt = -1F;
 		});
 		ClientPlayerBlockBreakEvents.AFTER.register((level, player, pos, state) -> blocksBroken.incrementAndGet());
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -152,6 +168,91 @@ public final class NexoStatsHud implements HudElement {
 				NexoStatsHud::wallClockText);
 		NexoStatsRegistry.register("day", Component.translatable("nexomod.stats.day"),
 				NexoStatsHud::worldTimeText);
+		NexoStatsRegistry.register("tps", Component.translatable("nexomod.stats.tps"),
+				NexoStatsHud::tpsText);
+		NexoStatsRegistry.register("mspt", Component.translatable("nexomod.stats.mspt"),
+				NexoStatsHud::msptText);
+	}
+
+	/** Real time constant for {@link #recordGameTime}'s smoothing — see that method. */
+	private static final long MSPT_SMOOTHING_TAU_MILLIS = 2000L;
+
+	/**
+	 * Fed by {@code TpsSampleMixin}, one call per real
+	 * {@code ClientboundSetTimePacket} the server sends. Vanilla has no
+	 * plugin-free TPS query, so this guesses from the one thing the protocol
+	 * already carries: real elapsed time between consecutive tick-counter syncs
+	 * gives ms/tick directly, whatever the server's actual send cadence turns
+	 * out to be — no assumption about it is needed for the math to hold.
+	 *
+	 * <p>Smoothed by real elapsed time, not by sample count — a fixed
+	 * per-sample blend (e.g. "80% old, 20% new") converges in a fixed number of
+	 * *samples*, but samples arrive once per tick-sync, so a server crawling at
+	 * 0.5 TPS produces them roughly 40x slower than one running at 20. That
+	 * made a crash from 20 TPS down to 0.5 read as ~12 for tens of real seconds
+	 * even though every individual sample was already accurate — dozens of
+	 * samples just took that long to arrive. Weighting each sample by how much
+	 * real time it actually covers fixes that: a rare, wide-gap sample (which
+	 * is exactly what a lag spike produces) now pulls the estimate hard toward
+	 * itself instead of being treated as "one vote out of many".
+	 */
+	public static void recordGameTime(long gameTime) {
+		long now = System.currentTimeMillis();
+		if (lastGameTime >= 0) {
+			long tickDelta = gameTime - lastGameTime;
+			long millisDelta = now - lastGameTimeAtMillis;
+			if (tickDelta > 0 && millisDelta > 0) {
+				float sampledMspt = millisDelta / (float) tickDelta;
+				float previous = estimatedMspt;
+				if (previous < 0) {
+					estimatedMspt = sampledMspt;
+				} else {
+					float alpha = 1F - (float) Math.exp(-millisDelta / (double) MSPT_SMOOTHING_TAU_MILLIS);
+					estimatedMspt = previous + (sampledMspt - previous) * alpha;
+				}
+			}
+		}
+		lastGameTime = gameTime;
+		lastGameTimeAtMillis = now;
+	}
+
+	private static String tpsText() {
+		float mspt = estimatedMspt;
+		// ponytail: display capped at 20 TPS, doesn't reflect a server
+		// explicitly configured for a faster tick rate.
+		return mspt < 0 ? "--" : String.format("%.1f", Math.min(20F, 1000F / mspt));
+	}
+
+	private static String msptText() {
+		float mspt = estimatedMspt;
+		return mspt < 0 ? "--" : String.format("%.1f", mspt);
+	}
+
+	private static final int HEALTH_GREEN = 0xFF4CD964;
+	private static final int HEALTH_YELLOW = 0xFFFFCC00;
+	private static final int HEALTH_RED = 0xFFFF3B30;
+
+	/** Same three anchors as the TPS scale (20/15/1 TPS), expressed as their equivalent ms/tick. */
+	private static final float MSPT_GREEN_AT = 50F;
+	private static final float MSPT_YELLOW_AT = 1000F / 15F;
+	private static final float MSPT_RED_AT = 1000F;
+
+	/** Shared by the "tps" and "mspt" lines, so the two can never show a different color for the same reality. */
+	private static int healthColor() {
+		float mspt = estimatedMspt;
+		if (mspt < 0) {
+			return NexoStyle.TEXT_PRIMARY;
+		}
+		if (mspt <= MSPT_GREEN_AT) {
+			return HEALTH_GREEN;
+		}
+		if (mspt <= MSPT_YELLOW_AT) {
+			return NexoStyle.mix(HEALTH_GREEN, HEALTH_YELLOW, (mspt - MSPT_GREEN_AT) / (MSPT_YELLOW_AT - MSPT_GREEN_AT));
+		}
+		if (mspt <= MSPT_RED_AT) {
+			return NexoStyle.mix(HEALTH_YELLOW, HEALTH_RED, (mspt - MSPT_YELLOW_AT) / (MSPT_RED_AT - MSPT_YELLOW_AT));
+		}
+		return HEALTH_RED;
 	}
 
 	private static String coordsText() {
@@ -170,21 +271,32 @@ public final class NexoStatsHud implements HudElement {
 	}
 
 	private static String biomeText() {
-		Minecraft client = Minecraft.getInstance();
-		if (client.player == null || client.level == null) {
+		Identifier id = currentBiomeId();
+		if (id == null) {
 			return "--";
 		}
 		// Falls back to the raw path when a datapack biome has no translation, which
 		// is a readable name either way — better than an empty line.
+		String translationKey = "biome." + id.getNamespace() + "." + id.getPath();
+		Component translated = Component.translatable(translationKey);
+		String text = translated.getString();
+		return text.equals(translationKey) ? id.getPath() : text;
+	}
+
+	/** The representative color for the current biome — grey stony shores, green plains, the acacia orange for savanna, and so on. */
+	private static int biomeColor() {
+		Identifier id = currentBiomeId();
+		return id == null ? NexoStyle.TEXT_PRIMARY : NexoBiomeColors.forPath(id.getPath());
+	}
+
+	private static Identifier currentBiomeId() {
+		Minecraft client = Minecraft.getInstance();
+		if (client.player == null || client.level == null) {
+			return null;
+		}
 		return client.level.getBiome(client.player.blockPosition()).unwrapKey()
-				.map(key -> {
-					Identifier id = key.identifier();
-					String translationKey = "biome." + id.getNamespace() + "." + id.getPath();
-					Component translated = Component.translatable(translationKey);
-					String text = translated.getString();
-					return text.equals(translationKey) ? id.getPath() : text;
-				})
-				.orElse("--");
+				.map(ResourceKey::identifier)
+				.orElse(null);
 	}
 
 	private static String experienceText() {
@@ -255,6 +367,9 @@ public final class NexoStatsHud implements HudElement {
 		return COMPASS[index];
 	}
 
+	/** Blocks/sec above which movement reads as "Walking" rather than "Standing". */
+	private static final float WALK_SPEED_THRESHOLD = 0.5F;
+
 	private static String movementText() {
 		LocalPlayer player = Minecraft.getInstance().player;
 		if (player == null) {
@@ -265,6 +380,9 @@ public final class NexoStatsHud implements HudElement {
 		}
 		if (player.isCrouching()) {
 			return Component.translatable("nexomod.stats.movement.sneaking").getString();
+		}
+		if (speedBlocksPerSecond > WALK_SPEED_THRESHOLD) {
+			return Component.translatable("nexomod.stats.movement.walking").getString();
 		}
 		return Component.translatable("nexomod.stats.movement.standing").getString();
 	}
@@ -330,9 +448,20 @@ public final class NexoStatsHud implements HudElement {
 
 		int y = bounds.top();
 		for (NexoStatsRegistry.Stat stat : enabledStats) {
-			Component line = stat.label().copy().append(": " + stat.value().get());
+			Component value = Component.literal(stat.value().get())
+					.withStyle(style -> style.withColor(valueColor(stat.id()) & 0xFFFFFF));
+			Component line = stat.label().copy().append(": ").append(value);
 			graphics.text(font, line, bounds.left(), y, NexoStyle.TEXT_PRIMARY);
 			y += lineHeight;
 		}
+	}
+
+	/** Most stat values inherit the line's own color; TPS and biome carry a meaningful one of their own. */
+	private static int valueColor(String statId) {
+		return switch (statId) {
+			case "tps", "mspt" -> healthColor();
+			case "biome" -> biomeColor();
+			default -> NexoStyle.TEXT_PRIMARY;
+		};
 	}
 }

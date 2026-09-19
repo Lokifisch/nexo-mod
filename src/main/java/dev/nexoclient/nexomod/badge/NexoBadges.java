@@ -6,8 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 
@@ -32,7 +32,7 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
 public final class NexoBadges {
 	/**
 	 * The periodic backstop. Most refreshes now happen because an unrecognised
-	 * player turned up (see {@link #noteUnknownPlayer()}); this only covers
+	 * player turned up (see {@link #noteUnknownPlayer}); this only covers
 	 * sitting in a world alone while somebody elsewhere installs the mod.
 	 */
 	private static final long REFRESH_MINUTES = 15;
@@ -73,9 +73,16 @@ public final class NexoBadges {
 	private static volatile long beatInterval = BadgePresence.DEFAULT_INTERVAL_SECONDS;
 
 	/**
-	 * Shortest gap between refreshes triggered by seeing an unregistered
-	 * player. Without a floor this would fire on every frame on a server full
-	 * of people who don't use Nexo.
+	 * Shortest gap between refreshes triggered by seeing the <em>same</em>
+	 * unrecognised player. Without a floor this would fire on every frame on a
+	 * server full of people who don't use Nexo.
+	 *
+	 * <p>Keyed per UUID rather than one shared timer: a single global cooldown
+	 * meant any stranger's failed lookup could "spend" the only refresh for up
+	 * to a minute and a half, so a friend who joined right after could go an
+	 * entire short session without ever being rechecked — the periodic refresh
+	 * was the only thing that would eventually catch them. Per-player keeps the
+	 * original point (don't hammer the service) without that false negative.
 	 */
 	private static final long ON_DEMAND_COOLDOWN_MS = 90_000;
 
@@ -85,8 +92,13 @@ public final class NexoBadges {
 	/** Accounts already tried this session, so a failure isn't retried per tick. */
 	private static final Set<UUID> attemptedThisSession = ConcurrentHashMap.newKeySet();
 
-	/** Guards {@link #noteUnknownPlayer()}; read from the render thread. */
-	private static final AtomicLong lastOnDemandRefresh = new AtomicLong();
+	/**
+	 * Guards {@link #noteUnknownPlayer}, one entry per UUID seen unbadged.
+	 * Bounded by however many distinct players are visible in a session, not
+	 * unbounded — cleared on disconnect so it can't grow across a long run
+	 * spanning many servers.
+	 */
+	private static final ConcurrentHashMap<UUID, Long> lastOnDemandRefresh = new ConcurrentHashMap<>();
 
 	private NexoBadges() {
 	}
@@ -109,6 +121,10 @@ public final class NexoBadges {
 		// Self-rescheduling rather than a fixed delay, because the interval is
 		// the service's to choose and can change between one beat and the next.
 		worker.schedule(NexoBadges::beat, REGISTER_DELAY_SECONDS + 10, TimeUnit.SECONDS);
+
+		// Otherwise this grows for as long as the client stays open, one entry
+		// per distinct unbadged UUID ever seen across every server visited.
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> lastOnDemandRefresh.clear());
 	}
 
 	/**
@@ -174,33 +190,40 @@ public final class NexoBadges {
 		// they don't use Nexo, but it is also exactly what a friend who
 		// installed it after our last fetch looks like, and waiting out the
 		// periodic refresh to find out takes half an hour.
-		noteUnknownPlayer();
+		noteUnknownPlayer(id);
 		return false;
 	}
 
 	/**
-	 * Asks for an out-of-band refresh, at most once per
-	 * {@link #ON_DEMAND_COOLDOWN_MS}.
+	 * Asks for an out-of-band refresh for this specific player, at most once
+	 * per {@link #ON_DEMAND_COOLDOWN_MS}.
 	 *
 	 * <p>Called from the render thread for every unbadged player on screen, so
-	 * the common path is two atomic reads and nothing else. The refresh itself
-	 * is a conditional GET, so when nothing has changed it costs a 304.
+	 * the common path is a map lookup and nothing else. The refresh itself is
+	 * a conditional GET, so when nothing has changed it costs a 304 — and one
+	 * refresh already covers every unbadged player at once, so this only
+	 * decides *whether* to fire it, not who it's for.
 	 */
-	private static void noteUnknownPlayer() {
+	private static void noteUnknownPlayer(UUID id) {
 		ScheduledExecutorService current = worker;
 		if (current == null) {
 			return;
 		}
 		long now = System.currentTimeMillis();
-		long last = lastOnDemandRefresh.get();
-		if (now - last < ON_DEMAND_COOLDOWN_MS) {
-			return;
+		boolean[] due = {false};
+		// compute() makes the read-then-maybe-write atomic per key, so two
+		// simultaneous misses for the same player can't both slip past the
+		// cooldown and each schedule their own refresh.
+		lastOnDemandRefresh.compute(id, (key, last) -> {
+			if (last != null && now - last < ON_DEMAND_COOLDOWN_MS) {
+				return last;
+			}
+			due[0] = true;
+			return now;
+		});
+		if (due[0]) {
+			current.execute(NexoBadges::refreshRoster);
 		}
-		// Whoever wins the CAS does the work; everyone else this frame drops out.
-		if (!lastOnDemandRefresh.compareAndSet(last, now)) {
-			return;
-		}
-		current.execute(NexoBadges::refreshRoster);
 	}
 
 	/**

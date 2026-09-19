@@ -27,7 +27,11 @@
 		"ChatSenderCaptureMixin",
 		"ActionbarLogMixin",
 		"PickupLogMixin",
-		"CameraZoomMixin"
+		"CameraZoomMixin",
+		"TpsSampleMixin",
+		"NoRenderEntityMixin",
+		"NoRenderHitboxMixin",
+		"NoRenderProfilerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

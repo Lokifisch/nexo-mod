@@ -44,19 +44,21 @@ final class BadgeRoster {
 			.resolve("nexomod-badge-roster.etag");
 
 	/**
-	 * Sorted, {@value #HASH_BYTES}-byte records. Never mutated in place — a
-	 * refresh publishes a new array, which is what makes the lookup lock-free.
+	 * Sorted {@value #HASH_BYTES}-byte records, plus the memoised answers
+	 * looked up against them — bundled into one object and swapped through a
+	 * single {@code volatile} field so a refresh can never be observed
+	 * half-applied. Two separate fields (entries swapped, then verdicts
+	 * cleared) left a window where a lookup landing between the two writes
+	 * could return a verdict memoised against the *old* entries even though
+	 * {@code entries} already pointed at the new ones.
 	 */
-	private volatile byte[] entries = new byte[0];
-	private volatile String etag;
+	private record Snapshot(byte[] entries, ConcurrentHashMap<UUID, Boolean> verdicts) {
+	}
 
-	/**
-	 * Memoised answers, because the tab list asks about every player on every
-	 * frame and hashing a UUID that often is pure waste. Cleared whenever a new
-	 * roster lands, so a player who registers mid-session stops being a "no"
-	 * as soon as the next refresh sees them.
-	 */
-	private final ConcurrentHashMap<UUID, Boolean> verdicts = new ConcurrentHashMap<>();
+	private static final Snapshot EMPTY = new Snapshot(new byte[0], new ConcurrentHashMap<>());
+
+	private volatile Snapshot snapshot = EMPTY;
+	private volatile String etag;
 
 	/** Loads whatever the last session left behind. Never throws. */
 	void loadFromDisk() {
@@ -131,8 +133,7 @@ final class BadgeRoster {
 	}
 
 	private void publish(byte[] blob) {
-		entries = blob;
-		verdicts.clear();
+		snapshot = new Snapshot(blob, new ConcurrentHashMap<>());
 	}
 
 	private void persist(byte[] blob) {
@@ -163,7 +164,7 @@ final class BadgeRoster {
 	}
 
 	int size() {
-		return entries.length / HASH_BYTES;
+		return snapshot.entries().length / HASH_BYTES;
 	}
 
 	/** Whether this player is in the roster. Called from the render thread. */
@@ -171,10 +172,10 @@ final class BadgeRoster {
 		if (id == null) {
 			return false;
 		}
-		byte[] blob = entries;
-		if (blob.length == 0) {
+		Snapshot current = snapshot;
+		if (current.entries().length == 0) {
 			return false;
 		}
-		return verdicts.computeIfAbsent(id, key -> BadgeRosterFormat.contains(blob, key));
+		return current.verdicts().computeIfAbsent(id, key -> BadgeRosterFormat.contains(current.entries(), key));
 	}
 }

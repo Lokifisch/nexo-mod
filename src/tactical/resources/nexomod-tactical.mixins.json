@@ -7,7 +7,8 @@
 		"SoundDirectionMixin",
 		"ClientClockOverrideMixin",
 		"WeatherOverrideMixin",
-		"FreecamCameraMixin"
+		"FreecamCameraMixin",
+		"FreecamBodyFreezeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

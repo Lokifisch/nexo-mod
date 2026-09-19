@@ -54,6 +54,13 @@ public final class WorldConverter {
 	 * {@code serverDir/levelName}. The backup happens unconditionally and
 	 * first — even if the rest of this fails, nothing is lost.
 	 *
+	 * <p>The backup ends up nested at {@code save/backups/<timestamp>/} —
+	 * inside the world it's a backup <i>of</i>, once that world is back in
+	 * place. It can't be copied straight there before the overwrite (that
+	 * would copy {@code save} into a directory living inside itself), so
+	 * it's staged as a sibling temp dir first and only moved inside
+	 * {@code save} after the revert has completed.
+	 *
 	 * @return the path the pre-conversion save was backed up to
 	 */
 	public static Path toSingleplayer(Path serverDir, String levelName, Path save) throws IOException {
@@ -62,14 +69,19 @@ public final class WorldConverter {
 			throw new IOException("Not a Minecraft world (no level.dat): " + source);
 		}
 
-		Path backup = save.resolveSibling(save.getFileName() + "-nexo-backup-" + Instant.now().getEpochSecond());
-		copyTree(save, backup);
+		Path backupStaging = save.resolveSibling(save.getFileName() + ".backup-staging-" + System.nanoTime());
+		copyTree(save, backupStaging);
 
 		Path tempDest = save.resolveSibling(save.getFileName() + ".restoring-" + System.nanoTime());
 		Files.createDirectories(tempDest);
 		copyTree(source, tempDest);
 		deleteTree(save);
 		Files.move(tempDest, save, StandardCopyOption.ATOMIC_MOVE);
+
+		Path backupsDir = save.resolve("backups");
+		Files.createDirectories(backupsDir);
+		Path backup = backupsDir.resolve(String.valueOf(Instant.now().getEpochSecond()));
+		Files.move(backupStaging, backup, StandardCopyOption.ATOMIC_MOVE);
 
 		return backup;
 	}
