@@ -49,7 +49,7 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
 public final class NexoStatsHud implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "stats_hud");
 	private static final int LINE_HEIGHT = 10;
-	private static final int NOMINAL_WIDTH = 110;
+	private static final int NOMINAL_WIDTH = 150;
 	private static final int EDGE_MARGIN = 4;
 
 	private static final int TICKS_PER_DAY = 24000;
@@ -136,7 +136,7 @@ public final class NexoStatsHud implements HudElement {
 
 	private static void registerBuiltinStats() {
 		NexoStatsRegistry.register("fps", Component.translatable("nexomod.stats.fps"),
-				() -> String.valueOf(Minecraft.getInstance().getFps()));
+				NexoFpsWindow::text);
 		NexoStatsRegistry.register("ping", Component.translatable("nexomod.stats.ping"),
 				NexoStatsHud::pingText);
 		NexoStatsRegistry.register("hunger", Component.translatable("nexomod.stats.hunger"),
@@ -220,7 +220,11 @@ public final class NexoStatsHud implements HudElement {
 		float mspt = estimatedMspt;
 		// ponytail: display capped at 20 TPS, doesn't reflect a server
 		// explicitly configured for a faster tick rate.
-		return mspt < 0 ? "--" : String.format("%.1f", Math.min(20F, 1000F / mspt));
+		if (mspt < 0) {
+			return "--";
+		}
+		float tps = Math.min(20F, 1000F / mspt);
+		return String.format("%.1f (%d%%)", tps, Math.round(tps * 5F));
 	}
 
 	private static String msptText() {
@@ -432,6 +436,7 @@ public final class NexoStatsHud implements HudElement {
 		if (client.player == null || client.options.hideGui) {
 			return;
 		}
+		NexoFpsWindow.sample();
 		NexoStatsConfig config = NexoStatsConfig.get();
 		List<NexoStatsRegistry.Stat> enabledStats = NexoStatsRegistry.stats().stream()
 				.filter(stat -> config.isEnabled(stat.id()))

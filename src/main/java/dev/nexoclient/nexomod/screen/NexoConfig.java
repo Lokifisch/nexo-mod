@@ -241,6 +241,8 @@ public final class NexoConfig {
 	private boolean keystrokesHudEnabled;
 	private boolean cpsCounterEnabled;
 	private boolean statsHudEnabled;
+	/** Seconds the FPS stat's low/high/average cover: 1, 5 or 10. */
+	private int fpsWindowSeconds = 5;
 	private boolean potionHudEnabled;
 	private boolean comboCounterEnabled;
 	private boolean actionbarLogEnabled;
@@ -344,6 +346,8 @@ public final class NexoConfig {
 	private TimeOverride timeOverride = TimeOverride.OFF;
 	private WeatherOverride weatherOverride = WeatherOverride.OFF;
 	private boolean chunkHistoryEnabled;
+	/** Look the server up in the community seed list on join. On by default: it is the point of the Seed Index. */
+	private boolean seedDatabaseEnabled = true;
 	private boolean chunkBorderOverlayEnabled;
 	private boolean lightOverlayEnabled;
 	private int lightOverlayRadius = 16;
@@ -696,6 +700,15 @@ public final class NexoConfig {
 
 	public void setCpsCounterEnabled(boolean enabled) {
 		this.cpsCounterEnabled = enabled;
+		save();
+	}
+
+	public int fpsWindowSeconds() {
+		return fpsWindowSeconds;
+	}
+
+	public void setFpsWindowSeconds(int seconds) {
+		this.fpsWindowSeconds = seconds;
 		save();
 	}
 
@@ -1075,6 +1088,15 @@ public final class NexoConfig {
 	// Chunk history / state-triggered macros (full jar only)
 	// ------------------------------------------------------------------
 
+	public boolean seedDatabaseEnabled() {
+		return seedDatabaseEnabled;
+	}
+
+	public void setSeedDatabaseEnabled(boolean enabled) {
+		this.seedDatabaseEnabled = enabled;
+		save();
+	}
+
 	public boolean chunkHistoryEnabled() {
 		return chunkHistoryEnabled;
 	}
@@ -1211,6 +1233,7 @@ public final class NexoConfig {
 		keystrokesHudEnabled = Boolean.parseBoolean(props.getProperty("keystrokesHudEnabled", "false"));
 		cpsCounterEnabled = Boolean.parseBoolean(props.getProperty("cpsCounterEnabled", "false"));
 		statsHudEnabled = Boolean.parseBoolean(props.getProperty("statsHudEnabled", "false"));
+		fpsWindowSeconds = boundedIntOrDefault(props.getProperty("fpsWindowSeconds"), 5, 1, 10);
 		potionHudEnabled = Boolean.parseBoolean(props.getProperty("potionHudEnabled", "false"));
 		comboCounterEnabled = Boolean.parseBoolean(props.getProperty("comboCounterEnabled", "false"));
 		actionbarLogEnabled = Boolean.parseBoolean(props.getProperty("actionbarLogEnabled", "false"));
@@ -1284,6 +1307,7 @@ public final class NexoConfig {
 		timeOverride = enumOrDefault(TimeOverride.class, props.getProperty("timeOverride"), TimeOverride.OFF);
 		weatherOverride = enumOrDefault(WeatherOverride.class, props.getProperty("weatherOverride"), WeatherOverride.OFF);
 		chunkHistoryEnabled = Boolean.parseBoolean(props.getProperty("chunkHistoryEnabled", "false"));
+		seedDatabaseEnabled = Boolean.parseBoolean(props.getProperty("seedDatabaseEnabled", "true"));
 		chunkBorderOverlayEnabled = Boolean.parseBoolean(props.getProperty("chunkBorderOverlayEnabled", "false"));
 		lightOverlayEnabled = Boolean.parseBoolean(props.getProperty("lightOverlayEnabled", "false"));
 		lightOverlayRadius = boundedIntOrDefault(props.getProperty("lightOverlayRadius"), 16,
@@ -1387,6 +1411,7 @@ public final class NexoConfig {
 		props.setProperty("keystrokesHudEnabled", Boolean.toString(keystrokesHudEnabled));
 		props.setProperty("cpsCounterEnabled", Boolean.toString(cpsCounterEnabled));
 		props.setProperty("statsHudEnabled", Boolean.toString(statsHudEnabled));
+		props.setProperty("fpsWindowSeconds", Integer.toString(fpsWindowSeconds));
 		props.setProperty("potionHudEnabled", Boolean.toString(potionHudEnabled));
 		props.setProperty("comboCounterEnabled", Boolean.toString(comboCounterEnabled));
 		props.setProperty("actionbarLogEnabled", Boolean.toString(actionbarLogEnabled));
@@ -1423,6 +1448,7 @@ public final class NexoConfig {
 		props.setProperty("timeOverride", timeOverride.name());
 		props.setProperty("weatherOverride", weatherOverride.name());
 		props.setProperty("chunkHistoryEnabled", Boolean.toString(chunkHistoryEnabled));
+		props.setProperty("seedDatabaseEnabled", Boolean.toString(seedDatabaseEnabled));
 		props.setProperty("chunkBorderOverlayEnabled", Boolean.toString(chunkBorderOverlayEnabled));
 		props.setProperty("lightOverlayEnabled", Boolean.toString(lightOverlayEnabled));
 		props.setProperty("lightOverlayRadius", Integer.toString(lightOverlayRadius));

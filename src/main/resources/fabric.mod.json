@@ -14,7 +14,7 @@
 	"entrypoints": {
 		"client": [
 			"dev.nexoclient.nexomod.NexoMod"${tactical_entrypoints}
-		]
+		]${tactical_seedcracker}
 	},
 	"mixins": [
 		"nexomod.mixins.json"${tactical_mixins}

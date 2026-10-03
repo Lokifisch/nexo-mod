@@ -12,6 +12,8 @@ import dev.nexoclient.nexomod.tactical.chunks.NexoChunkHistory;
 import dev.nexoclient.nexomod.tactical.freecam.NexoFreecam;
 import dev.nexoclient.nexomod.tactical.ghost.NexoGhostMode;
 import dev.nexoclient.nexomod.tactical.light.NexoLightOverlay;
+import dev.nexoclient.nexomod.tactical.locate.NexoLocateCommand;
+import dev.nexoclient.nexomod.tactical.locate.NexoSeedIndexScreen;
 import dev.nexoclient.nexomod.tactical.macro.NexoMacroTriggers;
 import dev.nexoclient.nexomod.tactical.screen.NexoBedrockHoleScreen;
 import dev.nexoclient.nexomod.tactical.screen.NexoChunkBorderConfigScreen;
@@ -85,6 +87,7 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		NexoTacticalStats.register();
 		NexoLightOverlay.register();
 		NexoFreecam.register();
+		NexoLocateCommand.register();
 
 		// A bearing to something in a world you have left is nonsense, and a
 		// stale ping would otherwise survive into the next server.
@@ -103,6 +106,7 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		// directly.
 		NexoExtraCategories.register(Component.translatable("nexomod.settings.bedrockHoles"), NexoBedrockHoleScreen::new);
 		NexoExtraCategories.register(Component.translatable("nexomod.settings.tactical"), NexoTacticalFeatureScreen::new);
+		NexoExtraCategories.register(Component.translatable("nexomod.settings.seedIndex"), NexoSeedIndexScreen::new);
 
 		// The one QoL-menu row src/main cannot add directly — see NexoQolModules.
 		NexoConfig config = NexoConfig.get();

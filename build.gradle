@@ -61,6 +61,19 @@ sourceSets {
 	}
 }
 
+// SeedcrackerX's entrypoint interface, as a compile-only stub (see its javadoc).
+// Its own source set so its output can be put on tactical's compile classpath
+// without ever reaching a jar.
+sourceSets {
+	seedcrackerApi {
+		java.srcDir 'stubs/seedcracker'
+	}
+}
+sourceSets.tactical.compileClasspath += sourceSets.seedcrackerApi.output
+tasks.named('compileTacticalJava') {
+	dependsOn tasks.named('compileSeedcrackerApiJava')
+}
+
 // The dev run must be the *full* mod: `build/resources/main`'s fabric.mod.json
 // is generated with the full entrypoint and the full mixin config (see
 // processResources below), and a listed mixin config that isn't on the
@@ -355,6 +368,9 @@ def tacticalManifestTokens = [
 		// element, and are empty strings in the light variant.
 		tactical_entrypoints: ',\n\t\t\t"dev.nexoclient.nexomod.tactical.NexoTacticalFeatures"',
 		tactical_mixins     : ',\n\t\t"nexomod-tactical.mixins.json"',
+		// SeedcrackerX's own hook: it looks this key up in every mod and ignores
+		// mods that have it, and never loads the class when it is not installed.
+		tactical_seedcracker: ',\n\t\t"seedcrackerx": ["dev.nexoclient.nexomod.tactical.locate.SeedCrackerBridge"]',
 		sibling_mod_id  : 'nexomod-legit'
 ]
 def legitManifestTokens = [
@@ -364,6 +380,7 @@ def legitManifestTokens = [
 		mod_description : 'Nexo Mod without anything that hands out information or automation the vanilla game withholds: no sound radar, armor HUD, time/weather override, bedrock hole finder, chunk history or state-triggered macro automation. Account switching, the LAN tunnel, Discord presence, the UI reskin, chat history and filtering, quick server switching, keybind macros and the position-obscuring suite are all still here.',
 		tactical_entrypoints: '',
 		tactical_mixins     : '',
+		tactical_seedcracker: '',
 		sibling_mod_id  : 'nexomod'
 ]
 
@@ -396,6 +413,10 @@ def legitLangDropPrefixes = [
 		'nexomod.settings.macroTriggers',
 		'nexomod.macroTriggers.',
 		'nexomod.ghost.',
+		'nexomod.locate.',
+		'nexomod.settings.seedDatabase',
+		'nexomod.seedIndex.',
+		'nexomod.settings.seedIndex',
 		'key.nexomod.ghostMode',
 		// Two Stats HUD lines registered from NexoTacticalFeatures, not from
 		// NexoStatsHud — the rest of 'nexomod.stats.' is src/main and stays.

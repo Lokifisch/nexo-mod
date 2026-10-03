@@ -55,6 +55,7 @@ public class NexoTacticalFeatureScreen extends NexoOptionScreen {
 		addRadarRows(list, config);
 		addEnvironmentRows(list, config);
 		addChunkRows(list, config);
+		addSeedRows(list, config);
 		addTriggerRows(list, config);
 	}
 
@@ -102,6 +103,14 @@ public class NexoTacticalFeatureScreen extends NexoOptionScreen {
 				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(),
 						Component.translatable("nexomod.settings.environment.weather"),
 						(button, value) -> config.setWeatherOverride(value)));
+	}
+
+	private static void addSeedRows(NexoSettingsOptionList list, NexoConfig config) {
+		list.addWidgetRow(CycleButton.onOffBuilder(config.seedDatabaseEnabled())
+				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.seedDatabase.enabled.tooltip")))
+				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(),
+						Component.translatable("nexomod.settings.seedDatabase.enabled"),
+						(button, value) -> config.setSeedDatabaseEnabled(value)));
 	}
 
 	private static void addChunkRows(NexoSettingsOptionList list, NexoConfig config) {

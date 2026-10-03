@@ -44,6 +44,11 @@ public class NexoStatsConfigScreen extends NexoModalScreen {
 		layout.addChild(searchField);
 		setInitialFocus(searchField);
 
+		layout.addChild(CycleButton.<Integer>builder(seconds -> Component.literal(seconds + "s"), modConfig.fpsWindowSeconds())
+				.withValues(1, 5, 10)
+				.create(0, 0, ROW_WIDTH, 20, Component.translatable("nexomod.stats.fpsWindow"),
+						(button, value) -> modConfig.setFpsWindowSeconds(value)));
+
 		NexoStatsConfig config = NexoStatsConfig.get();
 		String needle = query.toLowerCase();
 		for (NexoStatsRegistry.Stat stat : NexoStatsRegistry.stats()) {
