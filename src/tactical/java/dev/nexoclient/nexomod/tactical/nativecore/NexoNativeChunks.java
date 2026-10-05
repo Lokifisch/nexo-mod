@@ -4,7 +4,7 @@ import dev.nexoclient.nexomod.nativecore.JobPayloadReader;
 import dev.nexoclient.nexomod.nativecore.NexoNative;
 
 /**
- * The chunk-history half of the native surface — full builds only.
+ * The chunk-history half of the native surface — Tactical builds only.
  *
  * <p>Everything in {@link NexoNative} applies here unchanged: nothing throws,
  * failures return a sentinel ({@link NexoNative#INVALID_HANDLE}, {@code false},
@@ -16,11 +16,11 @@ import dev.nexoclient.nexomod.nativecore.NexoNative;
  *
  * <p>JNI derives the exported symbol from the declaring class's package and
  * name, so these methods bind to
- * {@code Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_…} rather
+ * {@code Java_dev_nexoclient_nexomod_tactical_nativecore_NexoNativeChunks_…} rather
  * than to the {@code NexoNative} symbols the rest of the surface uses. That is
- * the point. The class lives in {@code src/full}, so it is absent from the
+ * the point. The class lives in {@code src/tactical}, so it is absent from the
  * {@code nexomod-legit} jar, whose {@code libnexo_core.so} is built without the
- * Cargo {@code full} feature and does not export these symbols either. Light
+ * Cargo {@code tactical} feature and does not export these symbols either. Light
  * code physically cannot reference something its library cannot resolve.
  *
  * <h2>Before calling anything here</h2>

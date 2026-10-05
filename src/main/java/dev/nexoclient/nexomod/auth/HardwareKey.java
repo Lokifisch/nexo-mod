@@ -56,13 +56,25 @@ public final class HardwareKey {
 	private static final int COMMAND_TIMEOUT_SECONDS = 20;
 
 	private static final CompletableFuture<SecretKey> KEY =
-			CompletableFuture.supplyAsync(HardwareKey::derive, runnable -> new Thread(runnable, "nexomod-hardware-key").start());
+			CompletableFuture.supplyAsync(HardwareKey::derive, runnable -> daemon(runnable, "nexomod-hardware-key"))
+					// Backstop so await() can never hang the caller: null = no key, callers already fail safe.
+					.orTimeout(120, TimeUnit.SECONDS).exceptionally(t -> {
+						LOGGER.warn("Hardware key unavailable ({})", t.toString());
+						return null;
+					});
+
+	private static void daemon(Runnable runnable, String name) {
+		Thread thread = new Thread(runnable, name);
+		thread.setDaemon(true);
+		thread.start();
+	}
 
 	private HardwareKey() {}
 
 	/** Called at mod init purely to start the off-thread derivation early. */
 	public static void warmUp() {
-		// Class initialization already kicked off KEY; nothing else to do.
+		// Class initialization already kicked off KEY; also start the keychain lookup.
+		KeychainKey.warmUp();
 	}
 
 	/**
@@ -253,21 +265,39 @@ public final class HardwareKey {
 
 	private static List<String> runCommand(String... command) {
 		try {
-			Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-			List<String> lines = new ArrayList<>();
-			try (BufferedReader reader = new BufferedReader(
-					new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					lines.add(line);
+			Process process = new ProcessBuilder(command)
+					.redirectError(ProcessBuilder.Redirect.DISCARD) // stderr noise would change the derived key
+					.start();
+			// Drained off-thread: reading first would block forever on a hung probe and the timeout below would never run.
+			java.util.concurrent.CompletableFuture<List<String>> output = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+				List<String> lines = new ArrayList<>();
+				try (BufferedReader reader = new BufferedReader(
+						new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+					String line;
+					while ((line = reader.readLine()) != null) {
+						lines.add(line);
+					}
+				} catch (IOException e) {
+					// closed by destroyForcibly on timeout
 				}
-			}
+				return lines;
+			}, runnable -> daemon(runnable, "nexomod-hardware-drain"));
 			if (!process.waitFor(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+				process.descendants().forEach(ProcessHandle::destroyForcibly);
 				process.destroyForcibly();
+				process.getInputStream().close();
 				LOGGER.warn("Hardware probe timed out: {}", command[0]);
 				return List.of();
 			}
-			return lines;
+			try {
+				return output.get(2, TimeUnit.SECONDS);
+			} catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+				// A descendant still holds the pipe open, so EOF never comes.
+				process.destroyForcibly();
+				process.getInputStream().close();
+				LOGGER.warn("Hardware probe output drain timed out: {}", command[0]);
+				return List.of();
+			}
 		} catch (IOException e) {
 			LOGGER.warn("Hardware probe unavailable: {} ({})", command[0], e.toString());
 			return List.of();

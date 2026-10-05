@@ -132,7 +132,7 @@ fn arg_path(env: &Env<'_>, name: &str, value: &JString) -> Result<PathBuf> {
     Ok(PathBuf::from(arg_str(env, name, value)?))
 }
 
-/// The only current caller is `chunkSnapshot`, which is behind the `full`
+/// The only current caller is `chunkSnapshot`, which is behind the `tactical`
 /// feature — hence the `allow` rather than a `#[cfg]`. It is a general argument
 /// helper, not a full-only one, and gating it would make adding a `byte[]`
 /// parameter to a non-gated function fail to compile for no reason.
@@ -555,27 +555,27 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_nativecore_NexoNative_filterD
 }
 
 // ---------------------------------------------------------------------------
-// Chunk history — full builds only (Cargo feature `full`)
+// Chunk history — full builds only (Cargo feature `tactical`)
 // ---------------------------------------------------------------------------
 //
 // These four symbols do not exist in a light build, and neither do their Java
 // declarations: they live in
-// `src/full/java/dev/nexoclient/nexomod/full/nativecore/NexoNativeChunks.java`,
+// `src/tactical/java/dev/nexoclient/nexomod/tactical/nativecore/NexoNativeChunks.java`,
 // which is only compiled into the full jar. That is why the symbol names below
-// say `full_nativecore_NexoNativeChunks` rather than `nativecore_NexoNative` —
+// say `tactical_nativecore_NexoNativeChunks` rather than `nativecore_NexoNative` —
 // JNI derives the symbol from the declaring class's package, so moving the
 // declarations moved the symbols.
 //
 // The point of moving them rather than leaving the declarations in `NexoNative`
 // and gating only the Rust side: with the declarations in `src/main`, "light
 // code must never call these" is a rule someone has to remember, and forgetting
-// it costs an `UnsatisfiedLinkError` at runtime. With them in `src/full` it is a
+// it costs an `UnsatisfiedLinkError` at runtime. With them in `src/tactical` it is a
 // compile error in the light build, which is the only kind of guarantee worth
 // having across an FFI boundary.
 
 #[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkStoreOpen<
+pub extern "system" fn Java_dev_nexoclient_nexomod_tactical_nativecore_NexoNativeChunks_chunkStoreOpen<
     'local,
 >(
     mut env: EnvUnowned<'local>,
@@ -590,7 +590,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChu
 
 #[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkStoreClose<
+pub extern "system" fn Java_dev_nexoclient_nexomod_tactical_nativecore_NexoNativeChunks_chunkStoreClose<
     'local,
 >(
     mut env: EnvUnowned<'local>,
@@ -607,7 +607,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChu
 
 #[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkSnapshot<
+pub extern "system" fn Java_dev_nexoclient_nexomod_tactical_nativecore_NexoNativeChunks_chunkSnapshot<
     'local,
 >(
     mut env: EnvUnowned<'local>,
@@ -638,7 +638,7 @@ pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChu
 
 #[cfg(feature = "tactical")]
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_chunkQueryAsync<
+pub extern "system" fn Java_dev_nexoclient_nexomod_tactical_nativecore_NexoNativeChunks_chunkQueryAsync<
     'local,
 >(
     mut env: EnvUnowned<'local>,

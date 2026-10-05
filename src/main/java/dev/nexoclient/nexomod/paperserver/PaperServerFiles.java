@@ -40,14 +40,33 @@ public final class PaperServerFiles {
 		String properties = """
 				level-name=%s
 				server-port=%d
+				server-ip=127.0.0.1
 				online-mode=%b
 				gamemode=%s
 				enable-rcon=true
 				rcon.port=%d
 				rcon.password=%s
 				motd=%s
-				""".formatted(record.levelName(), record.port(), onlineMode, gameMode, record.rcon().port(), record.rcon().password(), record.name());
-		Files.writeString(serverDir.resolve("server.properties"), properties, StandardCharsets.UTF_8);
+				""".formatted(esc(record.levelName()), record.port(), onlineMode, esc(gameMode), record.rcon().port(), esc(record.rcon().password()), esc(record.name()));
+		Path file = serverDir.resolve("server.properties");
+		// Contains the RCON password: owner-only from creation, not chmod'd after the fact.
+		try {
+			Files.deleteIfExists(file);
+			Files.createFile(file, java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+					java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+		} catch (UnsupportedOperationException ignored) {
+			// non-POSIX filesystem
+		}
+		Files.writeString(file, properties, StandardCharsets.UTF_8);
+	}
+
+	/** Makes a value safe for one {@code key=value} line: control chars dropped, backslash escaped, leading space kept. */
+	private static String esc(String value) {
+		if (value == null) {
+			return "";
+		}
+		String clean = value.replaceAll("[\\p{Cntrl}]", "").replace("\\", "\\\\");
+		return clean.startsWith(" ") ? "\\" + clean : clean;
 	}
 
 	/** A fresh per-server RCON password — never reused across servers, never logged. */

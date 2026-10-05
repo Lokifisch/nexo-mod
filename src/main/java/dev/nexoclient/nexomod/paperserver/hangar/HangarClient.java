@@ -34,6 +34,9 @@ public final class HangarClient {
 	private static final String USER_AGENT = "nexomod-paperserver/1.0 (github.com/Lokifisch/nexo-client)";
 	private static final Duration TIMEOUT = Duration.ofSeconds(15);
 	private static final Gson GSON = new Gson();
+	private static final int MAX_JAR_BYTES = 64 * 1024 * 1024;
+	private static final java.util.regex.Pattern JAR_NAME = java.util.regex.Pattern.compile("[A-Za-z0-9._-]+\\.jar");
+	private static final java.util.regex.Pattern PATH_PART = java.util.regex.Pattern.compile("[A-Za-z0-9._-]+");
 
 	private final HttpClient http = HttpClient.newBuilder()
 			.connectTimeout(TIMEOUT)
@@ -74,7 +77,12 @@ public final class HangarClient {
 
 	/** Newest first, per Hangar's own ordering. */
 	public List<Version> versions(String owner, String slug, int limit) throws IOException, InterruptedException {
-		String url = BASE_URL + "/projects/" + owner + "/" + slug + "/versions?limit=" + limit;
+		if (owner == null || slug == null || !PATH_PART.matcher(owner).matches() || !PATH_PART.matcher(slug).matches()
+				|| owner.equals("..") || slug.equals("..")) {
+			throw new IOException("Invalid Hangar project namespace");
+		}
+		String url = BASE_URL + "/projects/" + URLEncoder.encode(owner, StandardCharsets.UTF_8) + "/"
+				+ URLEncoder.encode(slug, StandardCharsets.UTF_8) + "/versions?limit=" + limit;
 		HttpResponse<String> response = get(url);
 		if (response.statusCode() != 200) {
 			throw new IOException("Hangar versions returned " + response.statusCode());
@@ -83,20 +91,56 @@ public final class HangarClient {
 		return parsed == null || parsed.result() == null ? List.of() : parsed.result();
 	}
 
+	/**
+	 * Resolves a server-supplied file name to a path directly inside {@code pluginsDir}; anything that is not a
+	 * plain {@code name.jar} is rejected, so a malicious listing cannot write outside the plugins folder.
+	 */
+	private static final java.util.regex.Pattern WINDOWS_RESERVED =
+			java.util.regex.Pattern.compile("(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\\..*)?");
+
+	public static Path safePluginPath(Path pluginsDir, String fileName) throws IOException {
+		if (fileName == null || !JAR_NAME.matcher(fileName).matches()) {
+			throw new IOException("Refusing unsafe plugin file name: " + fileName);
+		}
+		if (WINDOWS_RESERVED.matcher(fileName).matches()) {
+			throw new IOException("Refusing unsafe plugin file name: " + fileName);
+		}
+		Path dest = pluginsDir.resolve(fileName).normalize();
+		if (!dest.startsWith(pluginsDir.normalize()) || !pluginsDir.normalize().equals(dest.getParent())) {
+			throw new IOException("Refusing unsafe plugin file name: " + fileName);
+		}
+		return dest;
+	}
+
 	/** Downloads and SHA-256-verifies the plugin jar, writing it to {@code dest} only once verified. */
 	public void downloadPlugin(Version version, Path dest) throws IOException, InterruptedException {
 		Download download = version.paperDownload();
-		HttpRequest request = HttpRequest.newBuilder(URI.create(download.downloadUrl()))
+		if (download == null || download.fileInfo() == null || download.downloadUrl() == null) {
+			throw new IOException("This version has no direct download (hosted externally)");
+		}
+		URI uri = URI.create(download.downloadUrl());
+		if (!"https".equalsIgnoreCase(uri.getScheme())) {
+			throw new IOException("Plugin download URL is not https");
+		}
+		if (download.fileInfo().sizeBytes() > MAX_JAR_BYTES) {
+			throw new IOException("Plugin jar exceeds " + MAX_JAR_BYTES / 1024 / 1024 + " MB limit");
+		}
+		HttpRequest request = HttpRequest.newBuilder(uri)
 				.timeout(Duration.ofMinutes(2))
 				.header("User-Agent", USER_AGENT)
 				.GET()
 				.build();
-		HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
-		if (response.statusCode() != 200) {
-			throw new IOException("Plugin download returned " + response.statusCode());
+		HttpResponse<java.io.InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+		byte[] body;
+		try (java.io.InputStream in = response.body()) {
+			if (response.statusCode() != 200) {
+				throw new IOException("Plugin download returned " + response.statusCode());
+			}
+			body = in.readNBytes(MAX_JAR_BYTES + 1);
 		}
-
-		byte[] body = response.body();
+		if (body.length > MAX_JAR_BYTES) {
+			throw new IOException("Plugin jar exceeds " + MAX_JAR_BYTES / 1024 / 1024 + " MB limit");
+		}
 		verifySha256(body, download.fileInfo().sha256Hash());
 
 		Files.createDirectories(dest.getParent());

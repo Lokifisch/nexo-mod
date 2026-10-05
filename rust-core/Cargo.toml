@@ -29,11 +29,11 @@ crate-type = ["cdylib"]
 # .so inside the light jar would put the capability on disk regardless of what
 # the Java side is willing to call.
 #
-# Default (no features) = light. `--features full` = full.
+# Default (no features) = light. `--features tactical` = Tactical.
 #
-# Anything gated on `full` must be gated in three places that have to agree:
+# Anything gated on `tactical` must be gated in three places that have to agree:
 # the module in `lib.rs`, the JNI entry points in `ffi.rs`, and the Java
-# declarations (which live in `src/full/java/.../full/nativecore/`, so the
+# declarations (which live in `src/tactical/java/.../tactical/nativecore/`, so the
 # light jar cannot name a symbol its library does not export). The bitmask
 # `nativeFeatures()` reports is how Java tells the two builds apart at runtime.
 [features]

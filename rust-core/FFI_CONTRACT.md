@@ -18,7 +18,7 @@ symbols were renamed, so an ABI-1 library is genuinely incompatible.)
 The mod ships as two jars from one tree — `nexomod` (full) and `nexomod-light`,
 which contains nothing that supplies information or automation vanilla doesn't —
 and **each jar bundles its own build of this library**. Light is the default
-Cargo feature set; full is `--features full`. Shipping the full `.so` inside the
+Cargo feature set; Tactical is `--features tactical`. Shipping the full `.so` inside the
 light jar would put the capability on the player's disk however careful the Java
 side is, which is the whole reason the split reaches down here.
 
@@ -40,9 +40,9 @@ rules exist to make the mapping readable rather than derived.
 
 The symbol is derived from the **declaring class**, which the full-only surface
 uses deliberately: `NexoNativeChunks` lives in
-`dev.nexoclient.nexomod.full.nativecore` (i.e. in `src/full`, absent from the
+`dev.nexoclient.nexomod.tactical.nativecore` (i.e. in `src/full`, absent from the
 light jar) and therefore binds to
-`Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_…`. A gated
+`Java_dev_nexoclient_nexomod_tactical_nativecore_NexoNativeChunks_…`. A gated
 function must never be declared on `NexoNative` — that class is in both jars,
 and a light jar declaring a symbol its light library does not export is an
 `UnsatisfiedLinkError` waiting for the first caller.
@@ -300,7 +300,7 @@ Cargo feature `full`; Rust module `chunks.rs`; entry points `#[cfg]`-gated in
 `ffi.rs`. **Declared on a different Java class in a different source set:**
 
 ```java
-// dev.nexoclient.nexomod.full.nativecore.NexoNativeChunks — src/full, so this
+// dev.nexoclient.nexomod.tactical.nativecore.NexoNativeChunks — src/full, so this
 // class is not in the nexomod-light jar at all.
 static native long    chunkStoreOpen(String path);
 static native void    chunkStoreClose(long h);
@@ -310,7 +310,7 @@ static native long    chunkQueryAsync(long h, String dimension, int minX, int mi
 
 Why a separate class rather than `NexoNative` plus a guard: JNI derives the
 symbol from the declaring class, so these bind to
-`Java_dev_nexoclient_nexomod_full_nativecore_NexoNativeChunks_…`, which the
+`Java_dev_nexoclient_nexomod_tactical_nativecore_NexoNativeChunks_…`, which the
 light library does not export — and the class that declares them is not in the
 light jar either. Both halves of the light build are then physically incapable
 of naming this surface, instead of merely being trusted not to. Declaring them
@@ -448,7 +448,7 @@ every matched row is copied into a single `byte[]`.
    abort.
 5. New dependencies are yours to add. Keep an eye on what they pull in: this
    library ships inside the mod jar for every platform.
-6. **`chunks.rs` is behind `#[cfg(feature = "full")]`**, and so are its four
+6. **`chunks.rs` is behind `#[cfg(feature = "tactical")]`**, and so are its four
    entry points in `ffi.rs` and the `CHUNK_STORES` registry. Work on it with
    `cargo build --features full` / `cargo test --features full` — a plain
    `cargo build` does not compile the file at all, so it will happily stay green
@@ -460,7 +460,7 @@ every matched row is copied into a single `byte[]`.
 `cargo build --release` builds the **light** library (default features);
 `cargo build --release --features full` builds the full one. `cargo test` for
 the unit tests (handle lifecycle, job pool, payload encoding — all offline);
-add `--features full` to also run the chunk-store tests.
+add `--features tactical` to also run the chunk-store tests.
 
 The Gradle side runs this automatically, **once per variant**: the `cargoBuild`
 task in `../build.gradle` builds the host target into

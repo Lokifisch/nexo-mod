@@ -81,9 +81,23 @@ public final class PaperServerRegistry {
 		Path file = recordFile(record.id());
 		try {
 			Files.createDirectories(file.getParent());
-			Path temp = file.resolveSibling(file.getFileName() + ".tmp");
-			Files.writeString(temp, GSON.toJson(record), StandardCharsets.UTF_8);
-			Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			Path temp;
+			// Holds the RCON password: owner-only where the filesystem supports it.
+			try {
+				temp = Files.createTempFile(file.getParent(), file.getFileName().toString(), ".tmp",
+						java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+								java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+			} catch (UnsupportedOperationException e) {
+				// non-POSIX (Windows): default ACLs
+				temp = Files.createTempFile(file.getParent(), file.getFileName().toString(), ".tmp");
+			}
+			try {
+				Files.writeString(temp, GSON.toJson(record), StandardCharsets.UTF_8);
+				Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			} catch (IOException e) {
+				Files.deleteIfExists(temp);
+				throw e;
+			}
 		} catch (IOException e) {
 			LOGGER.error("[nexomod] Could not write Paper server record {}", file, e);
 		}

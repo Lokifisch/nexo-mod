@@ -68,7 +68,17 @@ public final class NexoChunkHistory {
 
 	/** Whether anything here can work at all: full library, chunk-history feature present. */
 	public static boolean isAvailable() {
-		return NexoNativeChunks.isAvailable();
+		return !linkFailed && NexoNativeChunks.isAvailable();
+	}
+
+	/** Set when a native method fails to link (library/jar mismatch): disables the feature instead of crashing. */
+	private static volatile boolean linkFailed;
+
+	private static void linkError(UnsatisfiedLinkError e) {
+		if (!linkFailed) {
+			linkFailed = true;
+			NexoMod.LOGGER.warn("[nexomod] Chunk history disabled: native symbol missing", e);
+		}
 	}
 
 	private static void onChunkLoad(ClientLevel level, LevelChunk chunk) {
@@ -80,8 +90,15 @@ public final class NexoChunkHistory {
 			return;
 		}
 		ChunkPos pos = chunk.getPos();
-		if (!NexoNativeChunks.chunkSnapshot(store, dimensionOf(level), pos.x(), pos.z(),
-				System.currentTimeMillis(), encode(chunk))) {
+		boolean ok;
+		try {
+			ok = NexoNativeChunks.chunkSnapshot(store, dimensionOf(level), pos.x(), pos.z(),
+					System.currentTimeMillis(), encode(chunk));
+		} catch (UnsatisfiedLinkError e) {
+			linkError(e);
+			return;
+		}
+		if (!ok) {
 			// Debug, not warn: this runs per chunk load, and a store that has
 			// started failing would otherwise fill the log at walking speed.
 			NexoMod.LOGGER.debug("[nexomod] chunk snapshot failed: {}", NexoNative.lastErrorOrUnknown());
@@ -107,9 +124,14 @@ public final class NexoChunkHistory {
 			return;
 		}
 		ChunkPos center = client.player.chunkPosition();
-		queryJob = NexoNativeChunks.chunkQueryAsync(store, dimensionOf(client.level),
-				center.x() - radiusChunks, center.z() - radiusChunks,
-				center.x() + radiusChunks, center.z() + radiusChunks);
+		try {
+			queryJob = NexoNativeChunks.chunkQueryAsync(store, dimensionOf(client.level),
+					center.x() - radiusChunks, center.z() - radiusChunks,
+					center.x() + radiusChunks, center.z() + radiusChunks);
+		} catch (UnsatisfiedLinkError e) {
+			linkError(e);
+			return;
+		}
 		if (queryJob == NexoNative.INVALID_HANDLE) {
 			lastQueryCount = -1;
 			NexoMod.LOGGER.debug("[nexomod] chunk query rejected: {}", NexoNative.lastErrorOrUnknown());
@@ -141,7 +163,11 @@ public final class NexoChunkHistory {
 		if (handle == NexoNative.INVALID_HANDLE) {
 			return;
 		}
-		NexoNativeChunks.chunkStoreClose(handle);
+		try {
+			NexoNativeChunks.chunkStoreClose(handle);
+		} catch (UnsatisfiedLinkError e) {
+			linkError(e);
+		}
 		handle = NexoNative.INVALID_HANDLE;
 	}
 
@@ -187,7 +213,14 @@ public final class NexoChunkHistory {
 		if (handle != NexoNative.INVALID_HANDLE || openFailed || !isAvailable()) {
 			return handle;
 		}
-		handle = NexoNativeChunks.chunkStoreOpen(PATH.toString());
+		try {
+			handle = NexoNativeChunks.chunkStoreOpen(PATH.toString());
+		} catch (UnsatisfiedLinkError e) {
+			linkError(e);
+			handle = NexoNative.INVALID_HANDLE;
+			openFailed = true;
+			return handle;
+		}
 		if (handle == NexoNative.INVALID_HANDLE) {
 			// Sticky, so a bad path costs one WARN rather than one per chunk.
 			openFailed = true;

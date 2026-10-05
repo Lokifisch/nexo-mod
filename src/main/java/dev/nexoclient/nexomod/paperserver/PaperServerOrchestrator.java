@@ -115,7 +115,13 @@ public final class PaperServerOrchestrator {
 
 				waitForRcon(rcon.port(), rcon.password());
 
-				if (options.grantOperator() && options.playerName() != null && !options.playerName().isBlank()) {
+				// Offline mode trusts the client's claimed name, so an op grant would hand operator to anyone
+				// who joins (e.g. over the tunnel) as that name. Never combine the two.
+				boolean grantOp = options.grantOperator() && options.onlineMode();
+				if (options.grantOperator() && !options.onlineMode()) {
+					LOGGER.warn("[nexomod] Not granting operator on \"{}\": online-mode is off, so the name could be spoofed", id);
+				}
+				if (grantOp && options.playerName() != null && options.playerName().matches("[A-Za-z0-9_]{1,16}")) {
 					try (RconClient opRcon = RconClient.connect("127.0.0.1", started.rcon().port(), started.rcon().password(), RCON_CALL_TIMEOUT)) {
 						opRcon.command("op " + options.playerName());
 						LOGGER.info("[nexomod] Granted \"{}\" operator on \"{}\"", options.playerName(), id);

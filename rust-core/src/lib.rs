@@ -26,7 +26,7 @@
 //! normal case for Windows and macOS users until release builds cross-compile.
 
 pub mod chatdb;
-/// Only in the full variant — see the `full` feature in `Cargo.toml`.
+/// Only in the full variant — see the `tactical` feature in `Cargo.toml`.
 #[cfg(feature = "tactical")]
 pub mod chunks;
 pub mod error;
@@ -53,7 +53,7 @@ pub mod sqlite;
 pub const ABI_VERSION: i32 = 2;
 
 /// [`FEATURES`] bit: the chunk-history surface
-/// (`dev.nexoclient.nexomod.full.nativecore.NexoNativeChunks`) is exported.
+/// (`dev.nexoclient.nexomod.tactical.nativecore.NexoNativeChunks`) is exported.
 ///
 /// Mirrored as `NexoNative.FEATURE_CHUNK_HISTORY`.
 pub const FEATURE_CHUNK_HISTORY: i32 = 1 << 0;

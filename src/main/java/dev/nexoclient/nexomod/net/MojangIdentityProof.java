@@ -69,6 +69,8 @@ public final class MojangIdentityProof {
 		return user;
 	}
 
+	private static final java.util.regex.Pattern SERVER_ID = java.util.regex.Pattern.compile("nexo-badge-[0-9a-f]{32}");
+
 	/** The one-shot {@code server_id} from `POST challengeUrl`, or null on failure. */
 	public String requestChallenge(String challengeUrl) throws IOException, InterruptedException {
 		HttpRequest request = HttpRequest.newBuilder(URI.create(challengeUrl))
@@ -84,7 +86,7 @@ public final class MojangIdentityProof {
 		try {
 			JsonObject body = JsonParser.parseString(response.body()).getAsJsonObject();
 			String serverId = body.has("server_id") ? body.get("server_id").getAsString() : null;
-			return serverId == null || serverId.isBlank() ? null : serverId;
+			return serverId == null || !SERVER_ID.matcher(serverId).matches() ? null : serverId;
 		} catch (JsonSyntaxException | IllegalStateException e) {
 			return null;
 		}
@@ -96,6 +98,10 @@ public final class MojangIdentityProof {
 	 * what makes it usable as a generic proof of ownership.
 	 */
 	public boolean joinWithMojang(User user, String serverId) throws IOException, InterruptedException {
+		// Mojang signs whatever string we hand it, so only our own namespaced challenges may reach it.
+		if (serverId == null || !SERVER_ID.matcher(serverId).matches()) {
+			return false;
+		}
 		JsonObject payload = new JsonObject();
 		payload.addProperty("accessToken", user.getAccessToken());
 		payload.addProperty("selectedProfile", undashed(user.getProfileId()));

@@ -39,6 +39,12 @@ import dev.nexoclient.nexomod.util.NexoPaths;
  * can't unlock (copied from another PC, or this PC's CPU/board/GPU
  * changed) is deleted on sight rather than left around to be poked at.
  *
+ * <p><b>Migration release:</b> every save also writes a second copy encrypted
+ * under a key held in the OS keychain (see {@link KeychainKey}), which is
+ * loaded only when the hardware-keyed file can't be read. The release after
+ * this one makes the keychain copy the sole store and removes
+ * {@link HardwareKey}, the format spec, and the launcher's matching reader.
+ *
  * <p>The flip side, deliberately accepted: swapping the GPU/board (or a
  * platform change that alters what identifiers are readable) wipes the
  * saved accounts and everyone signs in again once. Tokens are recoverable
@@ -51,6 +57,8 @@ public final class AccountStore {
 	private static final int GCM_IV_BYTES = 12;
 	/** File-format marker, also bound into the ciphertext as GCM additional data. */
 	private static final byte[] HEADER = {'N', 'E', 'X', 'O', 'A', 'C', 'C', 2};
+	/** Same layout, keyed from the OS keychain instead of the hardware; version byte 3. */
+	private static final byte[] KEYCHAIN_HEADER = {'N', 'E', 'X', 'O', 'A', 'C', 'C', 3};
 
 	/**
 	 * Shared with Nexo Client, so an account added in the launcher appears in
@@ -62,6 +70,13 @@ public final class AccountStore {
 	 * {@code directories} crate does — see {@code Mod/docs/SHARED-ACCOUNT-STORE.md}.
 	 */
 	private static final Path DATA_FILE = NexoPaths.sharedDataDir().resolve("accounts.dat");
+	/**
+	 * Migration copy, encrypted under the keychain key. Written alongside
+	 * {@link #DATA_FILE} (which the launcher still reads) and used only when that
+	 * file can't be read. The next release makes this the only store and drops
+	 * {@link HardwareKey}.
+	 */
+	private static final Path KEYCHAIN_FILE = NexoPaths.sharedDataDir().resolve("accounts.kc.dat");
 	/** Only referenced to clean up installs of the old scheme that kept the key next to the data. */
 	private static final Path LEGACY_KEY_FILE = FabricLoader.getInstance().getConfigDir().resolve("nexomod-accounts.key");
 
@@ -127,22 +142,31 @@ public final class AccountStore {
 
 	private void load() {
 		deleteQuietly(LEGACY_KEY_FILE);
-		if (!Files.exists(DATA_FILE)) {
-			return;
+		if (!Files.exists(DATA_FILE) && !Files.exists(KEYCHAIN_FILE)) {
+			return; // brand-new user: nothing to decrypt, so don't wait on any key
 		}
-		SecretKey key = HardwareKey.await();
-		if (key == null) {
-			// Can't verify the file without a fingerprint; don't destroy what we can't check.
-			LOGGER.error("No hardware key available — leaving {} untouched and starting without saved accounts", DATA_FILE.getFileName());
-			return;
-		}
-		try {
-			byte[] stored = Files.readAllBytes(DATA_FILE);
-			byte[] plaintext = decrypt(stored, key);
-			StoredData data = GSON.fromJson(new String(plaintext, StandardCharsets.UTF_8), StoredData.class);
-			if (data == null) {
-				return;
+		// The hardware-keyed file stays authoritative this release: the launcher
+		// writes it, so it is the freshest. The keychain copy is the fallback for
+		// when this machine's hardware changed and the file can no longer be read.
+		StoredData data = read(DATA_FILE, HardwareKey.await(), HEADER);
+		boolean recovered = false;
+		// Sign-out rewrites the primary (empty) rather than deleting it, so a missing primary
+		// means the hardware key was unavailable at first save: the copy is then the only record.
+		if (data == null) {
+			data = read(KEYCHAIN_FILE, KeychainKey.get(), KEYCHAIN_HEADER);
+			recovered = data != null;
+			if (recovered && Files.exists(DATA_FILE)) {
+				// The primary is shared with the launcher and may only be unreadable because a
+				// key probe misfired; keep it recoverable before save() overwrites it.
+				try {
+					Files.copy(DATA_FILE, DATA_FILE.resolveSibling("accounts.dat.bak"),
+							java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				} catch (java.io.IOException e) {
+					LOGGER.error("Could not back up {}", DATA_FILE.getFileName(), e);
+				}
 			}
+		}
+		if (data != null) {
 			accounts = new ArrayList<>();
 			passthrough.clear();
 			for (StoredAccount entry : data.accounts()) {
@@ -156,22 +180,40 @@ public final class AccountStore {
 						entry.offline()));
 			}
 			activeUuid = data.activeUuid() != null ? UUID.fromString(data.activeUuid()) : null;
+		}
+		// Migration: create the keychain copy for existing users, or restore both files after a recovery.
+		if (data != null && (recovered || !Files.exists(KEYCHAIN_FILE)) && KeychainKey.get() != null) {
+			save();
+		}
+	}
+
+	/** Decrypts one store file; null (and a log line) if it is missing, unkeyed, or unreadable. Never deletes. */
+	private static StoredData read(Path file, SecretKey key, byte[] header) {
+		if (!Files.exists(file)) {
+			return null;
+		}
+		if (key == null) {
+			// Can't verify the file without a key; don't destroy what we can't check.
+			LOGGER.error("No key available for {} — leaving it untouched", file.getFileName());
+			return null;
+		}
+		try {
+			byte[] plaintext = decrypt(Files.readAllBytes(file), key, header);
+			return GSON.fromJson(new String(plaintext, StandardCharsets.UTF_8), StoredData.class);
 		} catch (Exception e) {
-			// Left in place rather than deleted. This file is shared with the
-			// launcher now, so destroying it would take the launcher's accounts
-			// with it — and an undecryptable file is already useless to anyone
-			// without this machine's hardware, which was the original reason for
-			// deleting it.
-			LOGGER.error("Stored accounts can't be decrypted on this machine ({}) — leaving {} alone and starting without saved accounts", e.toString(), DATA_FILE);
-			accounts = new ArrayList<>();
-			activeUuid = null;
+			// Left in place rather than deleted. The hardware file is shared with the
+			// launcher, so destroying it would take the launcher's accounts with it,
+			// and an undecryptable file is already useless to anyone without the key.
+			LOGGER.error("Can't decrypt {} ({}) — leaving it alone", file.getFileName(), e.toString());
+			return null;
 		}
 	}
 
 	private void save() {
-		SecretKey key = HardwareKey.await();
-		if (key == null) {
-			LOGGER.error("No hardware key available — keeping accounts in memory only for this session");
+		SecretKey hardwareKey = HardwareKey.await();
+		SecretKey keychainKey = KeychainKey.get();
+		if (hardwareKey == null && keychainKey == null) {
+			LOGGER.error("No key available — keeping accounts in memory only for this session");
 			return;
 		}
 		try {
@@ -186,11 +228,39 @@ public final class AccountStore {
 					.toList();
 			StoredData data = new StoredData(stored, activeUuid != null ? activeUuid.toString() : null);
 			byte[] plaintext = GSON.toJson(data).getBytes(StandardCharsets.UTF_8);
-			byte[] encrypted = encrypt(plaintext, key);
 			Files.createDirectories(DATA_FILE.getParent());
-			Files.write(DATA_FILE, encrypted);
+			if (hardwareKey != null) {
+				writeAtomic(DATA_FILE, encrypt(plaintext, hardwareKey, HEADER));
+			}
+			if (keychainKey != null) {
+				writeAtomic(KEYCHAIN_FILE, encrypt(plaintext, keychainKey, KEYCHAIN_HEADER));
+			}
 		} catch (Exception e) {
 			LOGGER.error("Failed to save accounts", e);
+		}
+	}
+
+	/** Owner-only (0600 where POSIX) temp file, then an atomic move, so a crash never leaves a torn or world-readable store. */
+	private static void writeAtomic(Path file, byte[] bytes) throws java.io.IOException {
+		Path temp;
+		try {
+			temp = Files.createTempFile(file.toAbsolutePath().getParent(), file.getFileName().toString(), ".tmp",
+					java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+							java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+		} catch (UnsupportedOperationException e) {
+			// non-POSIX (Windows): inherits the user-profile ACL
+			temp = Files.createTempFile(file.toAbsolutePath().getParent(), file.getFileName().toString(), ".tmp");
+		}
+		try {
+			Files.write(temp, bytes);
+			try {
+				Files.move(temp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+			} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+				Files.move(temp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			}
+		} catch (java.io.IOException e) {
+			Files.deleteIfExists(temp);
+			throw e;
 		}
 	}
 
@@ -202,30 +272,30 @@ public final class AccountStore {
 		}
 	}
 
-	private static byte[] encrypt(byte[] plaintext, SecretKey key) throws GeneralSecurityException {
+	private static byte[] encrypt(byte[] plaintext, SecretKey key, byte[] header) throws GeneralSecurityException {
 		byte[] iv = new byte[GCM_IV_BYTES];
 		new SecureRandom().nextBytes(iv);
 		Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 		cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
-		cipher.updateAAD(HEADER);
+		cipher.updateAAD(header);
 		byte[] ciphertext = cipher.doFinal(plaintext);
-		return ByteBuffer.allocate(HEADER.length + iv.length + ciphertext.length)
-				.put(HEADER).put(iv).put(ciphertext).array();
+		return ByteBuffer.allocate(header.length + iv.length + ciphertext.length)
+				.put(header).put(iv).put(ciphertext).array();
 	}
 
-	private static byte[] decrypt(byte[] stored, SecretKey key) throws GeneralSecurityException {
-		if (stored.length < HEADER.length + GCM_IV_BYTES
-				|| !Arrays.equals(stored, 0, HEADER.length, HEADER, 0, HEADER.length)) {
+	private static byte[] decrypt(byte[] stored, SecretKey key, byte[] header) throws GeneralSecurityException {
+		if (stored.length < header.length + GCM_IV_BYTES
+				|| !Arrays.equals(stored, 0, header.length, header, 0, header.length)) {
 			throw new GeneralSecurityException("not a current-format nexomod account store");
 		}
-		ByteBuffer buffer = ByteBuffer.wrap(stored, HEADER.length, stored.length - HEADER.length);
+		ByteBuffer buffer = ByteBuffer.wrap(stored, header.length, stored.length - header.length);
 		byte[] iv = new byte[GCM_IV_BYTES];
 		buffer.get(iv);
 		byte[] ciphertext = new byte[buffer.remaining()];
 		buffer.get(ciphertext);
 		Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 		cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
-		cipher.updateAAD(HEADER);
+		cipher.updateAAD(header);
 		return cipher.doFinal(ciphertext);
 	}
 }

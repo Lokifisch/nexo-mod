@@ -21,6 +21,12 @@ final class BadgeService {
 
 	BadgeService() {
 		String configured = System.getProperty("nexomod.badge.url", DEFAULT_BASE_URL).trim();
+		if (!isSecure(configured)) {
+			// The access-token proof is bound to this host; never send it over cleartext.
+			org.slf4j.LoggerFactory.getLogger("nexomod/badge")
+					.warn("Ignoring nexomod.badge.url: only https (or loopback http) is allowed; using the default");
+			configured = DEFAULT_BASE_URL;
+		}
 		this.baseUrl = configured.endsWith("/")
 				? configured.substring(0, configured.length() - 1)
 				: configured;
@@ -30,6 +36,21 @@ final class BadgeService {
 				// widen where an identity proof could end up.
 				.followRedirects(HttpClient.Redirect.NEVER)
 				.build();
+	}
+
+	/** https only; plain http is tolerated solely for a loopback dev instance. */
+	private static boolean isSecure(String url) {
+		try {
+			java.net.URI uri = java.net.URI.create(url);
+			if ("https".equalsIgnoreCase(uri.getScheme())) {
+				return true;
+			}
+			String host = uri.getHost();
+			return "http".equalsIgnoreCase(uri.getScheme())
+					&& ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host));
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
 	}
 
 	String url(String path) {

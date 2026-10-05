@@ -191,7 +191,11 @@ public class NexoPaperPluginOptionList extends NexoOptionList {
 		Path pluginsDir = PaperServerRegistry.serverDir(record.id()).resolve("plugins");
 		CompletableFuture.runAsync(() -> {
 			try {
-				Path dest = pluginsDir.resolve(version.paperDownload().fileInfo().name());
+				HangarClient.Download download = version.paperDownload();
+				if (download == null || download.fileInfo() == null) {
+					throw new java.io.IOException("This version has no direct download (hosted externally)");
+				}
+				Path dest = HangarClient.safePluginPath(pluginsDir, download.fileInfo().name());
 				hangar.downloadPlugin(version, dest);
 			} catch (IOException | InterruptedException e) {
 				if (e instanceof InterruptedException) {

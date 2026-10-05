@@ -157,7 +157,7 @@ dependencies {
 // The native core (see rust-core/ and dev.nexoclient.nexomod.nativecore).
 //
 // Built once per variant, because each jar bundles its own library: the light
-// build is plain `cargo build`, the full build adds `--features full` (today:
+// build is plain `cargo build`, the Tactical build adds `--features tactical` (today:
 // the chunk-history store and its four JNI entry points). Shipping the full
 // library inside the light jar would put the capability on the player's disk
 // however careful the Java side is, which defeats the point of the split.
