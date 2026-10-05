@@ -35,7 +35,7 @@ public final class NexoBadges {
 	 * player turned up (see {@link #noteUnknownPlayer}); this only covers
 	 * sitting in a world alone while somebody elsewhere installs the mod.
 	 */
-	private static final long REFRESH_MINUTES = 15;
+	private static final long REFRESH_MINUTES = 5;
 
 	/**
 	 * Registration waits this long after startup. The session is not
@@ -138,7 +138,9 @@ public final class NexoBadges {
 	private static void beat() {
 		try {
 			if (NexoConfig.get().badgeSyncEnabled()) {
-				long asked = PRESENCE.beat();
+				User user = BadgeIdentity.currentUser();
+				long asked = PRESENCE.beat(user != null && NexoConfig.get().badgeSyncRegistered(user.getProfileId())
+						? user.getProfileId() : null);
 				// Clamped so a wrong or hostile answer cannot turn every client
 				// into a hot loop against the service, or park them for a week.
 				if (asked > 0) {

@@ -61,9 +61,25 @@ final class BadgePresence {
 	 *         not be reached — the caller keeps its current cadence either way,
 	 *         since a service that is down is not a reason to beat faster.
 	 */
-	long beat() {
+	long beat(java.util.UUID account) {
+		long interval = post(sessionBody());
+		if (account != null) {
+			// A separate request with no session id, so the service never sees the two together.
+			JsonObject member = new JsonObject();
+			member.addProperty("member", HexFormat.of().formatHex(BadgeRosterFormat.of(account)));
+			post(member);
+		}
+		return interval;
+	}
+
+	private JsonObject sessionBody() {
 		JsonObject payload = new JsonObject();
 		payload.addProperty("session", sessionId);
+		return payload;
+	}
+
+	private long post(JsonObject payload) {
+
 
 		HttpRequest request = HttpRequest.newBuilder(URI.create(service.url("/presence")))
 				.timeout(BadgeService.TIMEOUT)
