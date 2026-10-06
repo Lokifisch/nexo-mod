@@ -18,8 +18,8 @@ public final class NexoPanelRenderer {
 		// A layered glow — now the main thing setting this panel apart from a dimmed
 		// screen behind it, so it needs to read clearly as "highlighted", not just tinted.
 		int accent = NexoStyle.cycle(System.currentTimeMillis(), 8000);
-		graphics.fill(x0 - 6, y0 - 6, x1 + 6, y1 + 6, 0x1AFF3CAC);
-		graphics.fill(x0 - 3, y0 - 3, x1 + 3, y1 + 3, 0x33FF3CAC);
+		NexoShapes.fillRoundedFast(graphics, x0 - 6, y0 - 6, x1 + 6, y1 + 6, 0x1AFF3CAC, 10);
+		NexoShapes.fillRoundedFast(graphics, x0 - 3, y0 - 3, x1 + 3, y1 + 3, 0x33FF3CAC, 7);
 		NexoShapes.fillRounded(graphics, x0, y0, x1, y1, NexoStyle.PANEL_BG, CORNER_RADIUS);
 		graphics.fillGradient(x0 + CORNER_RADIUS, y0, x1 - CORNER_RADIUS, y0 + 1, NexoStyle.MAGENTA, accent);
 		graphics.fill(x0 + CORNER_RADIUS, y1 - 1, x1 - CORNER_RADIUS, y1, 0x40000000);

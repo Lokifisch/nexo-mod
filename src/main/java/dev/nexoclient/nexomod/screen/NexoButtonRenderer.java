@@ -32,10 +32,14 @@ public final class NexoButtonRenderer {
 		int borderColor = NexoStyle.cycle(now, period);
 
 		int glowRgb = borderColor & 0xFFFFFF;
-		int glowAlpha = hovered ? 0x33 : 0x18;
-		graphics.fill(x0 - 4, y0 - 4, x1 + 4, y1 + 4, (glowAlpha << 24) | glowRgb);
-		if (hovered) {
-			graphics.fill(x0 - 2, y0 - 2, x1 + 2, y1 + 2, 0x40000000 | glowRgb);
+		// Soft glow: stacked rounded layers, each wider and fainter than the last, so the
+		// falloff follows the button's corners instead of a hard-edged rectangle.
+		float strength = hovered ? 0.16F : 0.07F;
+		int layers = hovered ? 4 : 3;
+		for (int i = layers; i >= 1; i--) {
+			float falloff = 1F - (i - 1F) / layers;
+			int a = Math.max(3, (int) (255 * strength * falloff * falloff));
+			NexoShapes.fillRoundedFast(graphics, x0 - i, y0 - i, x1 + i, y1 + i, (a << 24) | glowRgb, CORNER_RADIUS + i);
 		}
 
 		NexoShapes.fillRounded(graphics, x0, y0, x1, y1, borderColor, CORNER_RADIUS);

@@ -194,7 +194,8 @@ public class NexoModuleRow extends AbstractButton {
 		int ty1 = ty0 + TOGGLE_HEIGHT;
 
 		if (knob > 0.01F) {
-			graphics.fill(tx0 - 2, ty0 - 2, tx1 + 2, ty1 + 2, NexoStyle.fade(accent, 0.25F * knob * reveal));
+			NexoShapes.fillRounded(graphics, tx0 - 2, ty0 - 2, tx1 + 2, ty1 + 2,
+					NexoStyle.fade(accent, 0.25F * knob * reveal), TOGGLE_HEIGHT / 2 + 2);
 		}
 		// A ring while the cursor is over the pill specifically — without it there
 		// is nothing telling anyone that this part of the row does something else.

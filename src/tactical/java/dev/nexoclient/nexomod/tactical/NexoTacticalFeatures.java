@@ -16,7 +16,6 @@ import dev.nexoclient.nexomod.tactical.locate.NexoLocateCommand;
 import dev.nexoclient.nexomod.tactical.locate.NexoSeedIndexScreen;
 import dev.nexoclient.nexomod.tactical.macro.NexoMacroTriggers;
 import dev.nexoclient.nexomod.tactical.screen.NexoBedrockHoleScreen;
-import dev.nexoclient.nexomod.tactical.screen.NexoChunkBorderConfigScreen;
 import dev.nexoclient.nexomod.tactical.screen.NexoFreecamConfigScreen;
 import dev.nexoclient.nexomod.tactical.screen.NexoLightOverlayConfigScreen;
 import dev.nexoclient.nexomod.tactical.screen.NexoTacticalFeatureScreen;
@@ -77,6 +76,7 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 	public void onInitializeClient() {
 		NexoMod.LOGGER.info("[nexomod] Full feature set enabled.");
 		BedrockHoleFinder.register();
+		NexoTntTimer.register();
 		NexoSoundRadarHud.register();
 		NexoChunkHistory.register();
 		NexoGhostMode.register();
@@ -114,7 +114,12 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 				Component.translatable("nexomod.qol.chunkBorder.description"),
 				config::chunkBorderOverlayEnabled,
 				() -> config.setChunkBorderOverlayEnabled(!config.chunkBorderOverlayEnabled()),
-				parent -> new NexoChunkBorderConfigScreen(parent));
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.tntTimer"),
+				Component.translatable("nexomod.qol.tntTimer.description"),
+				config::tntTimerEnabled,
+				() -> config.setTntTimerEnabled(!config.tntTimerEnabled()),
+				null);
 		NexoQolModules.register(Component.translatable("nexomod.qol.lightOverlay"),
 				Component.translatable("nexomod.qol.lightOverlay.description"),
 				config::lightOverlayEnabled,

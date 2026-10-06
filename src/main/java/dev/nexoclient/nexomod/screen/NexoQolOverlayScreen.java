@@ -183,7 +183,7 @@ public class NexoQolOverlayScreen extends Screen {
 				Component.translatable("nexomod.qol.damageNumbers.description"),
 				config::damageNumbersEnabled,
 				() -> config.setDamageNumbersEnabled(!config.damageNumbersEnabled()),
-				() -> minecraft.setScreen(new NexoDamageNumbersConfigScreen(this)));
+				() -> config.setDamageNumbersEnabled(!config.damageNumbersEnabled()));
 		// Four independent hide toggles behind one row; the row reads as on when
 		// any of them is hiding something.
 		addRow(Component.translatable("nexomod.qol.hudCleaner"),
@@ -273,7 +273,8 @@ public class NexoQolOverlayScreen extends Screen {
 	private void addModuleRows() {
 		for (NexoQolModules.Entry entry : NexoQolModules.entries()) {
 			addRow(entry.name(), entry.description(), entry.enabled(), entry.toggle(),
-					() -> minecraft.setScreen(entry.openConfig().apply(this)));
+					entry.openConfig() == null ? entry.toggle()
+							: () -> minecraft.setScreen(entry.openConfig().apply(this)));
 		}
 	}
 

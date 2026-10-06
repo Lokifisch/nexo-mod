@@ -24,6 +24,9 @@ public class NexoAppearanceScreen extends NexoOptionScreen {
 							// the config alone doesn't change what's already been baked into the active FontSet.
 							Minecraft.getInstance().reloadResourcePacks();
 						}));
+		list.addWidgetRow(CycleButton.onOffBuilder(config.smoothEdgesEnabled())
+				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.smoothEdges"),
+						(button, value) -> config.setSmoothEdgesEnabled(value)));
 		list.addWidgetRow(CycleButton.<NexoConfig.BackgroundStyle>builder(NexoAppearanceScreen::backgroundLabel, config.backgroundStyle())
 				.withValues(NexoConfig.BackgroundStyle.values())
 				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.background"),

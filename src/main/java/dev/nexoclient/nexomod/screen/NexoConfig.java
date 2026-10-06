@@ -211,6 +211,7 @@ public final class NexoConfig {
 
 	private boolean customMenusEnabled;
 	private boolean customFontEnabled;
+	private boolean smoothEdgesEnabled = true;
 	private BackgroundStyle backgroundStyle;
 	private MatrixColor matrixColor;
 	private MatrixDensity matrixDensity;
@@ -264,6 +265,7 @@ public final class NexoConfig {
 	private boolean hideBossBars;
 
 	private boolean damageNumbersEnabled;
+	private boolean tntTimerEnabled;
 
 	private boolean zoomEnabled;
 	/** Stored as a whole number because the slider is integer-only; divided into the camera FOV. */
@@ -383,6 +385,15 @@ public final class NexoConfig {
 
 	public void setCustomMenusEnabled(boolean enabled) {
 		this.customMenusEnabled = enabled;
+		save();
+	}
+
+	public boolean smoothEdgesEnabled() {
+		return smoothEdgesEnabled;
+	}
+
+	public void setSmoothEdgesEnabled(boolean enabled) {
+		this.smoothEdgesEnabled = enabled;
 		save();
 	}
 
@@ -838,6 +849,15 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean tntTimerEnabled() {
+		return tntTimerEnabled;
+	}
+
+	public void setTntTimerEnabled(boolean enabled) {
+		this.tntTimerEnabled = enabled;
+		save();
+	}
+
 	public boolean damageNumbersEnabled() {
 		return damageNumbersEnabled;
 	}
@@ -1246,6 +1266,8 @@ public final class NexoConfig {
 		hideScoreboard = Boolean.parseBoolean(props.getProperty("hideScoreboard", "false"));
 		hideBossBars = Boolean.parseBoolean(props.getProperty("hideBossBars", "false"));
 		damageNumbersEnabled = Boolean.parseBoolean(props.getProperty("damageNumbersEnabled", "false"));
+		smoothEdgesEnabled = Boolean.parseBoolean(props.getProperty("smoothEdgesEnabled", "true"));
+		tntTimerEnabled = Boolean.parseBoolean(props.getProperty("tntTimerEnabled", "false"));
 		zoomEnabled = Boolean.parseBoolean(props.getProperty("zoomEnabled", "false"));
 		zoomFactor = boundedIntOrDefault(props.getProperty("zoomFactor"), 4, ZOOM_FACTOR_MIN, ZOOM_FACTOR_MAX);
 		zoomSmoothEnabled = Boolean.parseBoolean(props.getProperty("zoomSmoothEnabled", "true"));
@@ -1383,6 +1405,7 @@ public final class NexoConfig {
 		Properties props = new Properties();
 		props.setProperty("customMenusEnabled", Boolean.toString(customMenusEnabled));
 		props.setProperty("customFontEnabled", Boolean.toString(customFontEnabled));
+		props.setProperty("smoothEdgesEnabled", Boolean.toString(smoothEdgesEnabled));
 		props.setProperty("backgroundStyle", backgroundStyle.name());
 		props.setProperty("matrixColor", matrixColor.name());
 		props.setProperty("matrixDensity", matrixDensity.name());
@@ -1424,6 +1447,7 @@ public final class NexoConfig {
 		props.setProperty("hideScoreboard", Boolean.toString(hideScoreboard));
 		props.setProperty("hideBossBars", Boolean.toString(hideBossBars));
 		props.setProperty("damageNumbersEnabled", Boolean.toString(damageNumbersEnabled));
+		props.setProperty("tntTimerEnabled", Boolean.toString(tntTimerEnabled));
 		props.setProperty("zoomEnabled", Boolean.toString(zoomEnabled));
 		props.setProperty("zoomFactor", Integer.toString(zoomFactor));
 		props.setProperty("zoomSmoothEnabled", Boolean.toString(zoomSmoothEnabled));

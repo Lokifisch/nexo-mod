@@ -110,7 +110,7 @@ public final class NexoInventoryHud implements HudElement {
 				int x = originX + column * SLOT + 1;
 				int y = originY + row * SLOT + 1;
 				if (background) {
-					graphics.fill(x - 1, y - 1, x + SLOT - 1, y + SLOT - 1, NexoStyle.PANEL_BG_RAISED);
+					NexoShapes.fillRounded(graphics, x - 1, y - 1, x + SLOT - 1, y + SLOT - 1, NexoStyle.PANEL_BG_RAISED, 3);
 				}
 
 				ItemStack stack = items.get(slot);

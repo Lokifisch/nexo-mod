@@ -37,7 +37,12 @@ public final class MatrixRain {
 			float speed = 40.0F + (colSeed % 40); // pixels/second
 			long cycleMs = (long) (totalRows * cellHeight / speed * 1000.0);
 			long elapsed = (now + colSeed * 31) % Math.max(cycleMs, 1);
-			int headRow = (int) (elapsed * speed / 1000.0 / cellHeight) - TRAIL_LENGTH;
+			double headPx = elapsed * speed / 1000.0;
+			int headRow = (int) (headPx / cellHeight) - TRAIL_LENGTH;
+			// Sub-row offset, so the column slides smoothly instead of jumping a whole row at a time.
+			float slide = (float) (headPx % cellHeight);
+			graphics.pose().pushMatrix();
+			graphics.pose().translate(0, slide);
 
 			for (int t = 0; t < TRAIL_LENGTH; t++) {
 				int row = headRow - t;
@@ -63,6 +68,7 @@ public final class MatrixRain {
 				char glyph = GLYPHS.charAt((int) (Math.floorMod(glyphSeed, GLYPHS.length())));
 				graphics.text(font, String.valueOf(glyph), x, py, color);
 			}
+			graphics.pose().popMatrix();
 		}
 	}
 

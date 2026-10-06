@@ -19,6 +19,7 @@ import net.minecraft.resources.Identifier;
 
 import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.screen.NexoConfig;
+import dev.nexoclient.nexomod.screen.NexoShapes;
 import dev.nexoclient.nexomod.screen.NexoStyle;
 
 /**
@@ -74,7 +75,7 @@ public final class NexoKeystrokesHud implements HudElement {
 		int customCount = config.customEntries().size();
 		int cols = Math.min(customCount, CUSTOM_PER_ROW);
 		int rows = customCount == 0 ? 0 : (customCount + CUSTOM_PER_ROW - 1) / CUSTOM_PER_ROW;
-		int customWidth = cols == 0 ? 0 : cols * BOX + (cols - 1) * GAP;
+		int customWidth = cols == 0 ? 0 : cols * customBox() + (cols - 1) * GAP;
 		int customHeight = rows == 0 ? 0 : rows * BOX + (rows - 1) * GAP;
 
 		int width = Math.max(showCluster ? CLUSTER_WIDTH : 0, customWidth);
@@ -83,6 +84,16 @@ public final class NexoKeystrokesHud implements HudElement {
 		width = Math.max(width, BOX);
 		height = Math.max(height, BOX);
 		return new Layout(showCluster, rows, cols, width, height);
+	}
+
+	/** Custom keys share one width, widened past {@link #BOX} so a long label like LSHIFT stays inside its square. */
+	private static int customBox() {
+		var font = Minecraft.getInstance().font;
+		int widest = BOX;
+		for (NexoKeystrokesConfig.KeyEntry entry : NexoKeystrokesConfig.get().customEntries()) {
+			widest = Math.min(60, Math.max(widest, font.width(entry.label == null ? "" : entry.label) + 8));
+		}
+		return widest;
 	}
 
 	/** Where this element draws right now — shared by rendering and the layout editor. */
@@ -156,17 +167,18 @@ public final class NexoKeystrokesHud implements HudElement {
 			int startY, float scale) {
 		List<NexoKeystrokesConfig.KeyEntry> entries = NexoKeystrokesConfig.get().customEntries();
 		int box = Math.round(BOX * scale);
+		int boxWidth = Math.round(customBox() * scale);
 		int gap = Math.round(GAP * scale);
-		int rowWidth = layout.customCols() * box + (layout.customCols() - 1) * gap;
+		int rowWidth = layout.customCols() * boxWidth + (layout.customCols() - 1) * gap;
 		int originX = bounds.left() + (Math.round(layout.width() * scale) - rowWidth) / 2;
 
 		int col = 0;
 		int y = startY;
 		Minecraft client = Minecraft.getInstance();
 		for (NexoKeystrokesConfig.KeyEntry entry : entries) {
-			int x = originX + col * (box + gap);
+			int x = originX + col * (boxWidth + gap);
 			boolean down = entry.keyCode >= 0 && InputConstants.isKeyDown(client.getWindow(), entry.keyCode);
-			key(graphics, font, down, entry.label, x, y, box, box);
+			key(graphics, font, down, entry.label, x, y, boxWidth, box);
 			col++;
 			if (col >= layout.customCols()) {
 				col = 0;
@@ -180,7 +192,7 @@ public final class NexoKeystrokesHud implements HudElement {
 		int bg = down ? KEY_DOWN_BG : NexoStyle.PANEL_BG_RAISED;
 		int textColor = down ? NexoStyle.PANEL_BG : NexoStyle.TEXT_SECONDARY;
 
-		graphics.fill(x, y, x + width, y + height, bg);
+		NexoShapes.fillRounded(graphics, x, y, x + width, y + height, bg, 3);
 		Component text = Component.literal(label);
 		int textWidth = font.width(text);
 		graphics.text(font, text, x + (width - textWidth) / 2, y + (height - font.lineHeight) / 2 + 1, textColor);
