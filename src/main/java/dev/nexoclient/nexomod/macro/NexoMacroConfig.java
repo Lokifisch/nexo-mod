@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.google.gson.reflect.TypeToken;
@@ -78,21 +79,28 @@ public final class NexoMacroConfig {
 		}
 		try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {
 			JsonArray json = JsonParser.parseReader(reader).getAsJsonArray();
-			List<NexoMacro> macros = GSON.fromJson(json, LIST_TYPE);
-			NexoMacroConfig config = new NexoMacroConfig(macros);
+			List<NexoMacro> macros = new ArrayList<>();
 			boolean migrated = false;
-			for (int i = 0; i < macros.size(); i++) {
-				if (!json.get(i).getAsJsonObject().has("keyCodes")) {
-					String name = LegacyGlfwKeys.name(macros.get(i).keyCode);
-					macros.get(i).keyCode = name == null ? -1 : InputConstants.getKey(name).getValue();
+			for (JsonElement element : json) {
+				if (!element.isJsonObject()) {
+					continue;
+				}
+				NexoMacro macro = GSON.fromJson(element, NexoMacro.class);
+				if (!element.getAsJsonObject().has("keyCodes")) {
+					String name = LegacyGlfwKeys.name(macro.keyCode);
+					macro.keyCode = name == null ? -1 : InputConstants.getKey(name).getValue();
 					migrated = true;
 				}
+				macros.add(macro);
 			}
+			NexoMacroConfig config = new NexoMacroConfig(macros);
 			if (migrated) {
 				config.save();
 			}
 			return config;
-		} catch (IOException e) {
+		} catch (IOException | RuntimeException e) {
+			// RuntimeException: an empty or hand-broken file, which shouldn't
+			// take the game down with it.
 			LOGGER.warn("Failed to read {}, starting with no macros", PATH, e);
 			return new NexoMacroConfig(new ArrayList<>());
 		}

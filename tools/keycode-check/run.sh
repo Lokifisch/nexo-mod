@@ -10,8 +10,8 @@ mod=$(cd -- "$here/../.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-javac --release 25 -nowarn -d "$work" \
+"${JAVA_HOME:-/usr/lib/jvm/java-26-openjdk}/bin/javac" --release 25 -nowarn -d "$work" \
   "$mod/src/main/java/dev/nexoclient/nexomod/util/LegacyGlfwKeys.java" \
   "$here/KeycodeCheck.java"
 
-java -cp "$work" dev.nexoclient.nexomod.util.KeycodeCheck
+"${JAVA_HOME:-/usr/lib/jvm/java-26-openjdk}/bin/java" -cp "$work" dev.nexoclient.nexomod.util.KeycodeCheck

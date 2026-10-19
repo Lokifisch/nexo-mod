@@ -34,7 +34,8 @@ import net.fabricmc.loader.api.FabricLoader;
  * ({@link #showDefaultCluster}) and what gets added below it: each custom
  * entry is one box, appended in the order added, wrapping into rows.
  *
- * <p>A custom entry stores a raw GLFW key code, not a Minecraft
+ * <p>A custom entry stores a raw key code (an SDL scancode since 26.3; older
+ * GLFW codes are converted on load), not a Minecraft
  * {@code KeyMapping} — Minecraft's keybinding system expects mappings
  * registered once at startup, which doesn't fit "the player adds one from a
  * screen at 2am". {@code NexoKeystrokesConfigScreen} captures the code via
@@ -126,6 +127,10 @@ public final class NexoKeystrokesConfig {
 		try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {
 			JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
 			Data loaded = GSON.fromJson(json, Data.class);
+			if (loaded.customEntries == null) {
+				loaded.customEntries = new ArrayList<>();
+			}
+			loaded.customEntries.removeIf(java.util.Objects::isNull);
 			NexoKeystrokesConfig config = new NexoKeystrokesConfig(loaded);
 			if (!json.has("keyCodes")) {
 				for (KeyEntry entry : loaded.customEntries) {
@@ -135,7 +140,9 @@ public final class NexoKeystrokesConfig {
 				config.save();
 			}
 			return config;
-		} catch (IOException e) {
+		} catch (IOException | RuntimeException e) {
+			// RuntimeException: an empty or hand-broken file, which shouldn't
+			// take the game down with it.
 			LOGGER.warn("Failed to read {}, starting with no custom keys", PATH, e);
 			return new NexoKeystrokesConfig(new Data());
 		}

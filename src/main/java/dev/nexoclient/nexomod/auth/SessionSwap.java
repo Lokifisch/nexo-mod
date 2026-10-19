@@ -71,18 +71,19 @@ public final class SessionSwap {
 		UserApiService userApiService = discovery.createUserApiService(user.getAccessToken());
 		accessor.nexomod$setUserApiService(userApiService);
 
-		accessor.nexomod$setUserPropertiesFuture(CompletableFuture.supplyAsync(() -> {
+		CompletableFuture<UserApiService.UserProperties> properties = CompletableFuture.supplyAsync(() -> {
 			try {
 				return userApiService.fetchProperties();
 			} catch (AuthenticationException e) {
 				NexoMod.LOGGER.error("Failed to fetch user properties after account switch", e);
 				return UserApiService.OFFLINE_PROPERTIES;
 			}
-		}, Util.nonCriticalIoPool()));
+		}, Util.nonCriticalIoPool());
+		accessor.nexomod$setUserPropertiesFuture(properties);
 
 		accessor.nexomod$setProfileKeyPairManager(
 				ProfileKeyPairManager.create(userApiService, user, mc.gameDirectory.toPath()));
-		rebuildSocial(mc, discovery, userApiService, user);
+		rebuildSocial(mc, discovery, userApiService, user, properties);
 
 		NexoMod.LOGGER.info("Minecraft session for {} ({}) has been applied", user.getName(), user.getProfileId());
 	}
@@ -94,27 +95,47 @@ public final class SessionSwap {
 		accessor.nexomod$setUser(user);
 		accessor.nexomod$setProfileFuture(CompletableFuture.completedFuture(null));
 		accessor.nexomod$setUserApiService(UserApiService.OFFLINE);
-		accessor.nexomod$setUserPropertiesFuture(CompletableFuture.completedFuture(UserApiService.OFFLINE_PROPERTIES));
+		CompletableFuture<UserApiService.UserProperties> properties = CompletableFuture.completedFuture(UserApiService.OFFLINE_PROPERTIES);
+		accessor.nexomod$setUserPropertiesFuture(properties);
 		accessor.nexomod$setProfileKeyPairManager(ProfileKeyPairManager.EMPTY_KEY_MANAGER);
 		Minecraft mc = Minecraft.getInstance();
-		rebuildSocial(mc, MinecraftServicesDiscoveryService.create(mc.getProxy(), false), UserApiService.OFFLINE, user);
+		rebuildSocial(mc, MinecraftServicesDiscoveryService.createOffline(mc.getProxy()), UserApiService.OFFLINE, user, properties);
 
 		NexoMod.LOGGER.info("Offline session for {} has been applied", user.getName());
 	}
 
 	/**
 	 * Friends (26.3) and the block list live in objects built once from the
-	 * launch session, in the same order as Minecraft's constructor: the old
-	 * poller is closed first so two accounts' friend lists never poll at once.
+	 * launch session. The old account is signed out of presence first, so its
+	 * friends don't keep seeing it online, and its poller is closed so two
+	 * accounts never poll at once. The new objects wait for the account's
+	 * properties: {@code PlayerSocialManager}'s constructor reads them (via
+	 * {@code friendsEnabled()}), which would otherwise block the render thread
+	 * on that fetch. Like Minecraft's constructor, the poller only starts for
+	 * an account that has the friend list enabled.
 	 */
+	private static final java.util.concurrent.atomic.AtomicInteger SOCIAL_GENERATION = new java.util.concurrent.atomic.AtomicInteger();
+
 	private static void rebuildSocial(Minecraft mc, MinecraftServicesDiscoveryService discovery,
-			UserApiService userApiService, User user) {
+			UserApiService userApiService, User user, CompletableFuture<?> properties) {
 		MinecraftUserAccessor accessor = (MinecraftUserAccessor) (Object) mc;
+		var oldPresence = mc.getPlayerSocialManager().getPresenceHandler();
+		Util.nonCriticalIoPool().execute(oldPresence::sendOfflinePresence);
 		accessor.nexomod$getRemoteFriendListUpdateHandler().close();
-		var friends = discovery.createFriendsService(user.getAccessToken());
-		RemoteFriendListUpdateHandler handler = new RemoteFriendListUpdateHandler(friends, mc);
-		accessor.nexomod$setRemoteFriendListUpdateHandler(handler);
-		accessor.nexomod$setPlayerSocialManager(new PlayerSocialManager(mc, userApiService, friends, handler));
-		handler.start();
+		int generation = SOCIAL_GENERATION.incrementAndGet();
+		properties.thenRunAsync(() -> {
+			// A later switch already replaced this one.
+			if (generation != SOCIAL_GENERATION.get()) {
+				return;
+			}
+			var friends = discovery.createFriendsService(user.getAccessToken());
+			RemoteFriendListUpdateHandler handler = new RemoteFriendListUpdateHandler(friends, mc);
+			PlayerSocialManager manager = new PlayerSocialManager(mc, userApiService, friends, handler);
+			accessor.nexomod$setRemoteFriendListUpdateHandler(handler);
+			accessor.nexomod$setPlayerSocialManager(manager);
+			if (manager.isFriendListEnabled()) {
+				handler.start();
+			}
+		}, mc);
 	}
 }

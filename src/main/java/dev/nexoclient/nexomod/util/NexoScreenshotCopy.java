@@ -81,7 +81,11 @@ public final class NexoScreenshotCopy {
 			String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
 			ProcessBuilder pb;
 			if (os.contains("win")) {
-				pb = new ProcessBuilder("powershell", "-NoProfile", "-STA", "-Command",
+				// Absolute: Windows searches the working directory (the game
+				// folder) before PATH, so a bare name could run a planted copy.
+				String powershell = System.getenv().getOrDefault("SystemRoot", "C:\\Windows")
+						+ "\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+				pb = new ProcessBuilder(powershell, "-NoProfile", "-STA", "-Command",
 						"Add-Type -AssemblyName System.Windows.Forms,System.Drawing;"
 								+ "[Windows.Forms.Clipboard]::SetImage([Drawing.Image]::FromFile($env:NEXO_IMG))");
 			} else if (os.contains("mac")) {
