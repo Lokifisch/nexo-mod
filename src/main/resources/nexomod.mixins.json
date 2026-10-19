@@ -25,6 +25,7 @@
 		"XaeroWorldMapCoordsMixin",
 		"ChatMessageInterceptMixin",
 		"ChatSenderCaptureMixin",
+		"ChatTweaksMixin",
 		"ActionbarLogMixin",
 		"PickupLogMixin",
 		"CameraZoomMixin",

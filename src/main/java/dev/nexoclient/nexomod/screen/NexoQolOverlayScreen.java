@@ -8,6 +8,7 @@ import org.joml.Matrix3x2fStack;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ScrollableLayout;
 import net.minecraft.client.gui.layouts.FrameLayout;
 import net.minecraft.client.gui.layouts.GridLayout;
@@ -78,6 +79,9 @@ public class NexoQolOverlayScreen extends Screen {
 	/** Room below the list for the close hint. */
 	private static final int FOOTER_HEIGHT = 15;
 	private static final int EDIT_BUTTON_HEIGHT = 20;
+	/** Same band as the active-count badge, so the search box sits level with it and the wordmark. */
+	private static final int SEARCH_HEIGHT = 13;
+	private static final int SEARCH_TOP = 11;
 	private static final float WORDMARK_SCALE = 1.5F;
 	private static final float SMALL_TEXT_SCALE = 0.75F;
 
@@ -95,7 +99,30 @@ public class NexoQolOverlayScreen extends Screen {
 	private final List<BooleanSupplier> moduleStates = new ArrayList<>();
 
 	private ScrollableLayout scrollArea;
+	/** Kept across the rebuilds typing triggers, so the filter survives them. */
+	private String query = "";
+	private EditBox searchBox;
 	private int rowCount;
+	/** Modules passing the search filter; drives the list height, since {@code rowCount} also staggers. */
+	private int matchCount;
+	/** Set after the first init: the swish-in plays when the menu opens, not on every search or resize. */
+	private boolean entrancePlayed;
+	private static final long FADE_OUT_MILLIS = 160L;
+	/** The rows currently on screen, so the next rebuild can tell which ones the filter dropped. */
+	private final List<NexoModuleRow> shownRows = new ArrayList<>();
+	/** Filtered-out rows kept only to fade away where they were; not part of the layout or input. */
+	private final List<Ghost> ghosts = new ArrayList<>();
+
+	private record Ghost(NexoModuleRow row, long startMillis) {}
+	/**
+	 * The panel's top and bottom as drawn, easing toward where the layout says they
+	 * belong. Search rebuilds the list at its final size at once; animating only the
+	 * panel (and clipping the content to it) avoids touching ScrollableLayout, whose
+	 * scroll range goes negative if the viewport ever outgrows its content.
+	 */
+	private float shownTop = Float.NaN;
+	private float shownBottom;
+	private long lastFrameNanos;
 
 	public NexoQolOverlayScreen() {
 		super(Component.translatable("nexomod.qol.title"));
@@ -105,9 +132,21 @@ public class NexoQolOverlayScreen extends Screen {
 	protected void init() {
 		moduleStates.clear();
 		rowCount = 0;
+		matchCount = 0;
+		List<NexoModuleRow> previousRows = new ArrayList<>(shownRows);
+		shownRows.clear();
 
 		layout = LinearLayout.vertical().spacing(8);
 		layout.defaultCellSetting().alignHorizontallyCenter();
+		searchBox = new EditBox(minecraft.font, 60, SEARCH_HEIGHT, Component.translatable("nexomod.qol.search"));
+		searchBox.setHint(Component.translatable("nexomod.qol.search"));
+		searchBox.setValue(query);
+		searchBox.setResponder(text -> {
+			if (!text.equals(query)) {
+				query = text;
+				rebuildWidgets();
+			}
+		});
 		moduleGrid = new GridLayout();
 		moduleGrid.defaultCellSetting().paddingHorizontal(CELL_PADDING).paddingBottom(CELL_PADDING);
 		moduleRows = moduleGrid.createRowHelper(COLUMNS);
@@ -117,24 +156,24 @@ public class NexoQolOverlayScreen extends Screen {
 				Component.translatable("nexomod.qol.keystrokes.description"),
 				config::keystrokesHudEnabled,
 				() -> config.setKeystrokesHudEnabled(!config.keystrokesHudEnabled()),
-				() -> minecraft.setScreen(new NexoKeystrokesConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(this)));
 		addRow(Component.translatable("nexomod.qol.cps"),
 				Component.translatable("nexomod.qol.cps.description"),
 				config::cpsCounterEnabled,
 				() -> config.setCpsCounterEnabled(!config.cpsCounterEnabled()),
-				() -> minecraft.setScreen(new NexoCpsConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoCpsConfigScreen(this)));
 		addRow(Component.translatable("nexomod.settings.armorHud.enabled"),
 				Component.translatable("nexomod.qol.armorHud.description"),
 				config::armorHudEnabled,
 				() -> config.setArmorHudEnabled(!config.armorHudEnabled()),
-				() -> minecraft.setScreen(new NexoArmorHudConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoArmorHudConfigScreen(this)));
 		// Directly under the Armor HUD row on purpose: the two names are one word
 		// apart and the only way to tell them apart is seeing them side by side.
 		addRow(Component.translatable("nexomod.settings.armorBar.enabled"),
 				Component.translatable("nexomod.qol.armorBar.description"),
 				config::armorBarEnabled,
 				() -> config.setArmorBarEnabled(!config.armorBarEnabled()),
-				() -> minecraft.setScreen(new NexoArmorBarConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoArmorBarConfigScreen(this)));
 		// Toggles directly on click rather than opening a config screen — there is
 		// nothing to configure, and a quick single click is the point before AFK.
 		addRow(Component.translatable("nexomod.qol.potatoMode"),
@@ -146,32 +185,40 @@ public class NexoQolOverlayScreen extends Screen {
 				Component.translatable("nexomod.stats.description"),
 				config::statsHudEnabled,
 				() -> config.setStatsHudEnabled(!config.statsHudEnabled()),
-				() -> minecraft.setScreen(new NexoStatsConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoStatsConfigScreen(this)));
 		addRow(Component.translatable("nexomod.qol.potion"),
 				Component.translatable("nexomod.qol.potion.description"),
 				config::potionHudEnabled,
 				() -> config.setPotionHudEnabled(!config.potionHudEnabled()),
-				() -> minecraft.setScreen(new NexoPotionConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoPotionConfigScreen(this)));
 		addRow(Component.translatable("nexomod.qol.combo"),
 				Component.translatable("nexomod.qol.combo.description"),
 				config::comboCounterEnabled,
 				() -> config.setComboCounterEnabled(!config.comboCounterEnabled()),
-				() -> minecraft.setScreen(new NexoComboConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoComboConfigScreen(this)));
 		addRow(Component.translatable("nexomod.qol.actionbarLog"),
 				Component.translatable("nexomod.qol.actionbarLog.description"),
 				config::actionbarLogEnabled,
 				() -> config.setActionbarLogEnabled(!config.actionbarLogEnabled()),
-				() -> minecraft.setScreen(new NexoActionbarLogConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoActionbarLogConfigScreen(this)));
 		addRow(Component.translatable("nexomod.qol.pickupLog"),
 				Component.translatable("nexomod.qol.pickupLog.description"),
 				config::pickupLogEnabled,
 				() -> config.setPickupLogEnabled(!config.pickupLogEnabled()),
-				() -> minecraft.setScreen(new NexoPickupLogConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoPickupLogConfigScreen(this)));
+		addRow(Component.translatable("nexomod.qol.chat"),
+				Component.translatable("nexomod.qol.chat.description"),
+				() -> dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled,
+				() -> {
+					dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled = !dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled;
+					dev.nexoclient.nexomod.chat.NexoChatTweaks.save();
+				},
+				() -> minecraft.gui.setScreen(new NexoChatTweaksScreen(this)));
 		addRow(Component.translatable("nexomod.qol.inventoryHud"),
 				Component.translatable("nexomod.qol.inventoryHud.description"),
 				config::inventoryHudEnabled,
 				() -> config.setInventoryHudEnabled(!config.inventoryHudEnabled()),
-				() -> minecraft.setScreen(new NexoInventoryHudConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoInventoryHudConfigScreen(this)));
 		// Toggles directly on click, like Potato Mode above — nothing to
 		// configure, it just shows whatever the desktop's MPRIS bus reports.
 		addRow(Component.translatable("nexomod.qol.miniPlayer"),
@@ -190,12 +237,32 @@ public class NexoQolOverlayScreen extends Screen {
 				Component.translatable("nexomod.qol.hudCleaner.description"),
 				config::hudCleanerActive,
 				() -> config.setHudCleanerAll(!config.hudCleanerActive()),
-				() -> minecraft.setScreen(new NexoHudCleanerConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoHudCleanerConfigScreen(this)));
+		addRow(Component.translatable("nexomod.qol.toggleSprint"),
+				Component.translatable("nexomod.qol.toggleSprint.description"),
+				config::toggleSprintEnabled,
+				() -> config.setToggleSprintEnabled(!config.toggleSprintEnabled()),
+				() -> config.setToggleSprintEnabled(!config.toggleSprintEnabled()));
+		addRow(Component.translatable("nexomod.qol.toggleSneak"),
+				Component.translatable("nexomod.qol.toggleSneak.description"),
+				config::toggleSneakEnabled,
+				() -> config.setToggleSneakEnabled(!config.toggleSneakEnabled()),
+				() -> config.setToggleSneakEnabled(!config.toggleSneakEnabled()));
+		addRow(Component.translatable("nexomod.qol.screenshotCopy"),
+				Component.translatable("nexomod.qol.screenshotCopy.description"),
+				config::screenshotCopyEnabled,
+				() -> config.setScreenshotCopyEnabled(!config.screenshotCopyEnabled()),
+				() -> config.setScreenshotCopyEnabled(!config.screenshotCopyEnabled()));
 		addRow(Component.translatable("nexomod.qol.zoom"),
 				Component.translatable("nexomod.qol.zoom.description"),
 				config::zoomEnabled,
 				() -> config.setZoomEnabled(!config.zoomEnabled()),
-				() -> minecraft.setScreen(new NexoZoomConfigScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoZoomConfigScreen(this)));
+		addRow(Component.translatable("nexomod.qol.crosshair"),
+				Component.translatable("nexomod.qol.crosshair.description"),
+				config::crosshairEnabled,
+				() -> config.setCrosshairEnabled(!config.crosshairEnabled()),
+				() -> minecraft.gui.setScreen(new NexoCrosshairConfigScreen(this)));
 		// The pill reflects and toggles Dynamic specifically, not "is anything
 		// hidden" — manually-hidden entities don't clear when Dynamic is off, so
 		// using the combined state here would show the pill permanently on (and
@@ -205,7 +272,7 @@ public class NexoQolOverlayScreen extends Screen {
 				Component.translatable("nexomod.qol.noRender.description"),
 				() -> NexoNoRenderConfig.get().dynamicEnabled(),
 				NexoNoRender::toggleDynamic,
-				() -> minecraft.setScreen(new NexoNoRenderScreen(this)));
+				() -> minecraft.gui.setScreen(new NexoNoRenderScreen(this)));
 		addModuleRows();
 
 		// Measure the content BEFORE wrapping it. ScrollableLayout's scroll range is
@@ -223,14 +290,29 @@ public class NexoQolOverlayScreen extends Screen {
 		scrollArea.setMinWidth(gridWidth());
 		layout.addChild(scrollArea);
 		layout.addChild(NexoButton.builder(Component.translatable("nexomod.qol.editLayout"),
-						() -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						() -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(gridWidth(), EDIT_BUTTON_HEIGHT).build());
 
 		// Registration first, layout last — the order vanilla's own ScrollableLayout
 		// users (ExperimentsScreen, DialogScreen) use, and the order that leaves the
 		// final arrange as the last thing to touch the geometry.
 		layout.visitWidgets(this::addRenderableWidget);
+		// Lives in the header, not the layout: placed by repositionElements.
+		addRenderableWidget(searchBox);
 		repositionElements();
+		setInitialFocus(searchBox);
+		// Rows the search just dropped keep drawing for a moment, fading out in place.
+		java.util.Set<String> stillShown = new java.util.HashSet<>();
+		for (NexoModuleRow row : shownRows) {
+			stillShown.add(row.getMessage().getString());
+		}
+		long fadeStart = System.currentTimeMillis();
+		for (NexoModuleRow row : previousRows) {
+			if (!stillShown.contains(row.getMessage().getString())) {
+				ghosts.add(new Ghost(row, fadeStart));
+			}
+		}
+		entrancePlayed = true;
 	}
 
 	/**
@@ -241,9 +323,20 @@ public class NexoQolOverlayScreen extends Screen {
 	private void addRow(Component name, Component description,
 			BooleanSupplier state, Runnable onToggle, Runnable onPress) {
 		moduleStates.add(state);
-		moduleRows.addChild(new NexoModuleRow(0, 0, rowWidth(), ROW_HEIGHT, name, description, state, onPress)
+		String needle = query.strip().toLowerCase(java.util.Locale.ROOT);
+		if (!needle.isEmpty() && !name.getString().toLowerCase(java.util.Locale.ROOT).contains(needle)
+				&& !description.getString().toLowerCase(java.util.Locale.ROOT).contains(needle)) {
+			return;
+		}
+		matchCount++;
+		NexoModuleRow row = new NexoModuleRow(0, 0, rowWidth(), ROW_HEIGHT, name, description, state, onPress)
 				.withToggle(onToggle)
-				.stagger(rowCount++));
+				.stagger(rowCount++);
+		if (entrancePlayed) {
+			row.noReveal();
+		}
+		shownRows.add(row);
+		moduleRows.addChild(row);
 	}
 
 	/**
@@ -266,7 +359,7 @@ public class NexoQolOverlayScreen extends Screen {
 
 	/** Grid rows the modules occupy — two per row, so a trailing odd module still needs a whole row. */
 	private int gridRowCount() {
-		return Math.max(1, (rowCount + COLUMNS - 1) / COLUMNS);
+		return Math.max(1, (matchCount + COLUMNS - 1) / COLUMNS);
 	}
 
 	/** Extra module rows contributed by other parts of the mod — see {@link NexoQolModules}. */
@@ -274,7 +367,7 @@ public class NexoQolOverlayScreen extends Screen {
 		for (NexoQolModules.Entry entry : NexoQolModules.entries()) {
 			addRow(entry.name(), entry.description(), entry.enabled(), entry.toggle(),
 					entry.openConfig() == null ? entry.toggle()
-							: () -> minecraft.setScreen(entry.openConfig().apply(this)));
+							: () -> minecraft.gui.setScreen(entry.openConfig().apply(this)));
 		}
 	}
 
@@ -312,6 +405,23 @@ public class NexoQolOverlayScreen extends Screen {
 		// taller than the footer; offsetting by half the difference centres the
 		// panel as a whole instead.
 		FrameLayout.centerInRectangle(layout, 0, (HEADER_HEIGHT - FOOTER_HEIGHT) / 2, width, height);
+		placeSearchBox();
+	}
+
+	/** Between the title block and the active-count badge, level with the badge. */
+	private void placeSearchBox() {
+		Font font = minecraft.font;
+		int x0 = layout.getX() - PANEL_PAD_X;
+		int x1 = layout.getX() + layout.getWidth() + PANEL_PAD_X;
+		int y0 = layout.getY() - PANEL_PAD_Y - HEADER_HEIGHT;
+		int title = Math.max(Math.round(font.width("NEXO") * WORDMARK_SCALE) + 4,
+				Math.round(font.width(Component.translatable("nexomod.qol.subtitle")) * SMALL_TEXT_SCALE));
+		Component badge = Component.translatable("nexomod.qol.activeCount", moduleStates.size(), moduleStates.size());
+		int left = x0 + 17 + title + 12;
+		int right = x1 - 16 - Math.round(font.width(badge) * SMALL_TEXT_SCALE) - 14 - 10;
+		searchBox.setPosition(left, y0 + SEARCH_TOP);
+		searchBox.setWidth(Math.max(40, right - left));
+		searchBox.setHeight(SEARCH_HEIGHT);
 	}
 
 	@Override
@@ -321,14 +431,47 @@ public class NexoQolOverlayScreen extends Screen {
 		int x1 = layout.getX() + layout.getWidth() + PANEL_PAD_X;
 		int y1 = layout.getY() + layout.getHeight() + PANEL_PAD_Y + FOOTER_HEIGHT;
 
-		NexoPanelRenderer.draw(graphics, x0, y0, x1, y1);
+		long nanos = System.nanoTime();
+		float dt = lastFrameNanos == 0L ? 0F : Math.min(0.1F, (nanos - lastFrameNanos) / 1_000_000_000F);
+		lastFrameNanos = nanos;
+		if (Float.isNaN(shownTop)) {
+			shownTop = y0;
+			shownBottom = y1;
+		}
+		// Frame-rate independent ease-out; snaps once within half a pixel so it settles.
+		float ease = 1F - (float) Math.exp(-dt * 16F);
+		shownTop = approachPx(shownTop, y0, ease);
+		shownBottom = approachPx(shownBottom, y1, ease);
+		int py0 = Math.round(shownTop);
+		int py1 = Math.round(shownBottom);
+
+		NexoPanelRenderer.draw(graphics, x0, py0, x1, py1);
 		long now = System.currentTimeMillis();
-		drawScanlines(graphics, x0, y0, x1, y1);
-		drawCornerBrackets(graphics, x0, y0, x1, y1, now);
+		drawScanlines(graphics, x0, py0, x1, py1);
+		drawCornerBrackets(graphics, x0, py0, x1, py1, now);
+
+		// Content sits at its final position and is revealed or cut off by the moving panel.
+		graphics.enableScissor(x0, py0, x1, py1);
 		drawHeader(graphics, x0, y0, x1, now);
 		drawFooter(graphics, x0, x1, y1);
-
+		drawGhosts(graphics, partialTick, now);
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+		graphics.disableScissor();
+	}
+
+	private void drawGhosts(GuiGraphicsExtractor graphics, float partialTick, long now) {
+		ghosts.removeIf(ghost -> now - ghost.startMillis() >= FADE_OUT_MILLIS);
+		for (Ghost ghost : ghosts) {
+			float remaining = 1F - (now - ghost.startMillis()) / (float) FADE_OUT_MILLIS;
+			ghost.row().setFade(remaining * remaining);
+			// Mouse far off-screen: a fading row never reads as hovered.
+			ghost.row().extractRenderState(graphics, -10000, -10000, partialTick);
+		}
+	}
+
+	private static float approachPx(float current, float target, float ease) {
+		float next = current + (target - current) * ease;
+		return Math.abs(target - next) < 0.5F ? target : next;
 	}
 
 	/** A faint CRT ruling over the panel fill, to keep a large flat area from reading as dead space. */
@@ -470,10 +613,17 @@ public class NexoQolOverlayScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (NexoQolMenu.isToggleKey(event)) {
+		// A letter or digit bound as the menu key must stay typeable in the search box.
+		boolean typing = searchBox != null && searchBox.isFocused() && isTextKey(event.key());
+		if (!typing && NexoQolMenu.isToggleKey(event)) {
 			onClose();
 			return true;
 		}
 		return super.keyPressed(event);
+	}
+
+	private static boolean isTextKey(int key) {
+		return key == 32 || key == 39 || (key >= 44 && key <= 57) || key == 59 || key == 61
+				|| (key >= 65 && key <= 93) || key == 96;
 	}
 }

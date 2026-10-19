@@ -45,7 +45,7 @@ public final class F3CoordWarning {
 			return false;
 		}
 		lastWarningMillis = now;
-		minecraft.gui.setOverlayMessage(Component.translatable("nexomod.coords.f3warning").withStyle(ChatFormatting.YELLOW), false);
+		minecraft.gui.hud.setOverlayMessage(Component.translatable("nexomod.coords.f3warning").withStyle(ChatFormatting.YELLOW), false);
 		return true;
 	}
 }

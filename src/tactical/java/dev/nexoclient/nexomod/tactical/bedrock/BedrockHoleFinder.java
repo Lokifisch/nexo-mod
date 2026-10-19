@@ -127,7 +127,7 @@ public final class BedrockHoleFinder {
 
 	public static void register() {
 		toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.bedrockHoles",
-				InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
+				InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
 		ClientTickEvents.END_CLIENT_TICK.register(BedrockHoleFinder::tick);
 		// Both directions invalidate: an unloaded chunk's holes are stale, and a
 		// chunk re-sent by the server may not match what was scanned before.
@@ -153,7 +153,7 @@ public final class BedrockHoleFinder {
 		while (toggleKey.consumeClick()) {
 			config.setBedrockHoleFinderEnabled(!config.bedrockHoleFinderEnabled());
 			clear();
-			client.gui.getChat().addClientSystemMessage(Component.translatable(config.bedrockHoleFinderEnabled()
+			client.gui.hud.getChat().addClientSystemMessage(Component.translatable(config.bedrockHoleFinderEnabled()
 					? "nexomod.bedrockHoles.enabled"
 					: "nexomod.bedrockHoles.disabled"));
 		}
@@ -283,14 +283,14 @@ public final class BedrockHoleFinder {
 		// enough to walk to it, nothing a viewer could write down.
 		boolean coords = config.bedrockHoleCoordsVisible();
 		if (config.bedrockHoleChatEnabled()) {
-			client.gui.getChat().addClientSystemMessage(coords
+			client.gui.hud.getChat().addClientSystemMessage(coords
 					? Component.translatable("nexomod.bedrockHoles.alert", name, size, anchor.getX(), anchor.getY(), anchor.getZ(), blocks)
 					: Component.translatable("nexomod.bedrockHoles.alertNoCoords", name, size, blocks));
 		}
 		if (config.bedrockHoleToastEnabled()) {
 			// addOrUpdate, not add: a burst of finds replaces one toast rather
 			// than stacking a column of them down the screen.
-			SystemToast.addOrUpdate(client.getToastManager(), TOAST_ID, name, coords
+			SystemToast.addOrUpdate(client.gui.toastManager(), TOAST_ID, name, coords
 					? Component.translatable("nexomod.bedrockHoles.toast", size, anchor.getX(), anchor.getY(), anchor.getZ(), blocks)
 					: Component.translatable("nexomod.bedrockHoles.toastNoCoords", size, blocks));
 		}

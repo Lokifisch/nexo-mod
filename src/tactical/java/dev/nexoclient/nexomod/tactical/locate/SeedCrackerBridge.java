@@ -27,7 +27,7 @@ public final class SeedCrackerBridge implements SeedCrackerAPI {
 			SeedIndex.get().put(place.key(), place.label(), place.address(), place.world(), seed,
 					SeedIndex.Source.SEEDCRACKER, null);
 			if (client.player != null) {
-				client.gui.getChat().addClientSystemMessage(
+				client.gui.hud.getChat().addClientSystemMessage(
 						Component.translatable("nexomod.locate.fromSeedcracker", place.label(), seed));
 			}
 		}, () -> NexoMod.LOGGER.info("[nexomod] SeedcrackerX seed {} ignored: not on a server or world.", seed)));

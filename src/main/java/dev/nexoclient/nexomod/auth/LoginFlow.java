@@ -22,24 +22,24 @@ public final class LoginFlow {
 		Minecraft mc = Minecraft.getInstance();
 		AtomicBoolean cancelled = new AtomicBoolean(false);
 
-		mc.setScreen(new SigningInScreen(returnTo, cancelled));
+		mc.gui.setScreen(new SigningInScreen(returnTo, cancelled));
 		MicrosoftAuth.login(cancelled)
 				.whenComplete((account, error) -> mc.execute(() -> {
 			if (error != null) {
 				if (!cancelled.get()) {
 					LOGGER.error("Microsoft sign-in failed", error);
-					mc.setScreen(new net.minecraft.client.gui.screens.AlertScreen(
-							() -> mc.setScreen(returnTo),
+					mc.gui.setScreen(new net.minecraft.client.gui.screens.AlertScreen(
+							() -> mc.gui.setScreen(returnTo),
 							Component.translatable("nexomod.login.failedTitle"),
 							errorMessage(error)));
 				} else {
-					mc.setScreen(returnTo);
+					mc.gui.setScreen(returnTo);
 				}
 				return;
 			}
 			AccountStore.get().upsertAndActivate(account);
 			SessionSwap.activate(account);
-			mc.setScreen(returnTo);
+			mc.gui.setScreen(returnTo);
 		}));
 	}
 

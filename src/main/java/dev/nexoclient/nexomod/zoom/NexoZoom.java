@@ -46,7 +46,7 @@ public final class NexoZoom {
 		// Note this collides with Zoomify's default if that mod is also installed —
 		// a normal, visible keybind conflict the player resolves in Controls.
 		zoomKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.zoom",
-				InputConstants.Type.KEYSYM, InputConstants.KEY_C, KeyMapping.Category.MISC));
+				InputConstants.Type.KEYBOARD, InputConstants.KEY_C, KeyMapping.Category.MISC));
 		ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
 	}
 

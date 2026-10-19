@@ -26,10 +26,10 @@ public class NexoActionbarLogConfigScreen extends NexoModalScreen {
 				config::actionbarLogEnabled,
 				() -> {
 					config.setActionbarLogEnabled(!config.actionbarLogEnabled());
-					minecraft.setScreen(new NexoActionbarLogConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoActionbarLogConfigScreen(parent));
 				}));
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
-						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
 		finishLayout();

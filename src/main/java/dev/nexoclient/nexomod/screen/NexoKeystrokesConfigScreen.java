@@ -53,7 +53,7 @@ public class NexoKeystrokesConfigScreen extends NexoModalScreen {
 				config::keystrokesHudEnabled,
 				() -> {
 					config.setKeystrokesHudEnabled(!config.keystrokesHudEnabled());
-					minecraft.setScreen(new NexoKeystrokesConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(parent));
 				}));
 
 		NexoKeystrokesConfig keys = NexoKeystrokesConfig.get();
@@ -63,7 +63,7 @@ public class NexoKeystrokesConfigScreen extends NexoModalScreen {
 				keys::showDefaultCluster,
 				() -> {
 					keys.setShowDefaultCluster(!keys.showDefaultCluster());
-					minecraft.setScreen(new NexoKeystrokesConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(parent));
 				}));
 
 		for (NexoKeystrokesConfig.KeyEntry entry : keys.customEntries()) {
@@ -73,11 +73,11 @@ public class NexoKeystrokesConfigScreen extends NexoModalScreen {
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.keystrokes.addKey"), button -> {
 					NexoKeystrokesConfig.KeyEntry entry = new NexoKeystrokesConfig.KeyEntry("?", -1);
 					keys.addEntry(entry);
-					minecraft.setScreen(new NexoKeystrokesConfigScreen(parent, entry));
+					minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(parent, entry));
 				})
 				.size(ROW_WIDTH, 20).build());
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
-						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
 		finishLayout();
@@ -88,11 +88,11 @@ public class NexoKeystrokesConfigScreen extends NexoModalScreen {
 		Component label = entry == rebinding
 				? Component.translatable("nexomod.qol.keystrokes.pressAnyKey")
 				: Component.literal(entry.label);
-		row.addChild(Button.builder(label, button -> minecraft.setScreen(new NexoKeystrokesConfigScreen(parent, entry)))
+		row.addChild(Button.builder(label, button -> minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(parent, entry)))
 				.size(180, 20).build());
 		row.addChild(Button.builder(Component.translatable("nexomod.qol.remove"), button -> {
 					keys.removeEntry(entry);
-					minecraft.setScreen(new NexoKeystrokesConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(parent));
 				})
 				.size(70, 20).build());
 	}
@@ -106,7 +106,7 @@ public class NexoKeystrokesConfigScreen extends NexoModalScreen {
 				rebinding.keyCode = key.getValue();
 				NexoKeystrokesConfig.get().save();
 			}
-			minecraft.setScreen(new NexoKeystrokesConfigScreen(parent));
+			minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(parent));
 			return true;
 		}
 		return super.keyPressed(event);

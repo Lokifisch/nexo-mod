@@ -39,7 +39,7 @@ public class NexoMacroOptionList extends NexoOptionList {
 	}
 
 	private void openMacroEditor(NexoMacro macro) {
-		mc.setScreen(new NexoMacroEditScreen(screen, macro));
+		mc.gui.setScreen(new NexoMacroEditScreen(screen, macro));
 	}
 
 	@Override
@@ -71,12 +71,12 @@ public class NexoMacroOptionList extends NexoOptionList {
 						.pos(x, 0).size(mainButtonWidth, height).build());
 
 				Button deleteButton = Button.builder(Component.literal("❌").withStyle(ChatFormatting.RED), button ->
-						Minecraft.getInstance().setScreen(new ConfirmScreen(
+						Minecraft.getInstance().gui.setScreen(new ConfirmScreen(
 								confirmed -> {
 									if (confirmed) {
 										NexoMacroConfig.get().removeMacro(macro);
 									}
-									Minecraft.getInstance().setScreen(list.screen);
+									Minecraft.getInstance().gui.setScreen(list.screen);
 									list.init();
 								},
 								Component.translatable("nexomod.macros.deleteTitle"),
@@ -88,7 +88,7 @@ public class NexoMacroOptionList extends NexoOptionList {
 
 		private static Component rowLabel(NexoMacro macro) {
 			Component key = macro.keyCode >= 0
-					? InputConstants.Type.KEYSYM.getOrCreate(macro.keyCode).getDisplayName()
+					? InputConstants.Type.KEYBOARD.getOrCreate(macro.keyCode).getDisplayName()
 					: Component.translatable("nexomod.macros.unbound");
 			Component modifier = switch (macro.modifier) {
 				case NONE -> Component.empty();

@@ -197,7 +197,7 @@ public final class NexoArmorBar implements HudElement {
 		// spectating. Reading client.player here would blank the bar exactly
 		// then. Vanilla's own extractPlayerHealth returns early when this is
 		// null, so by the time this element runs it never is.
-		if (!(client.getCameraEntity() instanceof Player player) || client.options.hideGui) {
+		if (!(client.getCameraEntity() instanceof Player player) || client.gui.hud.isHidden()) {
 			return;
 		}
 		draw(graphics, player, config);

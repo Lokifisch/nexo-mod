@@ -46,7 +46,7 @@ public class SigningInScreen extends NexoModalScreen {
 
 	private void cancelAndClose() {
 		cancelled.set(true);
-		minecraft.setScreen(parent);
+		minecraft.gui.setScreen(parent);
 	}
 
 	@Override

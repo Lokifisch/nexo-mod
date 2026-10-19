@@ -80,7 +80,7 @@ public class NexoPaperHostSettingsScreen extends NexoModalScreen {
 		LinearLayout buttonRow = layout.addChild(LinearLayout.horizontal().spacing(4));
 		buttonRow.defaultCellSetting().paddingTop(12);
 		buttonRow.addChild(NexoButton.builder(Component.translatable("nexomod.paperServer.hostSettings.host"), this::host).build());
-		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_CANCEL, () -> minecraft.setScreen(parent)).build());
+		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_CANCEL, () -> minecraft.gui.setScreen(parent)).build());
 
 		finishLayout();
 	}
@@ -89,7 +89,7 @@ public class NexoPaperHostSettingsScreen extends NexoModalScreen {
 		lastGrantOperator = grantOperator;
 		lastOnlineMode = onlineMode;
 
-		minecraft.setScreen(parent);
+		minecraft.gui.setScreen(parent);
 		onHost.accept(new HostOptions(gameMode, grantOperator, onlineMode, playerName));
 	}
 }

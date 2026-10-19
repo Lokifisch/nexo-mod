@@ -124,7 +124,7 @@ public final class NexoKeystrokesHud implements HudElement {
 			return;
 		}
 		Minecraft client = Minecraft.getInstance();
-		if (client.player == null || client.options == null || client.options.hideGui) {
+		if (client.player == null || client.options == null || client.gui.hud.isHidden()) {
 			return;
 		}
 
@@ -177,7 +177,7 @@ public final class NexoKeystrokesHud implements HudElement {
 		Minecraft client = Minecraft.getInstance();
 		for (NexoKeystrokesConfig.KeyEntry entry : entries) {
 			int x = originX + col * (boxWidth + gap);
-			boolean down = entry.keyCode >= 0 && InputConstants.isKeyDown(client.getWindow(), entry.keyCode);
+			boolean down = entry.keyCode >= 0 && InputConstants.isKeyDown(entry.keyCode);
 			key(graphics, font, down, entry.label, x, y, boxWidth, box);
 			col++;
 			if (col >= layout.customCols()) {

@@ -150,7 +150,7 @@ public class NexoTacticalFeatureScreen extends NexoOptionScreen {
 						(button, value) -> config.setMacroTriggersEnabled(value)));
 		Minecraft client = Minecraft.getInstance();
 		list.addWidgetRow(Button.builder(Component.translatable("nexomod.settings.macroTriggers.edit"),
-						button -> client.setScreen(new NexoMacroTriggerScreen(client.screen)))
+						button -> client.gui.setScreen(new NexoMacroTriggerScreen(client.gui.screen())))
 				.pos(list.rowX(), 0).size(list.rowWidth(), list.rowHeight()).build());
 	}
 

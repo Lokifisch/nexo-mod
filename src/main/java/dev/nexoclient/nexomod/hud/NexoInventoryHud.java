@@ -74,7 +74,7 @@ public final class NexoInventoryHud implements HudElement {
 		}
 		Minecraft client = Minecraft.getInstance();
 		LocalPlayer player = client.player;
-		if (player == null || client.options.hideGui) {
+		if (player == null || client.gui.hud.isHidden()) {
 			return;
 		}
 

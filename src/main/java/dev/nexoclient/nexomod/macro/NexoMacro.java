@@ -32,4 +32,6 @@ public final class NexoMacro {
 	public int delayTicks = 0;
 	public int repeatIntervalTicks = 10;
 	public boolean enabled = true;
+	/** Absent in macros saved before 26.3, whose key codes are GLFW's — see NexoMacroConfig.load. */
+	public String keyCodes = "sdl";
 }

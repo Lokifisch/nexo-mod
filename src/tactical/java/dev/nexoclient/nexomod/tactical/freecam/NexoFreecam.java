@@ -80,7 +80,7 @@ public final class NexoFreecam {
 		// a key, and F4 is one of the few function keys vanilla leaves alone —
 		// F3 is debug, F5 perspective, F11 fullscreen. Still rebindable.
 		toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.freecam",
-				InputConstants.Type.KEYSYM, InputConstants.KEY_F4, KeyMapping.Category.MISC));
+				InputConstants.Type.KEYBOARD, InputConstants.KEY_F4, KeyMapping.Category.MISC));
 		ClientTickEvents.END_CLIENT_TICK.register(NexoFreecam::tick);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> disable());
 	}
@@ -144,7 +144,7 @@ public final class NexoFreecam {
 		// A screen with keyboard focus must not fly the camera — isDown() stays
 		// true for a key held when a screen opened, and chat would spell words in
 		// movement.
-		if (client.screen != null) {
+		if (client.gui.screen() != null) {
 			return;
 		}
 

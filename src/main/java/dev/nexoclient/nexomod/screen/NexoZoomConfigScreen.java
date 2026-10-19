@@ -28,7 +28,7 @@ public class NexoZoomConfigScreen extends NexoModalScreen {
 				config::zoomEnabled,
 				() -> {
 					config.setZoomEnabled(!config.zoomEnabled());
-					minecraft.setScreen(new NexoZoomConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoZoomConfigScreen(parent));
 				}));
 		layout.addChild(new NexoIntSlider(0, 0, ROW_WIDTH, 20, "nexomod.qol.zoom.factor",
 				NexoConfig.ZOOM_FACTOR_MIN, NexoConfig.ZOOM_FACTOR_MAX,
@@ -39,7 +39,7 @@ public class NexoZoomConfigScreen extends NexoModalScreen {
 				config::zoomSmoothEnabled,
 				() -> {
 					config.setZoomSmoothEnabled(!config.zoomSmoothEnabled());
-					minecraft.setScreen(new NexoZoomConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoZoomConfigScreen(parent));
 				}));
 
 		finishLayout();

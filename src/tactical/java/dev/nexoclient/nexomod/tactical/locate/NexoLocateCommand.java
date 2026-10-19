@@ -79,7 +79,7 @@ public final class NexoLocateCommand {
 						Minecraft client = ctx.getSource().getClient();
 						// Deferred: the chat screen closes itself after running a command,
 						// which would take a screen opened right now down with it.
-						client.schedule(() -> client.setScreen(new NexoSeedIndexScreen(null)));
+						client.schedule(() -> client.gui.setScreen(new NexoSeedIndexScreen(null)));
 						return 1;
 					})));
 		});

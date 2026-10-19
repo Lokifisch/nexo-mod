@@ -66,7 +66,7 @@ public final class NexoMacroTriggers {
 			return;
 		}
 		LocalPlayer player = client.player;
-		if (player == null || client.getConnection() == null || client.screen != null) {
+		if (player == null || client.getConnection() == null || client.gui.screen() != null) {
 			return;
 		}
 

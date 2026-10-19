@@ -428,6 +428,7 @@ def legitLangDropPrefixes = [
 		// jar before these were added.
 		'nexomod.qol.chunkBorder',
 		'nexomod.qol.lightOverlay',
+		'nexomod.qol.fullbright',
 		'nexomod.qol.freecam',
 		'key.nexomod.freecam'
 ]

@@ -26,7 +26,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpServer;
 
-import net.minecraft.util.Util;
 
 /**
  * Microsoft OAuth2 sign-in via the authorization-code flow: opens the
@@ -175,7 +174,7 @@ public final class MicrosoftAuth {
 					+ "&state=" + urlEncode(state)
 					+ "&prompt=" + urlEncode(PROMPT);
 			LOGGER.info("Opening browser for Microsoft sign-in");
-			Util.getPlatform().openUri(URI.create(authorizeUrl));
+			com.mojang.blaze3d.Blaze3D.openUri(URI.create(authorizeUrl));
 
 			while (!latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
 				if (cancelled.get()) {

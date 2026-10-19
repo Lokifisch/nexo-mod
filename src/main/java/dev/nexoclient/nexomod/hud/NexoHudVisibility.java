@@ -54,7 +54,7 @@ public final class NexoHudVisibility {
 	/** Called from {@code NexoMod.onInitializeClient()}; unbound by default. */
 	public static void register() {
 		toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.hideNexoHud",
-				InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
+				InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
 		ClientTickEvents.END_CLIENT_TICK.register(NexoHudVisibility::tick);
 	}
 
@@ -82,10 +82,10 @@ public final class NexoHudVisibility {
 	 * screen and would be absurd as a render-loop cost.
 	 */
 	private static void rebuildOpenScreen(Minecraft client) {
-		if (client.screen == null) {
+		if (client.gui.screen() == null) {
 			return;
 		}
-		client.screen.resize(client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
+		client.gui.screen().resize(client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
 	}
 
 	/**
@@ -101,7 +101,7 @@ public final class NexoHudVisibility {
 	 */
 	private static void announce(Minecraft client) {
 		if (!hidden && !ghost && client.gui != null) {
-			client.gui.setOverlayMessage(Component.translatable("nexomod.hud.shown"), false);
+			client.gui.hud.setOverlayMessage(Component.translatable("nexomod.hud.shown"), false);
 		}
 	}
 

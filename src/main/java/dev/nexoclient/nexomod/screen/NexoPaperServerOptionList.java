@@ -87,7 +87,7 @@ public class NexoPaperServerOptionList extends NexoOptionList {
 		String detectedGameMode = singleplayer.getWorldData().getGameType().getSerializedName();
 		addEntry(new NexoOptionList.Entry.ActionButton(dynEntryX, dynEntryWidth, entryHeight,
 				Component.translatable("nexomod.paperServer.convert"), null, -1, button ->
-						Minecraft.getInstance().setScreen(new NexoPaperHostSettingsScreen(screen, playerName, detectedGameMode,
+						Minecraft.getInstance().gui.setScreen(new NexoPaperHostSettingsScreen(screen, playerName, detectedGameMode,
 								options -> beginConvert(save, worldName, options)))));
 	}
 
@@ -100,13 +100,13 @@ public class NexoPaperServerOptionList extends NexoOptionList {
 		// disconnectFromWorld must run on the client thread; everything after it is blocking I/O.
 		client.execute(() -> {
 			client.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE);
-			client.setScreen(waitingScreen(Component.translatable("nexomod.paperServer.converting")));
+			client.gui.setScreen(waitingScreen(Component.translatable("nexomod.paperServer.converting")));
 
 			PaperServerOrchestrator.convertAndHost(save, worldName, minecraftVersion, "mod", options)
 					.whenComplete((record, error) -> client.execute(() -> {
 						if (error != null) {
 							NexoMod.LOGGER.error("[nexomod] Converting \"{}\" to a Paper server failed", worldName, error);
-							client.setScreen(new TitleScreen());
+							client.gui.setScreen(new TitleScreen());
 							return;
 						}
 						NexoServerEntry entry = new NexoServerEntry();
@@ -124,7 +124,7 @@ public class NexoPaperServerOptionList extends NexoOptionList {
 			if (client.level != null) {
 				client.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE);
 			}
-			client.setScreen(waitingScreen(Component.translatable("nexomod.paperServer.reverting")));
+			client.gui.setScreen(waitingScreen(Component.translatable("nexomod.paperServer.reverting")));
 
 			PaperServerOrchestrator.stopAndRevert(record.id())
 					.whenComplete((backup, error) -> client.execute(() -> {
@@ -133,7 +133,7 @@ public class NexoPaperServerOptionList extends NexoOptionList {
 						} else {
 							NexoMod.LOGGER.info("[nexomod] Reverted \"{}\" to singleplayer. Backup at {}", record.id(), backup);
 						}
-						client.setScreen(new TitleScreen());
+						client.gui.setScreen(new TitleScreen());
 					}));
 		});
 	}
@@ -183,10 +183,10 @@ public class NexoPaperServerOptionList extends NexoOptionList {
 				int pluginsX = consoleX + consoleWidth + SPACE_SMALL;
 				int revertX = pluginsX + pluginsWidth + SPACE_SMALL;
 				elements.add(NexoButton.builder(Component.translatable("nexomod.paperServer.console"),
-								() -> Minecraft.getInstance().setScreen(new NexoPaperConsoleScreen(screen, record)))
+								() -> Minecraft.getInstance().gui.setScreen(new NexoPaperConsoleScreen(screen, record)))
 						.bounds(consoleX, 0, consoleWidth, height).build());
 				elements.add(NexoButton.builder(Component.translatable("nexomod.paperServer.plugins"),
-								() -> Minecraft.getInstance().setScreen(new NexoPaperPluginBrowserScreen(screen, record)))
+								() -> Minecraft.getInstance().gui.setScreen(new NexoPaperPluginBrowserScreen(screen, record)))
 						.bounds(pluginsX, 0, pluginsWidth, height).build());
 				elements.add(NexoButton.builder(Component.translatable("nexomod.paperServer.revert"), () -> beginRevert(record))
 						.bounds(revertX, 0, revertWidth, height).build());

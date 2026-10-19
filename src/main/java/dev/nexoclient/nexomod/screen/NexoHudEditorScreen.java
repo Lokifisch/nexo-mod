@@ -71,6 +71,8 @@ public class NexoHudEditorScreen extends Screen {
 					NexoFadingLogHud.ACTIONBAR::resolveBounds),
 			new Draggable(NexoHudLayout.Element.PICKUP_LOG, Component.translatable("nexomod.qol.pickupLog"),
 					NexoFadingLogHud.PICKUPS::resolveBounds),
+			new Draggable(NexoHudLayout.Element.SECOND_CHAT, Component.translatable("nexomod.chat.second"),
+					dev.nexoclient.nexomod.hud.NexoSecondChatHud::resolveBounds),
 			new Draggable(NexoHudLayout.Element.INVENTORY, Component.translatable("nexomod.qol.inventoryHud"),
 					NexoInventoryHud::resolveBounds),
 			new Draggable(NexoHudLayout.Element.MINI_PLAYER, Component.translatable("nexomod.qol.miniPlayer"),
@@ -205,6 +207,6 @@ public class NexoHudEditorScreen extends Screen {
 	public void onClose() {
 		// Safety net: a drag interrupted by e.g. alt-tab never fires mouseReleased.
 		NexoHudLayout.get().save();
-		minecraft.setScreen(parent);
+		minecraft.gui.setScreen(parent);
 	}
 }

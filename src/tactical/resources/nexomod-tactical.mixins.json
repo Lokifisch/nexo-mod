@@ -8,7 +8,8 @@
 		"ClientClockOverrideMixin",
 		"WeatherOverrideMixin",
 		"FreecamCameraMixin",
-		"FreecamBodyFreezeMixin"
+		"FreecamBodyFreezeMixin",
+		"FullbrightMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

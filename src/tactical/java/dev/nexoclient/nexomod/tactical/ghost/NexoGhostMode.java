@@ -40,7 +40,7 @@ public final class NexoGhostMode {
 	/** Registered from {@code NexoTacticalFeatures}; unbound by default. */
 	public static void register() {
 		toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.ghostMode",
-				InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
+				InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
 		ClientTickEvents.END_CLIENT_TICK.register(NexoGhostMode::tick);
 	}
 
@@ -67,7 +67,7 @@ public final class NexoGhostMode {
 	 */
 	private static void announce(Minecraft client, boolean enabled) {
 		if (!enabled && client.gui != null) {
-			client.gui.setOverlayMessage(Component.translatable("nexomod.ghost.off"), false);
+			client.gui.hud.setOverlayMessage(Component.translatable("nexomod.ghost.off"), false);
 		}
 	}
 }

@@ -34,7 +34,7 @@ public class NexoArmorHudConfigScreen extends NexoModalScreen {
 				config::armorHudEnabled,
 				() -> {
 					config.setArmorHudEnabled(!config.armorHudEnabled());
-					minecraft.setScreen(new NexoArmorHudConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoArmorHudConfigScreen(parent));
 				}));
 
 		if (config.armorHudEnabled()) {
@@ -50,7 +50,7 @@ public class NexoArmorHudConfigScreen extends NexoModalScreen {
 								// arbitrary. Dropping the override re-homes it to the new
 								// default (right edge, or above the hotbar).
 								NexoHudLayout.get().reset(NexoHudLayout.Element.ARMOR);
-								minecraft.setScreen(new NexoArmorHudConfigScreen(parent));
+								minecraft.gui.setScreen(new NexoArmorHudConfigScreen(parent));
 							}));
 			layout.addChild(CycleButton.<NexoConfig.ArmorDurabilityMode>builder(NexoArmorHudConfigScreen::durabilityLabel,
 							config.armorHudDurabilityMode())
@@ -69,7 +69,7 @@ public class NexoArmorHudConfigScreen extends NexoModalScreen {
 					config::armorHudOffhandEnabled,
 					() -> {
 						config.setArmorHudOffhandEnabled(!config.armorHudOffhandEnabled());
-						minecraft.setScreen(new NexoArmorHudConfigScreen(parent));
+						minecraft.gui.setScreen(new NexoArmorHudConfigScreen(parent));
 					}));
 			layout.addChild(new NexoModuleRow(0, 0, ROW_WIDTH, 36,
 					Component.translatable("nexomod.settings.armorHud.heldItem"),
@@ -77,11 +77,11 @@ public class NexoArmorHudConfigScreen extends NexoModalScreen {
 					config::armorHudHeldItemEnabled,
 					() -> {
 						config.setArmorHudHeldItemEnabled(!config.armorHudHeldItemEnabled());
-						minecraft.setScreen(new NexoArmorHudConfigScreen(parent));
+						minecraft.gui.setScreen(new NexoArmorHudConfigScreen(parent));
 					}));
 		}
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
-						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
 		finishLayout();

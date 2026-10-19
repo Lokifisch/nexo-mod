@@ -68,6 +68,9 @@ public class NexoModuleRow extends AbstractButton {
 	private Runnable onToggle;
 
 	private long revealDelayMillis;
+	private boolean revealed;
+	/** 1 normally; eased to 0 on a row that has been filtered out and is only still drawn to fade away. */
+	private float fade = 1F;
 	/** Eased 0..1 position of the pill knob. Negative until the first frame snaps it to {@code state}. */
 	private float knob = -1F;
 	private float hoverGlow;
@@ -82,6 +85,16 @@ public class NexoModuleRow extends AbstractButton {
 	}
 
 	/** Delays this row's slide-in by its position in the list, so a grid of them cascades. */
+	public void setFade(float fade) {
+		this.fade = fade;
+	}
+
+	/** Skips the entrance animation — for rows rebuilt while the menu is already open (search, resize). */
+	public NexoModuleRow noReveal() {
+		this.revealed = true;
+		return this;
+	}
+
 	public NexoModuleRow stagger(int index) {
 		this.revealDelayMillis = index * STAGGER_MILLIS;
 		return this;
@@ -138,7 +151,7 @@ public class NexoModuleRow extends AbstractButton {
 	@Override
 	protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 		long now = System.currentTimeMillis();
-		float reveal = reveal(now);
+		float reveal = reveal(now) * fade;
 		if (reveal <= 0F) {
 			return;
 		}
@@ -220,9 +233,15 @@ public class NexoModuleRow extends AbstractButton {
 		graphics.text(mc.font, name, textX, y0 + 8, NexoStyle.fade(nameColor, reveal));
 
 		Matrix3x2fStack pose = graphics.pose();
+		// Clipped to the row: translated or longer descriptions otherwise run out of the box.
+		int maxPx = Math.round((getX() + getWidth() - 8 - textX) / DESCRIPTION_SCALE);
+		String line = description.getString();
+		if (mc.font.width(line) > maxPx) {
+			line = mc.font.plainSubstrByWidth(line, maxPx - mc.font.width("…")).stripTrailing() + "…";
+		}
 		pose.pushMatrix();
 		pose.scale(DESCRIPTION_SCALE, DESCRIPTION_SCALE);
-		graphics.text(mc.font, description,
+		graphics.text(mc.font, line,
 				Math.round(textX / DESCRIPTION_SCALE), Math.round((y0 + 21) / DESCRIPTION_SCALE),
 				NexoStyle.fade(NexoStyle.TEXT_SECONDARY, reveal));
 		pose.popMatrix();
@@ -253,6 +272,9 @@ public class NexoModuleRow extends AbstractButton {
 
 	/** 0 before this row's turn, 1 once it has fully arrived, ease-out cubic in between. */
 	private float reveal(long now) {
+		if (revealed) {
+			return 1F;
+		}
 		long elapsed = now - bornMillis - revealDelayMillis;
 		if (elapsed <= 0L) {
 			return 0F;

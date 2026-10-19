@@ -18,6 +18,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
+import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
 import net.minecraft.world.level.levelgen.structure.placement.ConcentricRingsStructurePlacement;
@@ -187,7 +188,8 @@ final class SeedLocator {
 
 	private static boolean validStart(SeedWorldgen.World world, Holder<Structure> structure, ChunkPos chunk) {
 		Structure.GenerationContext context = new Structure.GenerationContext(world.data().access(), world.generator(),
-				world.biomeSource(), world.randomState(), world.data().templates(), world.seed(), chunk,
+				world.biomeSource(), world.randomState().createClimateSampler(SamplerContext.builder().enableCaches().build()),
+				world.randomState(), world.data().templates(), world.seed(), chunk,
 				world.heights(), structure.value().biomes()::contains);
 		try {
 			return structure.value().findValidGenerationPoint(context).isPresent();
@@ -204,7 +206,7 @@ final class SeedLocator {
 			return Optional.empty();
 		}
 		Pair<BlockPos, Holder<Biome>> found = world.biomeSource().findClosestBiome3d(origin, BIOME_RADIUS, 32, 64,
-				holder -> holder.is(id), world.randomState().sampler(), client.level);
+				holder -> holder.is(id), world.randomState(), client.level);
 		return found == null ? Optional.empty() : Optional.of(found.getFirst());
 	}
 }

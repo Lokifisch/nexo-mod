@@ -48,7 +48,7 @@ public final class NexoMacroDispatcher {
 
 		processPendingSends(mc);
 
-		if (mc.screen != null) {
+		if (mc.gui.screen() != null) {
 			return;
 		}
 
@@ -58,7 +58,7 @@ public final class NexoMacroDispatcher {
 				continue;
 			}
 
-			boolean down = InputConstants.isKeyDown(window, macro.keyCode) && modifierDown(window, macro.modifier);
+			boolean down = InputConstants.isKeyDown(macro.keyCode) && modifierDown(window, macro.modifier);
 			boolean prevDown = wasDown.getOrDefault(macro.id, false);
 			wasDown.put(macro.id, down);
 
@@ -87,9 +87,9 @@ public final class NexoMacroDispatcher {
 	private static boolean modifierDown(Window window, NexoMacro.Modifier modifier) {
 		return switch (modifier) {
 			case NONE -> true;
-			case SHIFT -> InputConstants.isKeyDown(window, InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(window, InputConstants.KEY_RSHIFT);
-			case CTRL -> InputConstants.isKeyDown(window, InputConstants.KEY_LCONTROL) || InputConstants.isKeyDown(window, InputConstants.KEY_RCONTROL);
-			case ALT -> InputConstants.isKeyDown(window, InputConstants.KEY_LALT) || InputConstants.isKeyDown(window, InputConstants.KEY_RALT);
+			case SHIFT -> InputConstants.isKeyDown(InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(InputConstants.KEY_RSHIFT);
+			case CTRL -> InputConstants.isKeyDown(InputConstants.KEY_LCONTROL) || InputConstants.isKeyDown(InputConstants.KEY_RCONTROL);
+			case ALT -> InputConstants.isKeyDown(InputConstants.KEY_LALT) || InputConstants.isKeyDown(InputConstants.KEY_RALT);
 		};
 	}
 
@@ -124,7 +124,7 @@ public final class NexoMacroDispatcher {
 				sendOne(mc, macro.commands.get(Math.floorMod(index, macro.commands.size())));
 			}
 			case RANDOM -> sendOne(mc, macro.commands.get(RNG.nextInt(macro.commands.size())));
-			case TYPE -> mc.setScreen(new ChatScreen(resolvePlaceholders(mc, macro.commands.get(0)), true));
+			case TYPE -> mc.gui.setScreen(new ChatScreen(resolvePlaceholders(mc, macro.commands.get(0)), true));
 		}
 	}
 

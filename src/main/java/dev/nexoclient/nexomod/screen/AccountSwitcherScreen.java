@@ -80,7 +80,7 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 		LinearLayout buttonRow = layout.addChild(LinearLayout.horizontal().spacing(4));
 		buttonRow.defaultCellSetting().paddingTop(10);
 		buttonRow.addChild(NexoButton.builder(Component.translatable("nexomod.accounts.add"), () -> LoginFlow.start(this)).build());
-		buttonRow.addChild(NexoButton.builder(Component.translatable("nexomod.accounts.offline"), () -> minecraft.setScreen(new OfflineLoginScreen(this))).build());
+		buttonRow.addChild(NexoButton.builder(Component.translatable("nexomod.accounts.offline"), () -> minecraft.gui.setScreen(new OfflineLoginScreen(this))).build());
 		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_DONE, this::onClose).build());
 
 		finishLayout();
@@ -126,21 +126,21 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 		if (entry.storedAccount() == null) {
 			// Not a stored (mod-managed) account — must be the launcher's own, un-refreshable session.
 			SessionSwap.restoreLauncherAccount();
-			minecraft.setScreen(new AccountSwitcherScreen(parent));
+			minecraft.gui.setScreen(new AccountSwitcherScreen(parent));
 			return;
 		}
 		AtomicBoolean cancelled = new AtomicBoolean(false);
 		if (entry.storedAccount().isExpired()) {
 			// The refresh is several network round-trips; without a visible
 			// waiting state the click just looks ignored for a few seconds.
-			minecraft.setScreen(new SigningInScreen(new AccountSwitcherScreen(parent), cancelled,
+			minecraft.gui.setScreen(new SigningInScreen(new AccountSwitcherScreen(parent), cancelled,
 					Component.translatable("nexomod.accounts.switchingTitle"),
 					Component.translatable("nexomod.accounts.switching")));
 		}
 		LoginFlow.switchTo(entry.storedAccount(), cancelled,
-				() -> minecraft.setScreen(new AccountSwitcherScreen(parent)),
-				error -> minecraft.setScreen(new net.minecraft.client.gui.screens.AlertScreen(
-						() -> minecraft.setScreen(new AccountSwitcherScreen(parent)),
+				() -> minecraft.gui.setScreen(new AccountSwitcherScreen(parent)),
+				error -> minecraft.gui.setScreen(new net.minecraft.client.gui.screens.AlertScreen(
+						() -> minecraft.gui.setScreen(new AccountSwitcherScreen(parent)),
 						Component.translatable("nexomod.login.failedTitle"),
 						Component.literal(error.getMessage() != null ? error.getMessage() : error.toString()))));
 	}
@@ -149,12 +149,12 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 		if (entry.isLauncherAccount()) {
 			return;
 		}
-		minecraft.setScreen(new ConfirmScreen(
+		minecraft.gui.setScreen(new ConfirmScreen(
 				confirmed -> {
 					if (confirmed) {
 						AccountStore.get().remove(entry.uuid());
 					}
-					minecraft.setScreen(new AccountSwitcherScreen(parent));
+					minecraft.gui.setScreen(new AccountSwitcherScreen(parent));
 				},
 				Component.translatable("nexomod.accounts.logoutTitle"),
 				Component.translatable("nexomod.accounts.logoutConfirm", entry.name())));

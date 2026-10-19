@@ -154,7 +154,7 @@ public final class NexoArmorHud implements HudElement {
 			diagnose("not drawing: client.player is null");
 			return;
 		}
-		if (client.options.hideGui) {
+		if (client.gui.hud.isHidden()) {
 			diagnose("not drawing: F1 hide-GUI is on");
 			return;
 		}

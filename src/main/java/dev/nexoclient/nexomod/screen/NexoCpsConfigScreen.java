@@ -26,10 +26,10 @@ public class NexoCpsConfigScreen extends NexoModalScreen {
 				config::cpsCounterEnabled,
 				() -> {
 					config.setCpsCounterEnabled(!config.cpsCounterEnabled());
-					minecraft.setScreen(new NexoCpsConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoCpsConfigScreen(parent));
 				}));
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
-						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
 		finishLayout();

@@ -38,7 +38,7 @@ public class NexoArmorBarConfigScreen extends NexoModalScreen {
 				config::armorBarEnabled,
 				() -> {
 					config.setArmorBarEnabled(!config.armorBarEnabled());
-					minecraft.setScreen(new NexoArmorBarConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoArmorBarConfigScreen(parent));
 				}));
 
 		if (config.armorBarEnabled()) {

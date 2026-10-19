@@ -95,7 +95,7 @@ final class CommunitySeedDatabase {
 				int many = match.get().distinctSeeds();
 				client.execute(() -> {
 					if (client.player != null) {
-						client.gui.getChat().addClientSystemMessage(many > 1
+						client.gui.hud.getChat().addClientSystemMessage(many > 1
 								? Component.translatable("nexomod.locate.fromCommunityMany", p.label(), many, row.seed(), generator)
 								: Component.translatable("nexomod.locate.fromCommunity", p.label(), row.seed(), generator));
 					}

@@ -5,8 +5,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.client.renderer.ScreenEffectRenderer;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.extract.LevelExtractor;
 import net.minecraft.world.level.block.state.BlockState;
 
 import dev.nexoclient.nexomod.screen.NexoConfig;
@@ -24,13 +25,14 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
  * this renderer does — the water and fire overlays, item activation — is
  * untouched, and with the finder off vanilla behaves exactly as before.
  *
- * {@code getViewBlockingState}'s caller null-checks the result, so null is the
+ * {@code getViewBlockingState} moved from {@code ScreenEffectRenderer} to
+ * {@code LevelExtractor} in 26.3; its caller still null-checks the result, so null is the
  * supported way to say "nothing is blocking the view".
  */
-@Mixin(ScreenEffectRenderer.class)
+@Mixin(LevelExtractor.class)
 public class BedrockHoleWallOverlayMixin {
 	@Inject(method = "getViewBlockingState", at = @At("RETURN"), cancellable = true)
-	private static void nexomod$seeThroughWallWhileFinding(Player player, CallbackInfoReturnable<BlockState> cir) {
+	private static void nexomod$seeThroughWallWhileFinding(LocalPlayer player, Frustum frustum, CallbackInfoReturnable<BlockState> cir) {
 		if (cir.getReturnValue() != null && NexoConfig.get().bedrockHoleFinderEnabled()) {
 			cir.setReturnValue(null);
 		}

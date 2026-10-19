@@ -35,7 +35,7 @@ public class OfflineLoginScreen extends NexoModalScreen {
 		LinearLayout buttonRow = layout.addChild(LinearLayout.horizontal().spacing(4));
 		buttonRow.defaultCellSetting().paddingTop(12);
 		buttonRow.addChild(NexoButton.builder(Component.translatable("nexomod.login.offline.play"), this::play).build());
-		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_CANCEL, () -> minecraft.setScreen(parent)).build());
+		buttonRow.addChild(NexoButton.builder(CommonComponents.GUI_CANCEL, () -> minecraft.gui.setScreen(parent)).build());
 
 		finishLayout();
 		setInitialFocus(usernameBox);
@@ -50,6 +50,6 @@ public class OfflineLoginScreen extends NexoModalScreen {
 		MinecraftAccount account = MinecraftAccount.offline(username);
 		AccountStore.get().upsertAndActivate(account);
 		SessionSwap.activate(account);
-		minecraft.setScreen(parent);
+		minecraft.gui.setScreen(parent);
 	}
 }

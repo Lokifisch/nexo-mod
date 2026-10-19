@@ -35,7 +35,7 @@ public abstract class NexoSettingsButtonMixin extends Screen {
 			return;
 		}
 		this.addRenderableWidget(NexoButton.builder(Component.translatable("nexomod.settings.title"),
-				() -> Minecraft.getInstance().setScreen(new NexoSettingsScreen(this)))
+				() -> Minecraft.getInstance().gui.setScreen(new NexoSettingsScreen(this)))
 				.bounds(this.width - 104, 4, 100, 20)
 				.build());
 	}

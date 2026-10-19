@@ -43,7 +43,7 @@ import dev.nexoclient.nexomod.screen.NexoQuickServerScreen;
  * no level and the connect can start on the same tick.
  *
  * <p>That also fixes what the parent screen should be. Vanilla has already put a
- * sensible "where you came from" screen on {@code minecraft.screen} by then, and
+ * sensible "where you came from" screen on {@code minecraft.gui.screen()} by then, and
  * that is the screen a failed connection needs a Back button to; inventing one
  * here would drop the player somewhere they never were.
  */
@@ -56,7 +56,7 @@ public final class NexoQuickConnect {
 	/** Called from {@code NexoMod.onInitializeClient()}; unbound by default. */
 	public static void register() {
 		openKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.quickServers",
-				InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MULTIPLAYER));
+				InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MULTIPLAYER));
 		ClientTickEvents.END_CLIENT_TICK.register(NexoQuickConnect::tick);
 	}
 
@@ -67,7 +67,7 @@ public final class NexoQuickConnect {
 		while (openKey.consumeClick()) {
 			// consumeClick() only fires while no screen has the keyboard, so
 			// this cannot re-open on top of itself.
-			client.setScreen(new NexoQuickServerScreen(client.screen));
+			client.gui.setScreen(new NexoQuickServerScreen(client.gui.screen()));
 		}
 	}
 
@@ -95,7 +95,7 @@ public final class NexoQuickConnect {
 		// vanilla treats the entry afterwards.
 		ServerData server = new ServerData(entry.displayName(), entry.address, ServerData.Type.OTHER);
 
-		Screen parent = client.screen != null ? client.screen : new TitleScreen();
+		Screen parent = client.gui.screen() != null ? client.gui.screen() : new TitleScreen();
 		NexoMod.LOGGER.info("[nexomod] Quick-switching to {} ({})", entry.displayName(), entry.address);
 		ConnectScreen.startConnecting(parent, client, address, server, false, null);
 	}

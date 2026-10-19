@@ -104,7 +104,7 @@ public final class NexoComboCounter implements HudElement {
 			return;
 		}
 		Minecraft client = Minecraft.getInstance();
-		if (client.player == null || client.options.hideGui) {
+		if (client.player == null || client.gui.hud.isHidden()) {
 			return;
 		}
 		if (System.currentTimeMillis() - lastHitTime > TIMEOUT_MS) {

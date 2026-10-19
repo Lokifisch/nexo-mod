@@ -5,10 +5,12 @@ import java.util.concurrent.CompletableFuture;
 
 import com.mojang.authlib.exceptions.AuthenticationException;
 import com.mojang.authlib.minecraft.UserApiService;
-import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
+import com.mojang.authlib.services.MinecraftServicesDiscoveryService;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
+import net.minecraft.client.gui.screens.social.PlayerSocialManager;
+import net.minecraft.client.gui.screens.social.RemoteFriendListUpdateHandler;
 import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import net.minecraft.util.Util;
 
@@ -65,8 +67,8 @@ public final class SessionSwap {
 		// A fresh service is equivalent to the one built at launch (it's a stateless
 		// HTTP client factory keyed only by the access token passed to each call) —
 		// no need to capture the original instance via a constructor-wrapping mixin.
-		YggdrasilAuthenticationService authService = new YggdrasilAuthenticationService(mc.getProxy());
-		UserApiService userApiService = authService.createUserApiService(user.getAccessToken());
+		MinecraftServicesDiscoveryService discovery = MinecraftServicesDiscoveryService.create(mc.getProxy(), true);
+		UserApiService userApiService = discovery.createUserApiService(user.getAccessToken());
 		accessor.nexomod$setUserApiService(userApiService);
 
 		accessor.nexomod$setUserPropertiesFuture(CompletableFuture.supplyAsync(() -> {
@@ -80,6 +82,7 @@ public final class SessionSwap {
 
 		accessor.nexomod$setProfileKeyPairManager(
 				ProfileKeyPairManager.create(userApiService, user, mc.gameDirectory.toPath()));
+		rebuildSocial(mc, discovery, userApiService, user);
 
 		NexoMod.LOGGER.info("Minecraft session for {} ({}) has been applied", user.getName(), user.getProfileId());
 	}
@@ -93,7 +96,25 @@ public final class SessionSwap {
 		accessor.nexomod$setUserApiService(UserApiService.OFFLINE);
 		accessor.nexomod$setUserPropertiesFuture(CompletableFuture.completedFuture(UserApiService.OFFLINE_PROPERTIES));
 		accessor.nexomod$setProfileKeyPairManager(ProfileKeyPairManager.EMPTY_KEY_MANAGER);
+		Minecraft mc = Minecraft.getInstance();
+		rebuildSocial(mc, MinecraftServicesDiscoveryService.create(mc.getProxy(), false), UserApiService.OFFLINE, user);
 
 		NexoMod.LOGGER.info("Offline session for {} has been applied", user.getName());
+	}
+
+	/**
+	 * Friends (26.3) and the block list live in objects built once from the
+	 * launch session, in the same order as Minecraft's constructor: the old
+	 * poller is closed first so two accounts' friend lists never poll at once.
+	 */
+	private static void rebuildSocial(Minecraft mc, MinecraftServicesDiscoveryService discovery,
+			UserApiService userApiService, User user) {
+		MinecraftUserAccessor accessor = (MinecraftUserAccessor) (Object) mc;
+		accessor.nexomod$getRemoteFriendListUpdateHandler().close();
+		var friends = discovery.createFriendsService(user.getAccessToken());
+		RemoteFriendListUpdateHandler handler = new RemoteFriendListUpdateHandler(friends, mc);
+		accessor.nexomod$setRemoteFriendListUpdateHandler(handler);
+		accessor.nexomod$setPlayerSocialManager(new PlayerSocialManager(mc, userApiService, friends, handler));
+		handler.start();
 	}
 }

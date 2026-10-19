@@ -14,6 +14,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
+
+import dev.nexoclient.nexomod.util.LegacyGlfwKeys;
 
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -60,6 +65,8 @@ public final class NexoKeystrokesConfig {
 	private static final class Data {
 		boolean showDefaultCluster = true;
 		List<KeyEntry> customEntries = new ArrayList<>();
+		/** Absent in files written before 26.3, whose codes are GLFW's. */
+		String keyCodes = "sdl";
 	}
 
 	private static NexoKeystrokesConfig instance;
@@ -117,8 +124,17 @@ public final class NexoKeystrokesConfig {
 			return new NexoKeystrokesConfig(new Data());
 		}
 		try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {
-			Data loaded = GSON.fromJson(reader, Data.class);
-			return new NexoKeystrokesConfig(loaded != null ? loaded : new Data());
+			JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
+			Data loaded = GSON.fromJson(json, Data.class);
+			NexoKeystrokesConfig config = new NexoKeystrokesConfig(loaded);
+			if (!json.has("keyCodes")) {
+				for (KeyEntry entry : loaded.customEntries) {
+					String name = LegacyGlfwKeys.name(entry.keyCode);
+					entry.keyCode = name == null ? -1 : InputConstants.getKey(name).getValue();
+				}
+				config.save();
+			}
+			return config;
 		} catch (IOException e) {
 			LOGGER.warn("Failed to read {}, starting with no custom keys", PATH, e);
 			return new NexoKeystrokesConfig(new Data());

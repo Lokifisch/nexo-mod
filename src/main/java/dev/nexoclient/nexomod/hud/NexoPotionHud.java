@@ -66,7 +66,7 @@ public final class NexoPotionHud implements HudElement {
 		}
 		Minecraft client = Minecraft.getInstance();
 		LocalPlayer player = client.player;
-		if (player == null || client.options.hideGui) {
+		if (player == null || client.gui.hud.isHidden()) {
 			return;
 		}
 		List<MobEffectInstance> effects = new ArrayList<>(player.getActiveEffects());

@@ -26,10 +26,10 @@ public class NexoComboConfigScreen extends NexoModalScreen {
 				config::comboCounterEnabled,
 				() -> {
 					config.setComboCounterEnabled(!config.comboCounterEnabled());
-					minecraft.setScreen(new NexoComboConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoComboConfigScreen(parent));
 				}));
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
-						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
 		finishLayout();

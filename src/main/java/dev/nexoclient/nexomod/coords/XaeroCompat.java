@@ -78,7 +78,7 @@ public final class XaeroCompat {
 				"Xaero's World Map coordinate line no longer matches the expected format — it is showing real coordinates");
 		Minecraft client = Minecraft.getInstance();
 		if (client.player != null) {
-			client.gui.setOverlayMessage(
+			client.gui.hud.setOverlayMessage(
 					Component.translatable("nexomod.coords.xaeroMapWarning").withStyle(ChatFormatting.RED),
 					false);
 		}
@@ -114,7 +114,7 @@ public final class XaeroCompat {
 		// Action bar rather than chat, matching how the F3 warning is shown.
 		Minecraft client = Minecraft.getInstance();
 		if (client.player != null) {
-			client.gui.setOverlayMessage(
+			client.gui.hud.setOverlayMessage(
 					Component.translatable("nexomod.coords.xaeroWarning").withStyle(ChatFormatting.RED),
 					false);
 		}

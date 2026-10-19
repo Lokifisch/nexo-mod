@@ -17,7 +17,7 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
  * <p>Concretely, the two injection points are:
  *
  * <ul>
- * <li>{@code ClientClockManager.getTotalTicks} — the client's copy of the world
+ * <li>{@code ClientClockManager.ClientClockInstance.totalTicks} — the client's copy of the world
  *     clock. Verified against the 26.1 class files: 26.1 replaced
  *     {@code Level.getDayTime()} with the {@code WorldClock}/{@code ClockManager}
  *     pair, and the environment-attribute timelines

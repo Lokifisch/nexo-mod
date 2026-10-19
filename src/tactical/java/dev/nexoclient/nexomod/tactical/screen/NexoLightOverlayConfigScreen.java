@@ -31,7 +31,7 @@ public class NexoLightOverlayConfigScreen extends NexoModalScreen {
 				config::lightOverlayEnabled,
 				() -> {
 					config.setLightOverlayEnabled(!config.lightOverlayEnabled());
-					minecraft.setScreen(new NexoLightOverlayConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoLightOverlayConfigScreen(parent));
 				}));
 		layout.addChild(new NexoIntSlider(0, 0, ROW_WIDTH, 20, "nexomod.qol.lightOverlay.radius",
 				NexoConfig.LIGHT_OVERLAY_RADIUS_MIN, NexoConfig.LIGHT_OVERLAY_RADIUS_MAX,
@@ -45,7 +45,7 @@ public class NexoLightOverlayConfigScreen extends NexoModalScreen {
 				config::lightOverlayShowSafe,
 				() -> {
 					config.setLightOverlayShowSafe(!config.lightOverlayShowSafe());
-					minecraft.setScreen(new NexoLightOverlayConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoLightOverlayConfigScreen(parent));
 				}));
 
 		finishLayout();

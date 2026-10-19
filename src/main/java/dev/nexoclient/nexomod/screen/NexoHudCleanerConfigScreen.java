@@ -43,7 +43,7 @@ public class NexoHudCleanerConfigScreen extends NexoModalScreen {
 						.withStyle(style -> style.withColor(NexoStyle.TEXT_SECONDARY)),
 				font));
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
-						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
 		finishLayout();
@@ -59,7 +59,7 @@ public class NexoHudCleanerConfigScreen extends NexoModalScreen {
 					setter.accept(!state.getAsBoolean());
 					// Rebuild rather than re-init: the same reason every other Nexo
 					// config screen does it, see NexoComboConfigScreen.
-					minecraft.setScreen(new NexoHudCleanerConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoHudCleanerConfigScreen(parent));
 				}));
 	}
 }

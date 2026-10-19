@@ -77,7 +77,7 @@ final class SeedWorldgen {
 
 	private static Data loadData() throws IOException {
 		VanillaPackResources vanilla = ServerPacksSource.createVanillaPackSource();
-		MultiPackResourceManager resources = new MultiPackResourceManager(PackType.SERVER_DATA, List.of(vanilla));
+		MultiPackResourceManager resources = new MultiPackResourceManager(PackType.SERVER_DATA, List.of(vanilla.fullResources()));
 
 		// Static registries' tags are only read into lookups, never applied: applying
 		// would rebind the running game's own block and item tags.
@@ -86,7 +86,7 @@ final class SeedWorldgen {
 		List<HolderLookup.RegistryLookup<?>> lookups = TagLoader.buildUpdatedLookups(statics, staticTags);
 
 		RegistryAccess.Frozen worldgen = RegistryDataLoader
-				.load(resources, lookups, RegistryDataLoader.WORLDGEN_REGISTRIES, Runnable::run).join();
+				.load(resources, lookups, RegistryDataLoader.WORLD_REGISTRIES, Runnable::run).join();
 		// These registries are this class's own, so binding their tags is harmless — and
 		// a structure's biome list is a tag, which throws if read before this.
 		TagLoader.loadTagsForExistingRegistries(resources, worldgen).forEach(Registry.PendingTags::apply);
@@ -129,10 +129,11 @@ final class SeedWorldgen {
 		// ponytail: default / non-large-biome / non-amplified world presets only; a
 		// custom-preset world needs the preset itself, which the client is never told.
 		Holder<NoiseGeneratorSettings> settings = access.lookupOrThrow(Registries.NOISE_SETTINGS).getOrThrow(settingsKey);
-		RandomState random = RandomState.create(access, settingsKey, seed);
+		RandomState random = RandomState.create(access.lookupOrThrow(Registries.NOISE), seed, settings.value());
 		NoiseBasedChunkGenerator generator = new NoiseBasedChunkGenerator(source, settings);
-		ChunkGeneratorStructureState state = ChunkGeneratorStructureState.createForNormal(random, seed, source,
-				access.lookupOrThrow(Registries.STRUCTURE_SET));
+		// Not createForNormal directly: 26.3 places structures relative to a
+		// dimension origin, which createState derives from the generator itself.
+		ChunkGeneratorStructureState state = generator.createState(access.lookupOrThrow(Registries.STRUCTURE_SET), random, seed);
 		int minY = settings.value().noiseSettings().minY();
 		LevelHeightAccessor heights = LevelHeightAccessor.create(minY, settings.value().noiseSettings().height());
 		World world = new World(seed, data, source, generator, random, state, heights);

@@ -15,9 +15,14 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.google.gson.reflect.TypeToken;
 
 import net.fabricmc.loader.api.FabricLoader;
+
+import dev.nexoclient.nexomod.util.LegacyGlfwKeys;
 
 /** Persisted list of user-defined macros, stored as plain JSON (there's no secret data here, unlike accounts). */
 public final class NexoMacroConfig {
@@ -72,8 +77,21 @@ public final class NexoMacroConfig {
 			return new NexoMacroConfig(new ArrayList<>());
 		}
 		try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {
-			List<NexoMacro> macros = GSON.fromJson(reader, LIST_TYPE);
-			return new NexoMacroConfig(macros != null ? macros : new ArrayList<>());
+			JsonArray json = JsonParser.parseReader(reader).getAsJsonArray();
+			List<NexoMacro> macros = GSON.fromJson(json, LIST_TYPE);
+			NexoMacroConfig config = new NexoMacroConfig(macros);
+			boolean migrated = false;
+			for (int i = 0; i < macros.size(); i++) {
+				if (!json.get(i).getAsJsonObject().has("keyCodes")) {
+					String name = LegacyGlfwKeys.name(macros.get(i).keyCode);
+					macros.get(i).keyCode = name == null ? -1 : InputConstants.getKey(name).getValue();
+					migrated = true;
+				}
+			}
+			if (migrated) {
+				config.save();
+			}
+			return config;
 		} catch (IOException e) {
 			LOGGER.warn("Failed to read {}, starting with no macros", PATH, e);
 			return new NexoMacroConfig(new ArrayList<>());

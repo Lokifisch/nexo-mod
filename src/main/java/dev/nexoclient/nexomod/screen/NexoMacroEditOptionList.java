@@ -115,7 +115,7 @@ public class NexoMacroEditOptionList extends NexoOptionList {
 
 			private static Component keyLabel(NexoMacro macro) {
 				return macro.keyCode >= 0
-						? InputConstants.Type.KEYSYM.getOrCreate(macro.keyCode).getDisplayName()
+						? InputConstants.Type.KEYBOARD.getOrCreate(macro.keyCode).getDisplayName()
 						: Component.translatable("nexomod.macros.unbound");
 			}
 		}

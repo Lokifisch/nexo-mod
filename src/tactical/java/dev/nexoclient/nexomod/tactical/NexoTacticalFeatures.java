@@ -130,5 +130,10 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 				config::freecamEnabled,
 				() -> config.setFreecamEnabled(!config.freecamEnabled()),
 				parent -> new NexoFreecamConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.fullbright"),
+				Component.translatable("nexomod.qol.fullbright.description"),
+				config::fullbrightEnabled,
+				() -> config.setFullbrightEnabled(!config.fullbrightEnabled()),
+				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoFullbrightConfigScreen(parent));
 	}
 }

@@ -109,7 +109,7 @@ public final class NexoFadingLogHud implements HudElement {
 			return;
 		}
 		Minecraft client = Minecraft.getInstance();
-		if (client.player == null || client.options.hideGui) {
+		if (client.player == null || client.gui.hud.isHidden()) {
 			return;
 		}
 		List<Entry> current = live();

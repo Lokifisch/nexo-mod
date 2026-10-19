@@ -24,7 +24,7 @@ import dev.nexoclient.nexomod.norender.NexoNoRender;
 @Mixin(EntityRenderDispatcher.class)
 public class NoRenderEntityMixin {
 	@Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
-	private void nexomod$hideNoRenderEntities(Entity entity, Frustum frustum, double x, double y, double z,
+	private void nexomod$hideNoRenderEntities(Entity entity, Frustum frustum, double x, double y, double z, float partialTick,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (NexoNoRender.isHidden(entity.getType())) {
 			cir.setReturnValue(false);

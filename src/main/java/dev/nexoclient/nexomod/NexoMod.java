@@ -32,6 +32,7 @@ import dev.nexoclient.nexomod.hud.NexoInventoryHud;
 import dev.nexoclient.nexomod.hud.NexoKeystrokesHud;
 import dev.nexoclient.nexomod.hud.NexoMiniPlayerHud;
 import dev.nexoclient.nexomod.hud.NexoPotionHud;
+import dev.nexoclient.nexomod.hud.NexoToggleKeys;
 import dev.nexoclient.nexomod.hud.NexoQolMenu;
 import dev.nexoclient.nexomod.hud.NexoStatsHud;
 import dev.nexoclient.nexomod.norender.NexoNoRender;
@@ -118,16 +119,20 @@ public class NexoMod implements ClientModInitializer {
 		LOGGER.info("[nexomod] Registered armor HUD.");
 		NexoArmorBarEffects.register();
 		NexoArmorBar.register();
+		dev.nexoclient.nexomod.hud.NexoCrosshair.register();
 		NexoStatsHud.register();
 		NexoPotionHud.register();
 		NexoComboCounter.register();
 		NexoFadingLogHud.ACTIONBAR.register();
 		NexoFadingLogHud.PICKUPS.register();
+		dev.nexoclient.nexomod.hud.NexoSecondChatHud.register();
 		NexoInventoryHud.register();
 		NexoDamageNumbers.register();
 		NexoMiniPlayer.register();
 		NexoMiniPlayerHud.register();
 		NexoZoom.register();
+		dev.nexoclient.nexomod.util.NexoScreenshotCopy.register();
+		NexoToggleKeys.register();
 		NexoNoRender.register();
 		// Last of the HUD registrations on purpose: this one wraps vanilla
 		// elements rather than adding its own, and wrapping is cheapest to reason

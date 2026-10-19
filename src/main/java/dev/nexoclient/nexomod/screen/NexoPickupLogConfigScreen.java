@@ -26,10 +26,10 @@ public class NexoPickupLogConfigScreen extends NexoModalScreen {
 				config::pickupLogEnabled,
 				() -> {
 					config.setPickupLogEnabled(!config.pickupLogEnabled());
-					minecraft.setScreen(new NexoPickupLogConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoPickupLogConfigScreen(parent));
 				}));
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
-						button -> minecraft.setScreen(new NexoHudEditorScreen(this)))
+						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))
 				.size(ROW_WIDTH, 20).build());
 
 		finishLayout();

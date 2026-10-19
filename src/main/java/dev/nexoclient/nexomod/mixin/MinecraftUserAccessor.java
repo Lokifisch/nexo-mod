@@ -7,10 +7,12 @@ import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 import com.mojang.authlib.minecraft.UserApiService;
-import com.mojang.authlib.yggdrasil.ProfileResult;
+import com.mojang.authlib.services.ProfileResult;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
+import net.minecraft.client.gui.screens.social.PlayerSocialManager;
+import net.minecraft.client.gui.screens.social.RemoteFriendListUpdateHandler;
 import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 
 /**
@@ -45,4 +47,16 @@ public interface MinecraftUserAccessor {
 	@Mutable
 	@Accessor("profileKeyPairManager")
 	void nexomod$setProfileKeyPairManager(ProfileKeyPairManager profileKeyPairManager);
+
+	// 26.3's friend list polls with the launch account's token until rebuilt.
+	@Accessor("remoteFriendListUpdateHandler")
+	RemoteFriendListUpdateHandler nexomod$getRemoteFriendListUpdateHandler();
+
+	@Mutable
+	@Accessor("remoteFriendListUpdateHandler")
+	void nexomod$setRemoteFriendListUpdateHandler(RemoteFriendListUpdateHandler handler);
+
+	@Mutable
+	@Accessor("playerSocialManager")
+	void nexomod$setPlayerSocialManager(PlayerSocialManager manager);
 }

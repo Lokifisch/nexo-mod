@@ -78,13 +78,13 @@ public final class NexoDiscordRpc {
 		client.execute(() -> {
 			if (client.level != null) {
 				// Already in a world — don't yank the player out without asking; just let them know.
-				client.gui.getChat().addClientSystemMessage(
+				client.gui.hud.getChat().addClientSystemMessage(
 						Component.literal("A friend invited you to join " + address + " on Discord — leave your current game to accept."));
 				return;
 			}
 
 			ServerData serverData = new ServerData(address, address, ServerData.Type.OTHER);
-			ConnectScreen.startConnecting(client.screen, client, ServerAddress.parseString(address), serverData, false, null);
+			ConnectScreen.startConnecting(client.gui.screen(), client, ServerAddress.parseString(address), serverData, false, null);
 		});
 	}
 }

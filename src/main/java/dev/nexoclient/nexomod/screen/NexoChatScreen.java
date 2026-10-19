@@ -60,11 +60,11 @@ public class NexoChatScreen extends NexoOptionScreen {
 		// which vanilla only calls once the screen is the current one. Passing
 		// it as the sub-screen's lastScreen is what makes Done come back here.
 		list.addWidgetRow(Button.builder(Component.translatable("nexomod.settings.chat.patterns"),
-						button -> client.setScreen(new NexoChatFilterScreen(client.screen)))
+						button -> client.gui.setScreen(new NexoChatFilterScreen(client.gui.screen())))
 				.pos(list.rowX(), 0).size(list.rowWidth(), list.rowHeight()).build());
 
 		list.addWidgetRow(Button.builder(Component.translatable("nexomod.settings.chat.search"),
-						button -> client.setScreen(new NexoChatSearchScreen(client.screen)))
+						button -> client.gui.setScreen(new NexoChatSearchScreen(client.gui.screen())))
 				.pos(list.rowX(), 0).size(list.rowWidth(), list.rowHeight()).build());
 	}
 }

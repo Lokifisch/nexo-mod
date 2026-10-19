@@ -264,7 +264,7 @@ public class LanTunnelSession {
 	}
 
 	private static void addMessage(Component message) {
-		Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.getChat().addClientSystemMessage(message));
+		Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(message));
 	}
 
 	private void fail(Throwable e) {

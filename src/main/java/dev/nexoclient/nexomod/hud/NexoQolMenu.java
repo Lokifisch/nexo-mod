@@ -35,7 +35,7 @@ public final class NexoQolMenu {
 
 	public static void register() {
 		toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.qolMenu",
-				InputConstants.Type.KEYSYM, InputConstants.KEY_RSHIFT, KeyMapping.Category.MISC));
+				InputConstants.Type.KEYBOARD, InputConstants.KEY_RSHIFT, KeyMapping.Category.MISC));
 		ClientTickEvents.END_CLIENT_TICK.register(NexoQolMenu::tick);
 	}
 
@@ -44,8 +44,8 @@ public final class NexoQolMenu {
 			return;
 		}
 		while (toggleKey.consumeClick()) {
-			if (client.screen == null) {
-				client.setScreen(new NexoQolOverlayScreen());
+			if (client.gui.screen() == null) {
+				client.gui.setScreen(new NexoQolOverlayScreen());
 			}
 		}
 	}

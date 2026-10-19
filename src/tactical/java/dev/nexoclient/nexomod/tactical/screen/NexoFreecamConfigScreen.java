@@ -42,7 +42,7 @@ public class NexoFreecamConfigScreen extends NexoModalScreen {
 					if (!next) {
 						NexoFreecam.disable();
 					}
-					minecraft.setScreen(new NexoFreecamConfigScreen(parent));
+					minecraft.gui.setScreen(new NexoFreecamConfigScreen(parent));
 				}));
 		layout.addChild(new NexoIntSlider(0, 0, ROW_WIDTH, 20, "nexomod.qol.freecam.speed",
 				NexoConfig.FREECAM_SPEED_MIN, NexoConfig.FREECAM_SPEED_MAX,

@@ -83,7 +83,7 @@ public final class CoordObfuscator {
 		refreshMeshFlags();
 		Minecraft minecraft = Minecraft.getInstance();
 		if ((rotationActive != wasRotating || bedrockFloorActive != wasBedrock) && minecraft.level != null) {
-			minecraft.levelRenderer.allChanged();
+			minecraft.levelExtractor.allChanged();
 		}
 	}
 

@@ -51,6 +51,9 @@ public final class NexoConfig {
 	/** Freecam fly speed multiplier. Held sprint triples whatever this is. */
 	public static final int FREECAM_SPEED_MIN = 1;
 	public static final int FREECAM_SPEED_MAX = 10;
+	/** Fullbright strength in percent; 100 is plain fullbright. */
+	public static final int FULLBRIGHT_PERCENT_MIN = 100;
+	public static final int FULLBRIGHT_PERCENT_MAX = 1500;
 
 	/**
 	 * Sound categories the tactical indicator listens to out of the box, as a
@@ -267,10 +270,22 @@ public final class NexoConfig {
 	private boolean damageNumbersEnabled;
 	private boolean tntTimerEnabled;
 
+	private boolean toggleSprintEnabled;
+	private boolean toggleSneakEnabled;
+
 	private boolean zoomEnabled;
 	/** Stored as a whole number because the slider is integer-only; divided into the camera FOV. */
 	private int zoomFactor = 4;
 	private boolean zoomSmoothEnabled = true;
+	private boolean screenshotCopyEnabled;
+
+	private boolean crosshairEnabled;
+	private dev.nexoclient.nexomod.hud.NexoCrosshair.Shape crosshairShape = dev.nexoclient.nexomod.hud.NexoCrosshair.Shape.PLUS_GAP;
+	private int crosshairColor = 0x00FF66;
+	private int crosshairSize = 5;
+	private int crosshairThickness = 1;
+	private int crosshairGap = 2;
+	private boolean crosshairOutline = true;
 
 	/**
 	 * Moved here from the "Full-jar features" block below: armor HUD started as
@@ -357,6 +372,8 @@ public final class NexoConfig {
 	private boolean lightOverlayShowSafe;
 	private boolean freecamEnabled;
 	private int freecamSpeed = 2;
+	private boolean fullbrightEnabled;
+	private int fullbrightPercent = 100;
 	private boolean macroTriggersEnabled;
 
 	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity, boolean discordRpcEnabled, ObscurePreset obscurePreset, boolean obscureCoordinatesEnabled, boolean obscureBlockRotationEnabled, boolean obscureBedrockFloorEnabled) {
@@ -867,6 +884,24 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean toggleSprintEnabled() {
+		return toggleSprintEnabled;
+	}
+
+	public void setToggleSprintEnabled(boolean enabled) {
+		this.toggleSprintEnabled = enabled;
+		save();
+	}
+
+	public boolean toggleSneakEnabled() {
+		return toggleSneakEnabled;
+	}
+
+	public void setToggleSneakEnabled(boolean enabled) {
+		this.toggleSneakEnabled = enabled;
+		save();
+	}
+
 	public boolean zoomEnabled() {
 		return zoomEnabled;
 	}
@@ -885,6 +920,15 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean screenshotCopyEnabled() {
+		return screenshotCopyEnabled;
+	}
+
+	public void setScreenshotCopyEnabled(boolean enabled) {
+		this.screenshotCopyEnabled = enabled;
+		save();
+	}
+
 	public boolean zoomSmoothEnabled() {
 		return zoomSmoothEnabled;
 	}
@@ -893,6 +937,22 @@ public final class NexoConfig {
 		this.zoomSmoothEnabled = enabled;
 		save();
 	}
+
+	public boolean crosshairEnabled() { return crosshairEnabled; }
+	public void setCrosshairEnabled(boolean v) { crosshairEnabled = v; save(); }
+	public dev.nexoclient.nexomod.hud.NexoCrosshair.Shape crosshairShape() { return crosshairShape; }
+	public void setCrosshairShape(dev.nexoclient.nexomod.hud.NexoCrosshair.Shape v) { crosshairShape = v; save(); }
+	/** 0xRRGGBB. */
+	public int crosshairColor() { return crosshairColor; }
+	public void setCrosshairColor(int v) { crosshairColor = v & 0xFFFFFF; save(); }
+	public int crosshairSize() { return crosshairSize; }
+	public void setCrosshairSize(int v) { crosshairSize = Math.clamp(v, 1, 20); save(); }
+	public int crosshairThickness() { return crosshairThickness; }
+	public void setCrosshairThickness(int v) { crosshairThickness = Math.clamp(v, 1, 6); save(); }
+	public int crosshairGap() { return crosshairGap; }
+	public void setCrosshairGap(int v) { crosshairGap = Math.clamp(v, 0, 12); save(); }
+	public boolean crosshairOutline() { return crosshairOutline; }
+	public void setCrosshairOutline(boolean v) { crosshairOutline = v; save(); }
 
 	// ------------------------------------------------------------------
 	// Tactical sound indicator (full jar only)
@@ -1189,6 +1249,24 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean fullbrightEnabled() {
+		return fullbrightEnabled;
+	}
+
+	public void setFullbrightEnabled(boolean enabled) {
+		this.fullbrightEnabled = enabled;
+		save();
+	}
+
+	public int fullbrightPercent() {
+		return fullbrightPercent;
+	}
+
+	public void setFullbrightPercent(int percent) {
+		this.fullbrightPercent = Math.clamp(percent, FULLBRIGHT_PERCENT_MIN, FULLBRIGHT_PERCENT_MAX);
+		save();
+	}
+
 	public boolean macroTriggersEnabled() {
 		return macroTriggersEnabled;
 	}
@@ -1268,9 +1346,19 @@ public final class NexoConfig {
 		damageNumbersEnabled = Boolean.parseBoolean(props.getProperty("damageNumbersEnabled", "false"));
 		smoothEdgesEnabled = Boolean.parseBoolean(props.getProperty("smoothEdgesEnabled", "true"));
 		tntTimerEnabled = Boolean.parseBoolean(props.getProperty("tntTimerEnabled", "false"));
+		toggleSprintEnabled = Boolean.parseBoolean(props.getProperty("toggleSprintEnabled", "false"));
+		toggleSneakEnabled = Boolean.parseBoolean(props.getProperty("toggleSneakEnabled", "false"));
 		zoomEnabled = Boolean.parseBoolean(props.getProperty("zoomEnabled", "false"));
 		zoomFactor = boundedIntOrDefault(props.getProperty("zoomFactor"), 4, ZOOM_FACTOR_MIN, ZOOM_FACTOR_MAX);
 		zoomSmoothEnabled = Boolean.parseBoolean(props.getProperty("zoomSmoothEnabled", "true"));
+		screenshotCopyEnabled = Boolean.parseBoolean(props.getProperty("screenshotCopyEnabled", "false"));
+		crosshairEnabled = Boolean.parseBoolean(props.getProperty("crosshairEnabled", "false"));
+		crosshairShape = enumOrDefault(dev.nexoclient.nexomod.hud.NexoCrosshair.Shape.class, props.getProperty("crosshairShape"), dev.nexoclient.nexomod.hud.NexoCrosshair.Shape.PLUS_GAP);
+		crosshairColor = boundedIntOrDefault(props.getProperty("crosshairColor"), 0x00FF66, 0, 0xFFFFFF);
+		crosshairSize = boundedIntOrDefault(props.getProperty("crosshairSize"), 5, 1, 20);
+		crosshairThickness = boundedIntOrDefault(props.getProperty("crosshairThickness"), 1, 1, 6);
+		crosshairGap = boundedIntOrDefault(props.getProperty("crosshairGap"), 2, 0, 12);
+		crosshairOutline = Boolean.parseBoolean(props.getProperty("crosshairOutline", "true"));
 		return this;
 	}
 
@@ -1340,6 +1428,9 @@ public final class NexoConfig {
 		freecamEnabled = Boolean.parseBoolean(props.getProperty("freecamEnabled", "false"));
 		freecamSpeed = boundedIntOrDefault(props.getProperty("freecamSpeed"), 2,
 				FREECAM_SPEED_MIN, FREECAM_SPEED_MAX);
+		fullbrightEnabled = Boolean.parseBoolean(props.getProperty("fullbrightEnabled", "false"));
+		fullbrightPercent = boundedIntOrDefault(props.getProperty("fullbrightPercent"), 100,
+				FULLBRIGHT_PERCENT_MIN, FULLBRIGHT_PERCENT_MAX);
 		macroTriggersEnabled = Boolean.parseBoolean(props.getProperty("macroTriggersEnabled", "false"));
 		return this;
 	}
@@ -1448,9 +1539,19 @@ public final class NexoConfig {
 		props.setProperty("hideBossBars", Boolean.toString(hideBossBars));
 		props.setProperty("damageNumbersEnabled", Boolean.toString(damageNumbersEnabled));
 		props.setProperty("tntTimerEnabled", Boolean.toString(tntTimerEnabled));
+		props.setProperty("toggleSprintEnabled", Boolean.toString(toggleSprintEnabled));
+		props.setProperty("toggleSneakEnabled", Boolean.toString(toggleSneakEnabled));
 		props.setProperty("zoomEnabled", Boolean.toString(zoomEnabled));
 		props.setProperty("zoomFactor", Integer.toString(zoomFactor));
 		props.setProperty("zoomSmoothEnabled", Boolean.toString(zoomSmoothEnabled));
+		props.setProperty("screenshotCopyEnabled", Boolean.toString(screenshotCopyEnabled));
+		props.setProperty("crosshairEnabled", Boolean.toString(crosshairEnabled));
+		props.setProperty("crosshairShape", crosshairShape.name());
+		props.setProperty("crosshairColor", Integer.toString(crosshairColor));
+		props.setProperty("crosshairSize", Integer.toString(crosshairSize));
+		props.setProperty("crosshairThickness", Integer.toString(crosshairThickness));
+		props.setProperty("crosshairGap", Integer.toString(crosshairGap));
+		props.setProperty("crosshairOutline", Boolean.toString(crosshairOutline));
 		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));
 		props.setProperty("tacticalRange", Integer.toString(tacticalRange));
 		props.setProperty("tacticalCategoryMask", Integer.toString(tacticalCategoryMask));
@@ -1480,6 +1581,8 @@ public final class NexoConfig {
 		props.setProperty("lightOverlayShowSafe", Boolean.toString(lightOverlayShowSafe));
 		props.setProperty("freecamEnabled", Boolean.toString(freecamEnabled));
 		props.setProperty("freecamSpeed", Integer.toString(freecamSpeed));
+		props.setProperty("fullbrightEnabled", Boolean.toString(fullbrightEnabled));
+		props.setProperty("fullbrightPercent", Integer.toString(fullbrightPercent));
 		props.setProperty("macroTriggersEnabled", Boolean.toString(macroTriggersEnabled));
 		try {
 			Files.createDirectories(PATH.getParent());

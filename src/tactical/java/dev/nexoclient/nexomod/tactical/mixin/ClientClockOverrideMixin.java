@@ -6,8 +6,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.client.ClientClockManager;
-import net.minecraft.core.Holder;
-import net.minecraft.world.clock.WorldClock;
 
 import dev.nexoclient.nexomod.tactical.environment.NexoEnvironmentOverride;
 
@@ -20,7 +18,8 @@ import dev.nexoclient.nexomod.tactical.environment.NexoEnvironmentOverride;
  * {@code WorldClock} plus a {@code ClockManager}, and the client's
  * implementation is {@link ClientClockManager}, fed by the server through
  * {@code handleUpdates}. Everything that renders the sky reaches it through
- * {@code ClockManager.getTotalTicks} — confirmed by reading
+ * {@code ClockManager.getTotalTicks} (26.3: {@code ClockInstance.totalTicks}, one
+ * instance per clock, so this targets the client's instance class) — confirmed by reading
  * {@code AttributeTrackSampler}, which samples its keyframe track at exactly
  * that value and is what supplies sky colour, sun and moon angle and sky
  * brightness to {@code SkyRenderer}.
@@ -37,13 +36,13 @@ import dev.nexoclient.nexomod.tactical.environment.NexoEnvironmentOverride;
  * so it needs the real value. HEAD would have to recompute what it is
  * overriding.
  */
-@Mixin(ClientClockManager.class)
+@Mixin(ClientClockManager.ClientClockInstance.class)
 public class ClientClockOverrideMixin {
 	@Inject(
-			method = "getTotalTicks(Lnet/minecraft/core/Holder;)J",
+			method = "totalTicks()J",
 			at = @At("RETURN"),
 			cancellable = true)
-	private void nexomod$overrideTimeOfDay(Holder<WorldClock> clock, CallbackInfoReturnable<Long> cir) {
+	private void nexomod$overrideTimeOfDay(CallbackInfoReturnable<Long> cir) {
 		if (!NexoEnvironmentOverride.timeActive()) {
 			return;
 		}

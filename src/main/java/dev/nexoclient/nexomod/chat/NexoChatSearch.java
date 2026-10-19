@@ -90,7 +90,7 @@ public final class NexoChatSearch {
 	/** Registered once from {@code NexoMod.onInitializeClient()}. */
 	public static void register() {
 		openKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nexomod.chatSearch",
-				InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
+				InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC));
 		ClientTickEvents.END_CLIENT_TICK.register(NexoChatSearch::tick);
 	}
 
@@ -206,7 +206,7 @@ public final class NexoChatSearch {
 		}
 		while (openKey.consumeClick()) {
 			if (NexoChatHistory.isAvailable()) {
-				client.setScreen(new dev.nexoclient.nexomod.screen.NexoChatSearchScreen(client.screen));
+				client.gui.setScreen(new dev.nexoclient.nexomod.screen.NexoChatSearchScreen(client.gui.screen()));
 			}
 		}
 	}

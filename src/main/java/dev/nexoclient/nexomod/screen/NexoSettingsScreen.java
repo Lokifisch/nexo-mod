@@ -41,6 +41,9 @@ public class NexoSettingsScreen extends Screen {
 		grid.defaultCellSetting().paddingHorizontal(4).paddingBottom(4).alignHorizontallyCenter();
 		GridLayout.RowHelper helper = grid.createRowHelper(2);
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.appearance"), () -> new NexoAppearanceScreen(this)));
+		// The menu key is a normal vanilla keybind (Controls > Miscellaneous); this just opens that screen.
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.menuKey", dev.nexoclient.nexomod.hud.NexoQolMenu.toggleKeyName()),
+				() -> new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this, minecraft.options)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.positionObscuring"), () -> new NexoPositionObscuringScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.chat"), () -> new NexoChatScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.servers"), () -> new NexoQuickServerScreen(this)));
@@ -93,10 +96,10 @@ public class NexoSettingsScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		minecraft.setScreen(lastScreen);
+		minecraft.gui.setScreen(lastScreen);
 	}
 
 	private Button openScreenButton(Component message, Supplier<Screen> screen) {
-		return Button.builder(message, button -> minecraft.setScreen(screen.get())).build();
+		return Button.builder(message, button -> minecraft.gui.setScreen(screen.get())).build();
 	}
 }

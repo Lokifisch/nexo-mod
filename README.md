@@ -1,6 +1,6 @@
 # Nexo Mod
 
-The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client) — a personal Minecraft client project that pairs this mod with a native launcher, instead of a monolithic custom launcher. Targets **Minecraft 26.1.2** (Fabric).
+The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client) — a personal Minecraft client project that pairs this mod with a native launcher, instead of a monolithic custom launcher. Targets **Minecraft 26.3** (Fabric).
 
 > **Status:** alpha. See [Releases](../../releases) for builds.
 
@@ -36,7 +36,7 @@ The mod ships as two jars from one source tree: `nexomod` and `nexomod-light`. T
 
 ## Requirements
 
-- Minecraft 26.1.2
+- Minecraft 26.3
 - [Fabric Loader](https://fabricmc.net/) 0.19.3+
 - Java 25+
 
@@ -59,7 +59,7 @@ Chat archive/filter, chunk memory, and the other features marked "backed by the 
   ```json
   {
   	"mod_version": "0.6.2",
-  	"minecraft_version": "26.1.2",
+  	"minecraft_version": "26.3",
   	"loader": "fabric",
   	"default_edition": "tactical",
   	"editions": {
