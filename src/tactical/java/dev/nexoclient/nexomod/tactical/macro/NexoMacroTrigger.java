@@ -27,7 +27,13 @@ public final class NexoMacroTrigger {
 		/** Food level has fallen to the threshold, out of 20. */
 		HUNGER_LOW,
 		/** Every slot in the main inventory holds something. */
-		INVENTORY_FULL
+		INVENTORY_FULL,
+		/** One of your own totems of undying just popped. */
+		TOTEM_POP,
+		/** A potion or other effect on you ended in the last moment. */
+		EFFECT_EXPIRED,
+		/** The worn elytra's remaining durability has fallen to the threshold. */
+		ELYTRA_LOW
 	}
 
 	/** {@link dev.nexoclient.nexomod.macro.NexoMacro#id} of the macro to run, or empty for none. */

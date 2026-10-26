@@ -49,40 +49,47 @@ import dev.nexoclient.nexomod.norender.NexoNoRenderConfig;
  * account switcher and the sign-in popups, which want a plain panel, not a
  * branded one.
  *
- * <p>Nothing in the chrome is a texture: the wordmark, the corner brackets,
- * the scanlines and the sweeping separator are all {@code fill} calls off
- * wall-clock time, so they animate on a screen that never pauses the game
- * and cost no asset to ship.
+ * <p>The layout follows the "In-game mod menu" mockup (design/STYLE.md): a
+ * rainbow "MOD MENU" tab, search and the active count in the header, then a
+ * grid of {@link NexoModuleCard}s. Nothing in the chrome is a texture — it is
+ * all {@code fill} calls, so it costs no asset to ship.
  */
 public class NexoQolOverlayScreen extends Screen {
-	private static final int ROW_WIDTH = 220;
+	/** Widest a module card gets; past this a wider window just shows more columns. */
+	private static final int ROW_WIDTH = 150;
 	/**
 	 * Absolute floor for the adaptive cell width. Only a sanity backstop — at every
 	 * real window size the fit calculation lands above it, including the 320×240
 	 * minimum, so it never binds and never forces the panel wider than the screen.
 	 */
 	private static final int MIN_ROW_WIDTH = 100;
-	private static final int ROW_HEIGHT = 36;
-	private static final int COLUMNS = 2;
+	private static final int ROW_HEIGHT = 76;
+	/** Most cards across. Fewer when the window is too narrow for this many at {@link #MIN_ROW_WIDTH}. */
+	private static final int MAX_COLUMNS = 4;
 	/** Space ScrollableLayout reserves for a scrollbar on each side of its content. */
 	private static final int SCROLLBAR_GUTTERS = 28;
 	/** Vertical gap the grid leaves under each cell; part of a row's pitch. */
 	private static final int CELL_PADDING = 4;
 	/** Distance from one grid row's top to the next — a whole number of these is always shown. */
 	private static final int ROW_PITCH = ROW_HEIGHT + CELL_PADDING;
-	/** Grid rows shown at once — {@code COLUMNS} modules each. Past this the list scrolls. */
-	private static final int VISIBLE_ROWS = 6;
+	/** Grid rows shown at once. Past this the list scrolls. */
+	private static final int VISIBLE_ROWS = 4;
 	private static final int PANEL_PAD_X = 20;
 	private static final int PANEL_PAD_Y = 14;
-	/** Room above the list for the wordmark, the active-count badge and the separator. */
-	private static final int HEADER_HEIGHT = 36;
+	/** Room above the list for the search box, the active-count badge and the separator. */
+	private static final int HEADER_HEIGHT = 30;
 	/** Room below the list for the close hint. */
 	private static final int FOOTER_HEIGHT = 15;
 	private static final int EDIT_BUTTON_HEIGHT = 20;
-	/** Same band as the active-count badge, so the search box sits level with it and the wordmark. */
+	/** Same band as the active-count badge, so the search box sits level with it. */
 	private static final int SEARCH_HEIGHT = 13;
-	private static final int SEARCH_TOP = 11;
-	private static final float WORDMARK_SCALE = 1.5F;
+	private static final int SEARCH_TOP = 8;
+	/** The row above the panel: the MOD MENU tab, the icon tabs and the close button. */
+	private static final int TAB_HEIGHT = 20;
+	private static final int TAB_PAD = 10;
+	private static final int TAB_GAP = 4;
+	/** Height of that row plus its gap to the panel. */
+	private static final int TOP_ROW = TAB_HEIGHT + 6;
 	private static final float SMALL_TEXT_SCALE = 0.75F;
 
 	/**
@@ -92,13 +99,16 @@ public class NexoQolOverlayScreen extends Screen {
 	 * so a reused one would end up with two of every row.
 	 */
 	private LinearLayout layout;
-	/** The scrolling part — a {@link #COLUMNS}-wide grid of modules. */
+	/** The scrolling part — a {@link #columns()}-wide grid of module cards. */
 	private GridLayout moduleGrid;
 	private GridLayout.RowHelper moduleRows;
 	/** Every module's live on/off state, in row order, for the header's active count. */
 	private final List<BooleanSupplier> moduleStates = new ArrayList<>();
 
 	private ScrollableLayout scrollArea;
+	/** The icon tabs right of MOD MENU, in order, and the close button at the far right. */
+	private final List<NexoIconButton> tabs = new ArrayList<>();
+	private NexoIconButton closeButton;
 	/** Kept across the rebuilds typing triggers, so the filter survives them. */
 	private String query = "";
 	private EditBox searchBox;
@@ -109,11 +119,11 @@ public class NexoQolOverlayScreen extends Screen {
 	private boolean entrancePlayed;
 	private static final long FADE_OUT_MILLIS = 160L;
 	/** The rows currently on screen, so the next rebuild can tell which ones the filter dropped. */
-	private final List<NexoModuleRow> shownRows = new ArrayList<>();
+	private final List<NexoModuleCard> shownRows = new ArrayList<>();
 	/** Filtered-out rows kept only to fade away where they were; not part of the layout or input. */
 	private final List<Ghost> ghosts = new ArrayList<>();
 
-	private record Ghost(NexoModuleRow row, long startMillis) {}
+	private record Ghost(NexoModuleCard row, long startMillis) {}
 	/**
 	 * The panel's top and bottom as drawn, easing toward where the layout says they
 	 * belong. Search rebuilds the list at its final size at once; animating only the
@@ -133,7 +143,7 @@ public class NexoQolOverlayScreen extends Screen {
 		moduleStates.clear();
 		rowCount = 0;
 		matchCount = 0;
-		List<NexoModuleRow> previousRows = new ArrayList<>(shownRows);
+		List<NexoModuleCard> previousRows = new ArrayList<>(shownRows);
 		shownRows.clear();
 
 		layout = LinearLayout.vertical().spacing(8);
@@ -149,7 +159,7 @@ public class NexoQolOverlayScreen extends Screen {
 		});
 		moduleGrid = new GridLayout();
 		moduleGrid.defaultCellSetting().paddingHorizontal(CELL_PADDING).paddingBottom(CELL_PADDING);
-		moduleRows = moduleGrid.createRowHelper(COLUMNS);
+		moduleRows = moduleGrid.createRowHelper(columns());
 
 		NexoConfig config = NexoConfig.get();
 		addRow(Component.translatable("nexomod.qol.keystrokes"),
@@ -179,7 +189,6 @@ public class NexoQolOverlayScreen extends Screen {
 		addRow(Component.translatable("nexomod.qol.potatoMode"),
 				Component.translatable("nexomod.qol.potatoMode.description"),
 				NexoPotatoMode::active,
-				NexoPotatoMode::toggle,
 				NexoPotatoMode::toggle);
 		addRow(Component.translatable("nexomod.stats.title"),
 				Component.translatable("nexomod.stats.description"),
@@ -196,6 +205,38 @@ public class NexoQolOverlayScreen extends Screen {
 				config::comboCounterEnabled,
 				() -> config.setComboCounterEnabled(!config.comboCounterEnabled()),
 				() -> minecraft.gui.setScreen(new NexoComboConfigScreen(this)));
+		addRow(Component.translatable("nexomod.qol.targetHud"),
+				Component.translatable("nexomod.qol.targetHud.description"),
+				config::targetHudEnabled,
+				() -> config.setTargetHudEnabled(!config.targetHudEnabled()));
+		addRow(Component.translatable("nexomod.qol.reach"),
+				Component.translatable("nexomod.qol.reach.description"),
+				config::reachDisplayEnabled,
+				() -> config.setReachDisplayEnabled(!config.reachDisplayEnabled()));
+		addRow(Component.translatable("nexomod.qol.totemPops"),
+				Component.translatable("nexomod.qol.totemPops.description"),
+				config::totemPopCounterEnabled,
+				() -> config.setTotemPopCounterEnabled(!config.totemPopCounterEnabled()));
+		addRow(Component.translatable("nexomod.qol.hitOverlay"),
+				Component.translatable("nexomod.qol.hitOverlay.description"),
+				config::hitOverlayEnabled,
+				() -> config.setHitOverlayEnabled(!config.hitOverlayEnabled()));
+		addRow(Component.translatable("nexomod.qol.durability"),
+				Component.translatable("nexomod.qol.durability.description"),
+				config::durabilityWarningEnabled,
+				() -> config.setDurabilityWarningEnabled(!config.durabilityWarningEnabled()));
+		addRow(Component.translatable("nexomod.qol.autoReconnect"),
+				Component.translatable("nexomod.qol.autoReconnect.description"),
+				config::autoReconnectEnabled,
+				() -> config.setAutoReconnectEnabled(!config.autoReconnectEnabled()));
+		addRow(Component.translatable("nexomod.qol.stackCount"),
+				Component.translatable("nexomod.qol.stackCount.description"),
+				config::stackCountEnabled,
+				() -> config.setStackCountEnabled(!config.stackCountEnabled()));
+		addRow(Component.translatable("nexomod.qol.containerSearch"),
+				Component.translatable("nexomod.qol.containerSearch.description"),
+				config::containerSearchEnabled,
+				() -> config.setContainerSearchEnabled(!config.containerSearchEnabled()));
 		addRow(Component.translatable("nexomod.qol.actionbarLog"),
 				Component.translatable("nexomod.qol.actionbarLog.description"),
 				config::actionbarLogEnabled,
@@ -224,12 +265,10 @@ public class NexoQolOverlayScreen extends Screen {
 		addRow(Component.translatable("nexomod.qol.miniPlayer"),
 				Component.translatable("nexomod.qol.miniPlayer.description"),
 				config::miniPlayerEnabled,
-				() -> config.setMiniPlayerEnabled(!config.miniPlayerEnabled()),
 				() -> config.setMiniPlayerEnabled(!config.miniPlayerEnabled()));
 		addRow(Component.translatable("nexomod.qol.damageNumbers"),
 				Component.translatable("nexomod.qol.damageNumbers.description"),
 				config::damageNumbersEnabled,
-				() -> config.setDamageNumbersEnabled(!config.damageNumbersEnabled()),
 				() -> config.setDamageNumbersEnabled(!config.damageNumbersEnabled()));
 		// Four independent hide toggles behind one row; the row reads as on when
 		// any of them is hiding something.
@@ -241,17 +280,14 @@ public class NexoQolOverlayScreen extends Screen {
 		addRow(Component.translatable("nexomod.qol.toggleSprint"),
 				Component.translatable("nexomod.qol.toggleSprint.description"),
 				config::toggleSprintEnabled,
-				() -> config.setToggleSprintEnabled(!config.toggleSprintEnabled()),
 				() -> config.setToggleSprintEnabled(!config.toggleSprintEnabled()));
 		addRow(Component.translatable("nexomod.qol.toggleSneak"),
 				Component.translatable("nexomod.qol.toggleSneak.description"),
 				config::toggleSneakEnabled,
-				() -> config.setToggleSneakEnabled(!config.toggleSneakEnabled()),
 				() -> config.setToggleSneakEnabled(!config.toggleSneakEnabled()));
 		addRow(Component.translatable("nexomod.qol.screenshotCopy"),
 				Component.translatable("nexomod.qol.screenshotCopy.description"),
 				config::screenshotCopyEnabled,
-				() -> config.setScreenshotCopyEnabled(!config.screenshotCopyEnabled()),
 				() -> config.setScreenshotCopyEnabled(!config.screenshotCopyEnabled()));
 		addRow(Component.translatable("nexomod.qol.zoom"),
 				Component.translatable("nexomod.qol.zoom.description"),
@@ -263,7 +299,7 @@ public class NexoQolOverlayScreen extends Screen {
 				config::crosshairEnabled,
 				() -> config.setCrosshairEnabled(!config.crosshairEnabled()),
 				() -> minecraft.gui.setScreen(new NexoCrosshairConfigScreen(this)));
-		// The pill reflects and toggles Dynamic specifically, not "is anything
+		// The card reflects and toggles Dynamic specifically, not "is anything
 		// hidden" — manually-hidden entities don't clear when Dynamic is off, so
 		// using the combined state here would show the pill permanently on (and
 		// impossible to turn off by clicking it) the moment any single entity
@@ -299,15 +335,16 @@ public class NexoQolOverlayScreen extends Screen {
 		layout.visitWidgets(this::addRenderableWidget);
 		// Lives in the header, not the layout: placed by repositionElements.
 		addRenderableWidget(searchBox);
+		addTopRow();
 		repositionElements();
 		setInitialFocus(searchBox);
 		// Rows the search just dropped keep drawing for a moment, fading out in place.
 		java.util.Set<String> stillShown = new java.util.HashSet<>();
-		for (NexoModuleRow row : shownRows) {
+		for (NexoModuleCard row : shownRows) {
 			stillShown.add(row.getMessage().getString());
 		}
 		long fadeStart = System.currentTimeMillis();
-		for (NexoModuleRow row : previousRows) {
+		for (NexoModuleCard row : previousRows) {
 			if (!stillShown.contains(row.getMessage().getString())) {
 				ghosts.add(new Ghost(row, fadeStart));
 			}
@@ -316,12 +353,66 @@ public class NexoQolOverlayScreen extends Screen {
 	}
 
 	/**
-	 * @param onToggle run when the row's pill is clicked — flips the module in
-	 *                 place. {@code onPress} (anywhere else on the row) opens the
-	 *                 module's own screen instead.
+	 * The icon tabs above the panel — shortcuts to the screens around the
+	 * menu — and the close button. Placed by {@link #placeTopRow()}.
 	 */
+	private void addTopRow() {
+		tabs.clear();
+		addTab("nexomod.qol.tab.settings", net.minecraft.world.item.Items.COMPARATOR, () -> new NexoSettingsScreen(this));
+		addTab("nexomod.qol.tab.hudEditor", net.minecraft.world.item.Items.ITEM_FRAME, () -> new NexoHudEditorScreen(this));
+		addTab("nexomod.qol.tab.chat", net.minecraft.world.item.Items.WRITABLE_BOOK, () -> new NexoChatTweaksScreen(this));
+		addTab("nexomod.qol.tab.macros", net.minecraft.world.item.Items.REPEATER, () -> new NexoMacroListScreen(this));
+		addTab("nexomod.qol.tab.appearance", net.minecraft.world.item.Items.PAINTING, () -> new NexoAppearanceScreen(this));
+		// Only outside a world. Switching account while connected swaps the session's
+		// chat-signing keys mid-connection: the client then sends the *other*
+		// account's key to a server it joined as the first, which gets it kicked
+		// and hands that server proof the two accounts are one person.
+		if (minecraft.level == null && minecraft.getConnection() == null) {
+			addTab("nexomod.qol.tab.accounts", net.minecraft.world.item.Items.PLAYER_HEAD, () -> new AccountSwitcherScreen(this));
+		}
+		closeButton = addRenderableWidget(NexoIconButton.close(TAB_HEIGHT, Component.translatable("gui.done"), this::onClose));
+	}
+
+	private void addTab(String key, net.minecraft.world.item.Item icon, java.util.function.Supplier<Screen> screen) {
+		tabs.add(addRenderableWidget(NexoIconButton.icon(TAB_HEIGHT, Component.translatable(key),
+				new net.minecraft.world.item.ItemStack(icon), () -> minecraft.gui.setScreen(screen.get()))));
+	}
+
+	/** MOD MENU at the panel's left edge, the icon tabs after it, close flush with the panel's right edge. */
+	private void placeTopRow() {
+		int x0 = layout.getX() - PANEL_PAD_X;
+		int x1 = layout.getX() + layout.getWidth() + PANEL_PAD_X;
+		int y = layout.getY() - PANEL_PAD_Y - HEADER_HEIGHT - TOP_ROW;
+		int x = x0 + tabWidth(minecraft.font) + TAB_GAP;
+		// Tabs that would run into the close button on a narrow window are hidden.
+		int limit = x1 - TAB_HEIGHT - TAB_GAP;
+		for (NexoIconButton tab : tabs) {
+			tab.setPosition(x, y);
+			tab.visible = x + TAB_HEIGHT <= limit;
+			x += TAB_HEIGHT + TAB_GAP;
+		}
+		closeButton.setPosition(x1 - TAB_HEIGHT, y);
+	}
+
+	/** A module with nothing to configure: its card has no settings button, and any click toggles it. */
+	private void addRow(Component name, Component description, BooleanSupplier state, Runnable onToggle) {
+		addRow(name, description, state, onToggle, null, null);
+	}
+
 	private void addRow(Component name, Component description,
 			BooleanSupplier state, Runnable onToggle, Runnable onPress) {
+		addRow(name, description, state, onToggle, onPress, null);
+	}
+
+	/**
+	 * @param onToggle run when the card's ENABLED/DISABLED bar is clicked — flips
+	 *                 the module in place.
+	 * @param onPress  run for a click anywhere else: opens the module's own
+	 *                 screen. Null when there is none.
+	 * @param tag      small edition label in the card's corner, or null.
+	 */
+	private void addRow(Component name, Component description,
+			BooleanSupplier state, Runnable onToggle, Runnable onPress, Component tag) {
 		moduleStates.add(state);
 		String needle = query.strip().toLowerCase(java.util.Locale.ROOT);
 		if (!needle.isEmpty() && !name.getString().toLowerCase(java.util.Locale.ROOT).contains(needle)
@@ -329,8 +420,7 @@ public class NexoQolOverlayScreen extends Screen {
 			return;
 		}
 		matchCount++;
-		NexoModuleRow row = new NexoModuleRow(0, 0, rowWidth(), ROW_HEIGHT, name, description, state, onPress)
-				.withToggle(onToggle)
+		NexoModuleCard row = new NexoModuleCard(rowWidth(), ROW_HEIGHT, name, description, state, onToggle, onPress, tag)
 				.stagger(rowCount++);
 		if (entrancePlayed) {
 			row.noReveal();
@@ -339,35 +429,44 @@ public class NexoQolOverlayScreen extends Screen {
 		moduleRows.addChild(row);
 	}
 
+	/** Width the window leaves for the grid once the panel padding and scrollbar gutters are taken. */
+	private int usableWidth() {
+		return width - PANEL_PAD_X * 2 - SCROLLBAR_GUTTERS;
+	}
+
 	/**
-	 * Full width of the grid: {@link #COLUMNS} cells plus their horizontal padding,
-	 * narrowed if the window cannot fit that. Two 220px columns plus the panel
-	 * padding and the scrollbar gutters come to ~524px, which is wider than the
-	 * whole screen at GUI scale 4 — without this the panel would hang off both
-	 * sides, the horizontal version of the bug that hid the rows.
+	 * Cards across: as many as fit at {@link #MIN_ROW_WIDTH}, up to
+	 * {@link #MAX_COLUMNS}, never fewer than two. A fixed four would hang off
+	 * both sides of the screen at GUI scale 4.
 	 */
+	private int columns() {
+		return Math.clamp(usableWidth() / (MIN_ROW_WIDTH + CELL_PADDING * 2), 2, MAX_COLUMNS);
+	}
+
+	/** Full width of the grid: {@link #columns()} cells plus their horizontal padding. */
 	private int gridWidth() {
-		int usable = width - PANEL_PAD_X * 2 - SCROLLBAR_GUTTERS;
-		int cell = Math.clamp(usable / COLUMNS - CELL_PADDING * 2, MIN_ROW_WIDTH, ROW_WIDTH);
-		return COLUMNS * (cell + CELL_PADDING * 2);
+		int cell = Math.clamp(usableWidth() / columns() - CELL_PADDING * 2, MIN_ROW_WIDTH, ROW_WIDTH);
+		return columns() * (cell + CELL_PADDING * 2);
 	}
 
-	/** Width each module row is built at — the grid's cell width, minus its padding. */
+	/** Width each module card is built at — the grid's cell width, minus its padding. */
 	private int rowWidth() {
-		return gridWidth() / COLUMNS - CELL_PADDING * 2;
+		return gridWidth() / columns() - CELL_PADDING * 2;
 	}
 
-	/** Grid rows the modules occupy — two per row, so a trailing odd module still needs a whole row. */
+	/** Grid rows the cards occupy, so a trailing partial row still counts as a whole one. */
 	private int gridRowCount() {
-		return Math.max(1, (matchCount + COLUMNS - 1) / COLUMNS);
+		return Math.max(1, (matchCount + columns() - 1) / columns());
 	}
 
 	/** Extra module rows contributed by other parts of the mod — see {@link NexoQolModules}. */
 	private void addModuleRows() {
 		for (NexoQolModules.Entry entry : NexoQolModules.entries()) {
+			// Only Tactical registers extra modules, so they wear its tag.
 			addRow(entry.name(), entry.description(), entry.enabled(), entry.toggle(),
-					entry.openConfig() == null ? entry.toggle()
-							: () -> minecraft.gui.setScreen(entry.openConfig().apply(this)));
+					entry.openConfig() == null ? null
+							: () -> minecraft.gui.setScreen(entry.openConfig().apply(this)),
+					Component.translatable("nexomod.qol.card.tactical"));
 		}
 	}
 
@@ -387,7 +486,7 @@ public class NexoQolOverlayScreen extends Screen {
 	private int listMaxHeight() {
 		int wanted = VISIBLE_ROWS * ROW_PITCH;
 		int content = gridRowCount() * ROW_PITCH;
-		int available = height - HEADER_HEIGHT - FOOTER_HEIGHT - PANEL_PAD_Y * 2 - EDIT_BUTTON_HEIGHT - 24;
+		int available = height - TOP_ROW - HEADER_HEIGHT - FOOTER_HEIGHT - PANEL_PAD_Y * 2 - EDIT_BUTTON_HEIGHT - 24;
 		// Snap down to a whole row: a viewport ending mid-row leaves a sliced module
 		// peeking out of the bottom edge, which reads as a rendering fault.
 		int rows = Math.min(Math.min(wanted, content), available) / ROW_PITCH;
@@ -404,20 +503,19 @@ public class NexoQolOverlayScreen extends Screen {
 		// Centred on the list alone would push the panel low, since the header is
 		// taller than the footer; offsetting by half the difference centres the
 		// panel as a whole instead.
-		FrameLayout.centerInRectangle(layout, 0, (HEADER_HEIGHT - FOOTER_HEIGHT) / 2, width, height);
+		FrameLayout.centerInRectangle(layout, 0, (TOP_ROW + HEADER_HEIGHT - FOOTER_HEIGHT) / 2, width, height);
 		placeSearchBox();
+		placeTopRow();
 	}
 
-	/** Between the title block and the active-count badge, level with the badge. */
+	/** From the panel's left edge to the active-count badge, level with the badge. */
 	private void placeSearchBox() {
 		Font font = minecraft.font;
 		int x0 = layout.getX() - PANEL_PAD_X;
 		int x1 = layout.getX() + layout.getWidth() + PANEL_PAD_X;
 		int y0 = layout.getY() - PANEL_PAD_Y - HEADER_HEIGHT;
-		int title = Math.max(Math.round(font.width("NEXO") * WORDMARK_SCALE) + 4,
-				Math.round(font.width(Component.translatable("nexomod.qol.subtitle")) * SMALL_TEXT_SCALE));
 		Component badge = Component.translatable("nexomod.qol.activeCount", moduleStates.size(), moduleStates.size());
-		int left = x0 + 17 + title + 12;
+		int left = x0 + 14;
 		int right = x1 - 16 - Math.round(font.width(badge) * SMALL_TEXT_SCALE) - 14 - 10;
 		searchBox.setPosition(left, y0 + SEARCH_TOP);
 		searchBox.setWidth(Math.max(40, right - left));
@@ -447,12 +545,16 @@ public class NexoQolOverlayScreen extends Screen {
 
 		NexoPanelRenderer.draw(graphics, x0, py0, x1, py1);
 		long now = System.currentTimeMillis();
-		drawScanlines(graphics, x0, py0, x1, py1);
-		drawCornerBrackets(graphics, x0, py0, x1, py1, now);
 
-		// Content sits at its final position and is revealed or cut off by the moving panel.
-		graphics.enableScissor(x0, py0, x1, py1);
-		drawHeader(graphics, x0, y0, x1, now);
+		// Cards scrolled out of view skip drawing entirely — see NexoModuleCard#clip.
+		for (NexoModuleCard card : shownRows) {
+			card.clip(scrollArea.getY(), scrollArea.getY() + scrollArea.getHeight());
+		}
+		// Content sits at its final position and is revealed or cut off by the moving
+		// panel. The scissor reaches up over the tab row so its buttons draw too.
+		graphics.enableScissor(x0 - 4, Math.min(py0, y0 - TOP_ROW) - 4, x1 + 4, py1);
+		drawModMenuTab(graphics, x0, y0 - TOP_ROW);
+		drawHeader(graphics, x0, y0, x1);
 		drawFooter(graphics, x0, x1, y1);
 		drawGhosts(graphics, partialTick, now);
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
@@ -474,64 +576,34 @@ public class NexoQolOverlayScreen extends Screen {
 		return Math.abs(target - next) < 0.5F ? target : next;
 	}
 
-	/** A faint CRT ruling over the panel fill, to keep a large flat area from reading as dead space. */
-	private static void drawScanlines(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1) {
-		for (int y = y0 + 3; y < y1 - 2; y += 4) {
-			graphics.fill(x0 + 2, y, x1 - 2, y + 1, 0x0AFFFFFF);
-		}
-	}
-
-	private static void drawCornerBrackets(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1, long now) {
-		int color = NexoStyle.cycle(now, 8000L);
-		int arm = 12;
-		int inset = 3;
-		int left = x0 + inset;
-		int top = y0 + inset;
-		int right = x1 - inset;
-		int bottom = y1 - inset;
-
-		graphics.fill(left, top, left + arm, top + 2, color);
-		graphics.fill(left, top, left + 2, top + arm, color);
-		graphics.fill(right - arm, top, right, top + 2, color);
-		graphics.fill(right - 2, top, right, top + arm, color);
-		graphics.fill(left, bottom - 2, left + arm, bottom, color);
-		graphics.fill(left, bottom - arm, left + 2, bottom, color);
-		graphics.fill(right - arm, bottom - 2, right, bottom, color);
-		graphics.fill(right - 2, bottom - arm, right, bottom, color);
-	}
-
-	private void drawHeader(GuiGraphicsExtractor graphics, int x0, int y0, int x1, long now) {
+	/**
+	 * The "MOD MENU" tab at the head of the top row: the logo's rainbow, dark
+	 * bold label, accent glow — the menu's one filled control, like the mockup's.
+	 */
+	private void drawModMenuTab(GuiGraphicsExtractor graphics, int tx0, int ty0) {
 		Font font = minecraft.font;
-		Matrix3x2fStack pose = graphics.pose();
+		int tx1 = tx0 + tabWidth(font);
+		int ty1 = ty0 + TAB_HEIGHT;
+		NexoShapes.glow(graphics, tx0, ty0, tx1, ty1, NexoStyle.ACCENT, 3, 0.22F);
+		// fillLogoRamp has square corners; trimming its top and bottom rows by a
+		// pixel gives the tab a small chamfer instead of a hard box.
+		NexoShapes.fillLogoRamp(graphics, tx0 + 1, tx1 - 1, tx1 - 1, ty0, ty0 + 1, 0xFF);
+		NexoShapes.fillLogoRamp(graphics, tx0, tx1, tx1, ty0 + 1, ty1 - 1, 0xFF);
+		NexoShapes.fillLogoRamp(graphics, tx0 + 1, tx1 - 1, tx1 - 1, ty1 - 1, ty1, 0xFF);
+		graphics.text(font, modMenuLabel(), tx0 + TAB_PAD, ty0 + (TAB_HEIGHT - 8) / 2 + 1, 0xFF0A0A0D, false);
+	}
 
-		// "NEXO", one letter at a time so the brand cycle runs *through* the word
-		// rather than recolouring it as a block. Each letter gets a dark offset
-		// copy first, which reads as a glow against the blurred world behind.
-		String wordmark = "NEXO";
-		float cursor = x0 + 16;
-		float baseline = y0 + 8;
-		pose.pushMatrix();
-		pose.scale(WORDMARK_SCALE, WORDMARK_SCALE);
-		for (int i = 0; i < wordmark.length(); i++) {
-			String letter = String.valueOf(wordmark.charAt(i));
-			int color = NexoStyle.cycle(now + i * 260L, 4000L);
-			int sx = Math.round(cursor / WORDMARK_SCALE);
-			int sy = Math.round(baseline / WORDMARK_SCALE);
-			graphics.text(font, letter, sx + 1, sy + 1, NexoStyle.fade(color, 0.35F));
-			graphics.text(font, letter, sx, sy, color);
-			cursor += (font.width(letter) + 1) * WORDMARK_SCALE;
-		}
-		pose.popMatrix();
-
-		pose.pushMatrix();
-		pose.scale(SMALL_TEXT_SCALE, SMALL_TEXT_SCALE);
-		graphics.text(font, Component.translatable("nexomod.qol.subtitle"),
-				Math.round((x0 + 17) / SMALL_TEXT_SCALE), Math.round((y0 + 24) / SMALL_TEXT_SCALE),
-				NexoStyle.TEXT_SECONDARY);
-		pose.popMatrix();
-
+	private void drawHeader(GuiGraphicsExtractor graphics, int x0, int y0, int x1) {
 		drawActiveBadge(graphics, x1, y0);
-		drawSeparator(graphics, x0, y0, x1, now);
+		drawSeparator(graphics, x0, y0, x1);
+	}
+
+	private static Component modMenuLabel() {
+		return Component.translatable("nexomod.qol.modMenu").withStyle(style -> style.withBold(true));
+	}
+
+	private static int tabWidth(Font font) {
+		return font.width(modMenuLabel()) + TAB_PAD * 2;
 	}
 
 	/** "N / M active" as a pill at the header's right edge — the one number worth reading at a glance. */
@@ -549,49 +621,25 @@ public class NexoQolOverlayScreen extends Screen {
 		int padding = 7;
 		int bx1 = x1 - 16;
 		int bx0 = bx1 - textWidth - padding * 2;
-		int by0 = y0 + 11;
+		int by0 = y0 + 8;
 		int by1 = by0 + 13;
 
-		int accent = active > 0 ? NexoStyle.TEXT_ACTIVE_ACCENT : NexoStyle.BORDER_DIM;
-		graphics.fill(bx0 - 2, by0 - 2, bx1 + 2, by1 + 2, NexoStyle.fade(accent, 0.12F));
-		NexoShapes.fillRounded(graphics, bx0, by0, bx1, by1,
-				NexoStyle.mix(NexoStyle.PANEL_BG_RAISED, accent, 0.22F), 6);
+		int accent = active > 0 ? NexoStyle.ACCENT : NexoStyle.MUTED;
+		NexoShapes.outlined(graphics, bx0, by0, bx1, by1,
+				NexoStyle.mix(NexoStyle.RAISED, accent, 0.14F), NexoStyle.mix(NexoStyle.RAISED, accent, 0.7F), 6);
+		int textColor = active > 0 ? NexoStyle.TEXT_PRIMARY : NexoStyle.MUTED;
 
 		Matrix3x2fStack pose = graphics.pose();
 		pose.pushMatrix();
 		pose.scale(SMALL_TEXT_SCALE, SMALL_TEXT_SCALE);
 		graphics.text(font, label, Math.round((bx0 + padding) / SMALL_TEXT_SCALE),
-				Math.round((by0 + 4) / SMALL_TEXT_SCALE), accent);
+				Math.round((by0 + 4) / SMALL_TEXT_SCALE), textColor);
 		pose.popMatrix();
 	}
 
-	/**
-	 * The rule under the header, with a highlight travelling along it. Built from
-	 * short slices with a triangular alpha ramp because {@code fillGradient} only
-	 * interpolates vertically — there is no horizontal-gradient primitive.
-	 */
-	private static void drawSeparator(GuiGraphicsExtractor graphics, int x0, int y0, int x1, long now) {
-		int left = x0 + 14;
-		int right = x1 - 14;
-		int y = y0 + HEADER_HEIGHT - 3;
-		graphics.fill(left, y, right, y + 1, 0x28FFFFFF);
-
-		int span = right - left;
-		if (span <= 0) {
-			return;
-		}
-		int color = NexoStyle.cycle(now, 8000L);
-		int slices = 16;
-		int sliceWidth = 3;
-		int head = left + Math.round((now % 2800L) / 2800F * (span + slices * sliceWidth)) - slices * sliceWidth;
-		for (int i = 0; i < slices; i++) {
-			float ramp = 1F - Math.abs(i - (slices - 1) / 2F) / ((slices - 1) / 2F);
-			int sx0 = head + i * sliceWidth;
-			if (sx0 < left || sx0 + sliceWidth > right) {
-				continue;
-			}
-			graphics.fill(sx0, y, sx0 + sliceWidth, y + 1, NexoStyle.fade(color, ramp));
-		}
+	/** The plain 1px rule under the header. */
+	private static void drawSeparator(GuiGraphicsExtractor graphics, int x0, int y0, int x1) {
+		graphics.fill(x0 + 14, y0 + HEADER_HEIGHT - 3, x1 - 14, y0 + HEADER_HEIGHT - 2, NexoStyle.LINE);
 	}
 
 	private void drawFooter(GuiGraphicsExtractor graphics, int x0, int x1, int y1) {

@@ -12,6 +12,7 @@
 		"NeonMenuBackgroundMixin",
 		"NeonButtonMixin",
 		"TitleScreenBrandingMixin",
+		"NexoTitleLayoutMixin",
 		"InventoryWatermarkMixin",
 		"AbstractContainerScreenAccessor",
 		"NexoSettingsButtonMixin",
@@ -32,7 +33,9 @@
 		"TpsSampleMixin",
 		"NoRenderEntityMixin",
 		"NoRenderHitboxMixin",
-		"NoRenderProfilerMixin"
+		"NoRenderProfilerMixin",
+		"TotemPopMixin",
+		"ScreenWidgetInvoker"
 	],
 	"injectors": {
 		"defaultRequire": 1

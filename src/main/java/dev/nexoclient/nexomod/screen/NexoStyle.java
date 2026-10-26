@@ -16,7 +16,31 @@ public final class NexoStyle {
 	public static final int MINT = 0xFF12E28E;
 	public static final int BLUE = 0xFF128DE2;
 
-	/** Near-black panel background, matches the logo's own backdrop color. */
+	/*
+	 * The flat look from design/STYLE.md, shared with the launcher's theme.rs:
+	 * near-black panels split by 1px lines, one accent, and colour spent only
+	 * on what is on or hovered.
+	 */
+	/** The one accent — glows, outlines, the enabled state. Between the logo's magenta and violet. */
+	public static final int ACCENT = 0xFFB14CFF;
+	/** Unlit controls: button and slider fields. */
+	public static final int FIELD = 0xFF101015;
+	/**
+	 * Cards and module rows. Opaque on purpose: {@link NexoShapes#outlined} lays
+	 * the fill over the outline colour, which would show through a translucent one.
+	 */
+	public static final int RAISED = 0xFF111116;
+	/** The mod menu and popup panels — opaque for the same reason as {@link #RAISED}. */
+	public static final int PANEL = 0xFF0C0C10;
+	/** Lines between panels. */
+	public static final int LINE = 0xFF1D1D25;
+	/** The outline of an unlit control, a step brighter than {@link #LINE}. */
+	public static final int CONTROL = 0xFF23232C;
+	public static final int MUTED = 0xFF8B8B99;
+	/** Close and destructive actions. */
+	public static final int DANGER = 0xFFFF5470;
+
+	/** Translucent near-black, for HUD backdrops that should let the world show through. */
 	public static final int PANEL_BG = 0xE60D0D14;
 	public static final int PANEL_BG_RAISED = 0xE617172A;
 	public static final int BORDER_DIM = 0x40FFFFFF;
@@ -43,7 +67,7 @@ public final class NexoStyle {
 	 * call site. Scales the existing alpha rather than replacing it, so a
 	 * constant that is already translucent stays proportionally so.
 	 */
-	static int fade(int color, float factor) {
+	public static int fade(int color, float factor) {
 		int alpha = (int) (((color >>> 24) & 0xFF) * Mth.clamp(factor, 0F, 1F));
 		return (alpha << 24) | (color & 0xFFFFFF);
 	}
@@ -56,6 +80,16 @@ public final class NexoStyle {
 	public static int rainbow(long nowMillis, long periodMillis) {
 		float hue = (nowMillis % periodMillis) / (float) periodMillis;
 		return Mth.hsvToArgb(hue, 0.85F, 1.0F, 0xFF);
+	}
+
+	/** The logo's ramp: pink, violet, blue, mint — fixed, like the logo itself. */
+	private static final int[] LOGO_RAMP = {0xFFFF3CAC, 0xFF7B3CFF, 0xFF22B8FF, 0xFF3CFFB0};
+
+	/** The logo ramp at {@code t} (0..1) along it. */
+	public static int logoRamp(float t) {
+		float phase = Mth.clamp(t, 0F, 1F) * (LOGO_RAMP.length - 1);
+		int index = Math.min(LOGO_RAMP.length - 2, (int) phase);
+		return mix(LOGO_RAMP[index], LOGO_RAMP[index + 1], phase - index);
 	}
 
 	/** A slow color cycle through the brand palette, for animated borders/accents — same idea as the launcher's animated brand color. */

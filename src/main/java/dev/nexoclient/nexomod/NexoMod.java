@@ -105,6 +105,11 @@ public class NexoMod implements ClientModInitializer {
 		NexoChatSearch.register();
 		NexoQuickConnect.register();
 		NexoBadges.register();
+		// Builtins first: the registry must be populated before a profile is
+		// applied, and the Tactical initialiser adds its own modules to the same
+		// list later in the same startup.
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerBuiltins();
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.register();
 		// Temporary one-shot confirmation lines while tracking down a report that
 		// armor HUD renders nothing despite being enabled and armor equipped —
 		// these narrow down whether one of these four calls is silently throwing
@@ -123,6 +128,14 @@ public class NexoMod implements ClientModInitializer {
 		NexoStatsHud.register();
 		NexoPotionHud.register();
 		NexoComboCounter.register();
+		dev.nexoclient.nexomod.hud.NexoTargetHud.register();
+		dev.nexoclient.nexomod.hud.NexoTotemPops.register();
+		dev.nexoclient.nexomod.hud.NexoHitOverlay.register();
+		dev.nexoclient.nexomod.hud.NexoDurabilityWarning.register();
+		dev.nexoclient.nexomod.hud.NexoStackCount.register();
+		dev.nexoclient.nexomod.hud.NexoAutoReconnect.register();
+		dev.nexoclient.nexomod.hud.NexoContainerSearch.register();
+		dev.nexoclient.nexomod.util.NexoScreenshotTools.register();
 		NexoFadingLogHud.ACTIONBAR.register();
 		NexoFadingLogHud.PICKUPS.register();
 		dev.nexoclient.nexomod.hud.NexoSecondChatHud.register();

@@ -51,9 +51,68 @@ public final class NexoConfig {
 	/** Freecam fly speed multiplier. Held sprint triples whatever this is. */
 	public static final int FREECAM_SPEED_MIN = 1;
 	public static final int FREECAM_SPEED_MAX = 10;
+	/** Aim assist targets: 0 players, 1 hostile mobs, 2 any living entity. */
+	public static final int AIM_TARGET_MODES = 3;
+	/** Aim assist aim point: 0 nearest point of the hitbox, 1 head, 2 body, 3 feet. */
+	public static final int AIM_POINT_MODES = 4;
+	/**
+	 * Aim assist stealth ladder, 0..4. Stage 0 is the raw proportional pull — the
+	 * most accurate and the most obviously mechanical; each stage after it trades
+	 * speed and precision for human-looking timing. The stage is only a
+	 * <em>preset</em>: it writes the individual {@code aimAssist*} knobs below, and
+	 * those knobs are what the module reads. Editing one of them by hand makes the
+	 * slider read "Custom" without moving the handle.
+	 */
+	public static final int AIM_ASSIST_STEALTH_STAGES = 5;
+	public static final int AIM_ASSIST_STEALTH_DEFAULT = 2;
+	/** Bounds for the individual humanisation knobs. Reaction is in ticks. */
+	public static final int AIM_ASSIST_REACTION_MAX_TICKS = 10;
+	public static final int AIM_ASSIST_SPEED_MIN = 25;
+	public static final int AIM_ASSIST_SPEED_MAX = 150;
+	/**
+	 * The five presets the stealth slider writes, as
+	 * {@code {reactionMin, reactionMax, ramp, noise, overshoot, skip, speed, snap}}.
+	 * Kept next to the knobs so a preset and the thing it means cannot drift.
+	 */
+	private static final int[][] AIM_ASSIST_STEALTH_PRESETS = {
+			{0, 0, 100, 0, 0, 0, 100, 0},
+			{0, 1, 80, 10, 0, 0, 100, 1},
+			{1, 2, 65, 25, 5, 1, 95, 1},
+			{2, 4, 50, 40, 12, 3, 85, 1},
+			{2, 5, 45, 50, 15, 4, 75, 1},
+	};
 	/** Fullbright strength in percent; 100 is plain fullbright. */
 	public static final int FULLBRIGHT_PERCENT_MIN = 100;
 	public static final int FULLBRIGHT_PERCENT_MAX = 1500;
+	/** Trajectory preview flight time in ticks. */
+	public static final int TRAJECTORY_TICKS_MIN = 20;
+	public static final int TRAJECTORY_TICKS_MAX = 200;
+	/**
+	 * Trigger bot reaction window in milliseconds, measured from the tick the
+	 * target first qualifies (in reach, wanted, charge reached) to the swing.
+	 * 0 swings on that same tick; the ceiling is well under a second so the
+	 * window can humanise timing without costing every hit.
+	 */
+	public static final int TRIGGER_BOT_DELAY_FLOOR = 0;
+	public static final int TRIGGER_BOT_DELAY_CEILING = 400;
+	public static final int TRIGGER_BOT_DELAY_MIN_DEFAULT = 40;
+	public static final int TRIGGER_BOT_DELAY_MAX_DEFAULT = 120;
+
+	/**
+	 * Slider bounds shared by the crystal and anchor auras. Range is in blocks
+	 * (both the target search radius and the placement reach); delays are ticks
+	 * between placement/detonation steps; max self-damage is in hearts, where 0
+	 * means "ignore the safety check entirely".
+	 */
+	public static final int AURA_RANGE_MIN = 3;
+	public static final int AURA_RANGE_MAX = 6;
+	public static final int AURA_DELAY_MIN = 1;
+	public static final int AURA_DELAY_MAX = 10;
+	public static final int AURA_MAX_SELF_DAMAGE = 20;
+
+	/** Shield breaker swing interval bounds, in ticks. */
+	public static final int SHIELD_BREAK_COOLDOWN_MIN = 1;
+	public static final int SHIELD_BREAK_COOLDOWN_MAX = 20;
 
 	/**
 	 * Sound categories the tactical indicator listens to out of the box, as a
@@ -269,6 +328,29 @@ public final class NexoConfig {
 
 	private boolean damageNumbersEnabled;
 	private boolean tntTimerEnabled;
+	private boolean knockbackDisplacementEnabled;
+	private boolean durabilityWarningEnabled;
+	private boolean autoReconnectEnabled;
+	private boolean stackCountEnabled;
+	private boolean containerSearchEnabled;
+	private boolean oreHighlightEnabled;
+	private boolean fallWarningEnabled;
+	private boolean playerRadarEnabled;
+	private boolean combatLogEnabled;
+	/** The audit HUD: what the server actually receives from this client. */
+	private boolean serverViewEnabled;
+	/** Trajectory preview for the projectile in hand. */
+	private boolean trajectoryEnabled;
+	private int trajectoryTicks = 100;
+	private boolean targetHudEnabled;
+	private boolean reachDisplayEnabled;
+	private boolean totemPopCounterEnabled;
+	private boolean hitOverlayEnabled;
+	private boolean hitboxDisplayEnabled;
+	private boolean critIndicatorEnabled;
+	private boolean wTapAssistEnabled;
+	private boolean threatWarningEnabled;
+	private boolean autoTotemEnabled;
 
 	private boolean toggleSprintEnabled;
 	private boolean toggleSneakEnabled;
@@ -286,6 +368,7 @@ public final class NexoConfig {
 	private int crosshairThickness = 1;
 	private int crosshairGap = 2;
 	private boolean crosshairOutline = true;
+	private boolean crosshairCooldown = true;
 
 	/**
 	 * Moved here from the "Full-jar features" block below: armor HUD started as
@@ -372,9 +455,46 @@ public final class NexoConfig {
 	private boolean lightOverlayShowSafe;
 	private boolean freecamEnabled;
 	private int freecamSpeed = 2;
+	private boolean aimAssistEnabled;
+	private int aimAssistStrength = 30;
+	private int aimAssistFov = 60;
+	private int aimAssistRange = 4;
+	private int aimAssistTargets;
+	private int aimAssistPoint;
+	private int aimAssistStealth = AIM_ASSIST_STEALTH_DEFAULT;
+	private int aimAssistReactionMin = 1;
+	private int aimAssistReactionMax = 2;
+	private int aimAssistRamp = 65;
+	private int aimAssistNoise = 25;
+	private int aimAssistOvershoot = 5;
+	private int aimAssistSkip = 1;
+	private int aimAssistSpeed = 95;
+	private boolean aimAssistSnap = true;
+	private boolean rangeIndicatorEnabled;
+	private boolean triggerBotEnabled;
+	private int triggerBotTargets;
+	private int triggerBotCharge = 90;
+	private int triggerBotDelayMin = TRIGGER_BOT_DELAY_MIN_DEFAULT;
+	private int triggerBotDelayMax = TRIGGER_BOT_DELAY_MAX_DEFAULT;
+	private boolean aimAssistOnlyAttacking = true;
 	private boolean fullbrightEnabled;
 	private int fullbrightPercent = 100;
 	private boolean macroTriggersEnabled;
+
+	private boolean crystalAuraEnabled;
+	private int crystalAuraRange = 4;
+	private int crystalAuraTargets;
+	private int crystalAuraPlaceDelay = 1;
+	private int crystalAuraBreakDelay = 1;
+	private int crystalAuraMaxSelfDamage = 4;
+	private boolean anchorAuraEnabled;
+	private int anchorAuraRange = 4;
+	private int anchorAuraTargets;
+	private int anchorAuraDelay = 1;
+	private int anchorAuraMaxSelfDamage = 4;
+
+	private boolean shieldBreakerEnabled;
+	private int shieldBreakerCooldown = 4;
 
 	private NexoConfig(boolean customMenusEnabled, boolean customFontEnabled, BackgroundStyle backgroundStyle, MatrixColor matrixColor, MatrixDensity matrixDensity, boolean discordRpcEnabled, ObscurePreset obscurePreset, boolean obscureCoordinatesEnabled, boolean obscureBlockRotationEnabled, boolean obscureBedrockFloorEnabled) {
 		this.customMenusEnabled = customMenusEnabled;
@@ -866,6 +986,196 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean targetHudEnabled() {
+		return targetHudEnabled;
+	}
+
+	public void setTargetHudEnabled(boolean enabled) {
+		this.targetHudEnabled = enabled;
+		save();
+	}
+
+	public boolean reachDisplayEnabled() {
+		return reachDisplayEnabled;
+	}
+
+	public void setReachDisplayEnabled(boolean enabled) {
+		this.reachDisplayEnabled = enabled;
+		save();
+	}
+
+	public boolean totemPopCounterEnabled() {
+		return totemPopCounterEnabled;
+	}
+
+	public void setTotemPopCounterEnabled(boolean enabled) {
+		this.totemPopCounterEnabled = enabled;
+		save();
+	}
+
+	public boolean hitOverlayEnabled() {
+		return hitOverlayEnabled;
+	}
+
+	public void setHitOverlayEnabled(boolean enabled) {
+		this.hitOverlayEnabled = enabled;
+		save();
+	}
+
+	public boolean hitboxDisplayEnabled() {
+		return hitboxDisplayEnabled;
+	}
+
+	public void setHitboxDisplayEnabled(boolean enabled) {
+		this.hitboxDisplayEnabled = enabled;
+		save();
+	}
+
+	public boolean critIndicatorEnabled() {
+		return critIndicatorEnabled;
+	}
+
+	public void setCritIndicatorEnabled(boolean enabled) {
+		this.critIndicatorEnabled = enabled;
+		save();
+	}
+
+	public boolean wTapAssistEnabled() {
+		return wTapAssistEnabled;
+	}
+
+	public void setWTapAssistEnabled(boolean enabled) {
+		this.wTapAssistEnabled = enabled;
+		save();
+	}
+
+	public boolean threatWarningEnabled() {
+		return threatWarningEnabled;
+	}
+
+	public void setThreatWarningEnabled(boolean enabled) {
+		this.threatWarningEnabled = enabled;
+		save();
+	}
+
+	public boolean autoTotemEnabled() {
+		return autoTotemEnabled;
+	}
+
+	public void setAutoTotemEnabled(boolean enabled) {
+		this.autoTotemEnabled = enabled;
+		save();
+	}
+
+	public boolean durabilityWarningEnabled() {
+		return durabilityWarningEnabled;
+	}
+
+	public void setDurabilityWarningEnabled(boolean enabled) {
+		this.durabilityWarningEnabled = enabled;
+		save();
+	}
+
+	public boolean autoReconnectEnabled() {
+		return autoReconnectEnabled;
+	}
+
+	public void setAutoReconnectEnabled(boolean enabled) {
+		this.autoReconnectEnabled = enabled;
+		save();
+	}
+
+	public boolean stackCountEnabled() {
+		return stackCountEnabled;
+	}
+
+	public void setStackCountEnabled(boolean enabled) {
+		this.stackCountEnabled = enabled;
+		save();
+	}
+
+	public boolean containerSearchEnabled() {
+		return containerSearchEnabled;
+	}
+
+	public void setContainerSearchEnabled(boolean enabled) {
+		this.containerSearchEnabled = enabled;
+		save();
+	}
+
+	public boolean oreHighlightEnabled() {
+		return oreHighlightEnabled;
+	}
+
+	public void setOreHighlightEnabled(boolean enabled) {
+		this.oreHighlightEnabled = enabled;
+		save();
+	}
+
+	public boolean fallWarningEnabled() {
+		return fallWarningEnabled;
+	}
+
+	public void setFallWarningEnabled(boolean enabled) {
+		this.fallWarningEnabled = enabled;
+		save();
+	}
+
+	public boolean playerRadarEnabled() {
+		return playerRadarEnabled;
+	}
+
+	public void setPlayerRadarEnabled(boolean enabled) {
+		this.playerRadarEnabled = enabled;
+		save();
+	}
+
+	public boolean combatLogEnabled() {
+		return combatLogEnabled;
+	}
+
+	public void setCombatLogEnabled(boolean enabled) {
+		this.combatLogEnabled = enabled;
+		save();
+	}
+
+	public boolean serverViewEnabled() {
+		return serverViewEnabled;
+	}
+
+	public void setServerViewEnabled(boolean enabled) {
+		this.serverViewEnabled = enabled;
+		save();
+	}
+
+	public boolean trajectoryEnabled() {
+		return trajectoryEnabled;
+	}
+
+	public void setTrajectoryEnabled(boolean enabled) {
+		this.trajectoryEnabled = enabled;
+		save();
+	}
+
+	/** How many ticks of flight the trajectory preview simulates before giving up. */
+	public int trajectoryTicks() {
+		return trajectoryTicks;
+	}
+
+	public void setTrajectoryTicks(int value) {
+		this.trajectoryTicks = Math.clamp(value, TRAJECTORY_TICKS_MIN, TRAJECTORY_TICKS_MAX);
+		save();
+	}
+
+	public boolean knockbackDisplacementEnabled() {
+		return knockbackDisplacementEnabled;
+	}
+
+	public void setKnockbackDisplacementEnabled(boolean enabled) {
+		this.knockbackDisplacementEnabled = enabled;
+		save();
+	}
+
 	public boolean tntTimerEnabled() {
 		return tntTimerEnabled;
 	}
@@ -951,6 +1261,8 @@ public final class NexoConfig {
 	public void setCrosshairThickness(int v) { crosshairThickness = Math.clamp(v, 1, 6); save(); }
 	public int crosshairGap() { return crosshairGap; }
 	public void setCrosshairGap(int v) { crosshairGap = Math.clamp(v, 0, 12); save(); }
+	public boolean crosshairCooldown() { return crosshairCooldown; }
+	public void setCrosshairCooldown(boolean v) { crosshairCooldown = v; save(); }
 	public boolean crosshairOutline() { return crosshairOutline; }
 	public void setCrosshairOutline(boolean v) { crosshairOutline = v; save(); }
 
@@ -1249,6 +1561,253 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean aimAssistEnabled() {
+		return aimAssistEnabled;
+	}
+
+	public void setAimAssistEnabled(boolean enabled) {
+		this.aimAssistEnabled = enabled;
+		save();
+	}
+
+	public int aimAssistStrength() {
+		return aimAssistStrength;
+	}
+
+	public void setAimAssistStrength(int value) {
+		this.aimAssistStrength = Math.clamp(value, 1, 100);
+		save();
+	}
+
+	public int aimAssistFov() {
+		return aimAssistFov;
+	}
+
+	public void setAimAssistFov(int value) {
+		this.aimAssistFov = Math.clamp(value, 5, 180);
+		save();
+	}
+
+	public int aimAssistRange() {
+		return aimAssistRange;
+	}
+
+	public void setAimAssistRange(int value) {
+		this.aimAssistRange = Math.clamp(value, 2, 6);
+		save();
+	}
+
+	public int aimAssistTargets() {
+		return aimAssistTargets;
+	}
+
+	public void cycleAimAssistTargets() {
+		this.aimAssistTargets = (aimAssistTargets + 1) % AIM_TARGET_MODES;
+		save();
+	}
+
+	public int aimAssistPoint() {
+		return aimAssistPoint;
+	}
+
+	public void cycleAimAssistPoint() {
+		this.aimAssistPoint = (aimAssistPoint + 1) % AIM_POINT_MODES;
+		save();
+	}
+
+	/** Aim assist stealth preset the slider handle sits on, 0 (raw) to 4 (humanised). */
+	public int aimAssistStealth() {
+		return aimAssistStealth;
+	}
+
+	/**
+	 * Applies a preset rung to every individual knob at once. The stage is kept so
+	 * the slider handle stays where the user left it; the knobs are what the
+	 * module reads.
+	 */
+	public void applyAimAssistStealthPreset(int stage) {
+		int rung = Math.clamp(stage, 0, AIM_ASSIST_STEALTH_STAGES - 1);
+		int[] p = AIM_ASSIST_STEALTH_PRESETS[rung];
+		this.aimAssistStealth = rung;
+		this.aimAssistReactionMin = p[0];
+		this.aimAssistReactionMax = p[1];
+		this.aimAssistRamp = p[2];
+		this.aimAssistNoise = p[3];
+		this.aimAssistOvershoot = p[4];
+		this.aimAssistSkip = p[5];
+		this.aimAssistSpeed = p[6];
+		this.aimAssistSnap = p[7] != 0;
+		save();
+	}
+
+	/** Whether the individual knobs still match the given preset rung. */
+	public boolean matchesAimAssistStealthPreset(int stage) {
+		if (stage < 0 || stage >= AIM_ASSIST_STEALTH_STAGES) {
+			return false;
+		}
+		int[] p = AIM_ASSIST_STEALTH_PRESETS[stage];
+		return aimAssistReactionMin == p[0] && aimAssistReactionMax == p[1] && aimAssistRamp == p[2]
+				&& aimAssistNoise == p[3] && aimAssistOvershoot == p[4] && aimAssistSkip == p[5]
+				&& aimAssistSpeed == p[6] && aimAssistSnap == (p[7] != 0);
+	}
+
+	/**
+	 * Whether any humanisation is active. The trigger bot uses this to decide
+	 * whether it is worth deferring a swing for a settling aim: at the raw rung
+	 * there is nothing to settle.
+	 */
+	public boolean aimAssistHumanised() {
+		return aimAssistReactionMax > 0 || aimAssistRamp < 100 || aimAssistNoise > 0
+				|| aimAssistOvershoot > 0 || aimAssistSkip > 0 || aimAssistSpeed < 100 || aimAssistSnap;
+	}
+
+	public int aimAssistReactionMin() {
+		return aimAssistReactionMin;
+	}
+
+	/** Independent of the max on purpose: the module reads the pair as a range and
+	 * normalises the order, so dragging one past the other is not an error state
+	 * that has to be silently corrected under the user's hand. */
+	public void setAimAssistReactionMin(int value) {
+		this.aimAssistReactionMin = Math.clamp(value, 0, AIM_ASSIST_REACTION_MAX_TICKS);
+		save();
+	}
+
+	public int aimAssistReactionMax() {
+		return aimAssistReactionMax;
+	}
+
+	public void setAimAssistReactionMax(int value) {
+		this.aimAssistReactionMax = Math.clamp(value, 0, AIM_ASSIST_REACTION_MAX_TICKS);
+		save();
+	}
+
+	/** Percent of full gain applied on the first pulling tick; 100 is no ease-in. */
+	public int aimAssistRamp() {
+		return aimAssistRamp;
+	}
+
+	public void setAimAssistRamp(int value) {
+		this.aimAssistRamp = Math.clamp(value, 0, 100);
+		save();
+	}
+
+	/** Per-tick speed jitter width in percent; 0 is a perfectly steady pull. */
+	public int aimAssistNoise() {
+		return aimAssistNoise;
+	}
+
+	public void setAimAssistNoise(int value) {
+		this.aimAssistNoise = Math.clamp(value, 0, 100);
+		save();
+	}
+
+	/** Chance per engagement, in percent, of one deliberate overshoot. */
+	public int aimAssistOvershoot() {
+		return aimAssistOvershoot;
+	}
+
+	public void setAimAssistOvershoot(int value) {
+		this.aimAssistOvershoot = Math.clamp(value, 0, 100);
+		save();
+	}
+
+	/** Chance per tick, in percent, of not correcting at all. */
+	public int aimAssistSkip() {
+		return aimAssistSkip;
+	}
+
+	public void setAimAssistSkip(int value) {
+		this.aimAssistSkip = Math.clamp(value, 0, 100);
+		save();
+	}
+
+	/** Overall pull speed in percent; below 100 settles slower and looks less certain. */
+	public int aimAssistSpeed() {
+		return aimAssistSpeed;
+	}
+
+	public void setAimAssistSpeed(int value) {
+		this.aimAssistSpeed = Math.clamp(value, AIM_ASSIST_SPEED_MIN, AIM_ASSIST_SPEED_MAX);
+		save();
+	}
+
+	/** Whether applied deltas are rounded onto the vanilla mouse grid. */
+	public boolean aimAssistSnap() {
+		return aimAssistSnap;
+	}
+
+	public void setAimAssistSnap(boolean value) {
+		this.aimAssistSnap = value;
+		save();
+	}
+
+	public boolean rangeIndicatorEnabled() {
+		return rangeIndicatorEnabled;
+	}
+
+	public void setRangeIndicatorEnabled(boolean enabled) {
+		this.rangeIndicatorEnabled = enabled;
+		save();
+	}
+
+	public boolean triggerBotEnabled() {
+		return triggerBotEnabled;
+	}
+
+	public void setTriggerBotEnabled(boolean enabled) {
+		this.triggerBotEnabled = enabled;
+		save();
+	}
+
+	public int triggerBotTargets() {
+		return triggerBotTargets;
+	}
+
+	public void cycleTriggerBotTargets() {
+		this.triggerBotTargets = (triggerBotTargets + 1) % AIM_TARGET_MODES;
+		save();
+	}
+
+	/** Percent of the attack cooldown that must have recharged before the trigger bot swings. */
+	public int triggerBotCharge() {
+		return triggerBotCharge;
+	}
+
+	public void setTriggerBotCharge(int value) {
+		this.triggerBotCharge = Math.clamp(value, 50, 100);
+		save();
+	}
+
+	/** Shortest trigger bot reaction delay in milliseconds; never above the max. */
+	public int triggerBotDelayMin() {
+		return triggerBotDelayMin;
+	}
+
+	public void setTriggerBotDelayMin(int value) {
+		this.triggerBotDelayMin = Math.clamp(value, TRIGGER_BOT_DELAY_FLOOR, triggerBotDelayMax);
+		save();
+	}
+
+	/** Longest trigger bot reaction delay in milliseconds; never below the min. */
+	public int triggerBotDelayMax() {
+		return triggerBotDelayMax;
+	}
+
+	public void setTriggerBotDelayMax(int value) {
+		this.triggerBotDelayMax = Math.clamp(value, triggerBotDelayMin, TRIGGER_BOT_DELAY_CEILING);
+		save();
+	}
+
+	public boolean aimAssistOnlyAttacking() {
+		return aimAssistOnlyAttacking;
+	}
+
+	public void setAimAssistOnlyAttacking(boolean value) {
+		this.aimAssistOnlyAttacking = value;
+		save();
+	}
+
 	public boolean fullbrightEnabled() {
 		return fullbrightEnabled;
 	}
@@ -1273,6 +1832,135 @@ public final class NexoConfig {
 
 	public void setMacroTriggersEnabled(boolean enabled) {
 		this.macroTriggersEnabled = enabled;
+		save();
+	}
+
+	// ------------------------------------------------------------------
+	// Crystal / Anchor auras (full jar only)
+	// ------------------------------------------------------------------
+
+	public boolean crystalAuraEnabled() {
+		return crystalAuraEnabled;
+	}
+
+	public void setCrystalAuraEnabled(boolean enabled) {
+		this.crystalAuraEnabled = enabled;
+		save();
+	}
+
+	public int crystalAuraRange() {
+		return crystalAuraRange;
+	}
+
+	public void setCrystalAuraRange(int value) {
+		this.crystalAuraRange = Math.clamp(value, AURA_RANGE_MIN, AURA_RANGE_MAX);
+		save();
+	}
+
+	public int crystalAuraTargets() {
+		return crystalAuraTargets;
+	}
+
+	public void cycleCrystalAuraTargets() {
+		this.crystalAuraTargets = (crystalAuraTargets + 1) % AIM_TARGET_MODES;
+		save();
+	}
+
+	public int crystalAuraPlaceDelay() {
+		return crystalAuraPlaceDelay;
+	}
+
+	public void setCrystalAuraPlaceDelay(int value) {
+		this.crystalAuraPlaceDelay = Math.clamp(value, AURA_DELAY_MIN, AURA_DELAY_MAX);
+		save();
+	}
+
+	public int crystalAuraBreakDelay() {
+		return crystalAuraBreakDelay;
+	}
+
+	public void setCrystalAuraBreakDelay(int value) {
+		this.crystalAuraBreakDelay = Math.clamp(value, AURA_DELAY_MIN, AURA_DELAY_MAX);
+		save();
+	}
+
+	/** Max self-damage in hearts a crystal placement may cause; 0 turns the safety check off. */
+	public int crystalAuraMaxSelfDamage() {
+		return crystalAuraMaxSelfDamage;
+	}
+
+	public void setCrystalAuraMaxSelfDamage(int value) {
+		this.crystalAuraMaxSelfDamage = Math.clamp(value, 0, AURA_MAX_SELF_DAMAGE);
+		save();
+	}
+
+	public boolean anchorAuraEnabled() {
+		return anchorAuraEnabled;
+	}
+
+	public void setAnchorAuraEnabled(boolean enabled) {
+		this.anchorAuraEnabled = enabled;
+		save();
+	}
+
+	public int anchorAuraRange() {
+		return anchorAuraRange;
+	}
+
+	public void setAnchorAuraRange(int value) {
+		this.anchorAuraRange = Math.clamp(value, AURA_RANGE_MIN, AURA_RANGE_MAX);
+		save();
+	}
+
+	public int anchorAuraTargets() {
+		return anchorAuraTargets;
+	}
+
+	public void cycleAnchorAuraTargets() {
+		this.anchorAuraTargets = (anchorAuraTargets + 1) % AIM_TARGET_MODES;
+		save();
+	}
+
+	/** Ticks between the place, charge and trigger steps of an anchor detonation. */
+	public int anchorAuraDelay() {
+		return anchorAuraDelay;
+	}
+
+	public void setAnchorAuraDelay(int value) {
+		this.anchorAuraDelay = Math.clamp(value, AURA_DELAY_MIN, AURA_DELAY_MAX);
+		save();
+	}
+
+	/** Max self-damage in hearts an anchor placement may cause; 0 turns the safety check off. */
+	public int anchorAuraMaxSelfDamage() {
+		return anchorAuraMaxSelfDamage;
+	}
+
+	public void setAnchorAuraMaxSelfDamage(int value) {
+		this.anchorAuraMaxSelfDamage = Math.clamp(value, 0, AURA_MAX_SELF_DAMAGE);
+		save();
+	}
+
+	// ------------------------------------------------------------------
+	// Shield breaker (full jar only)
+	// ------------------------------------------------------------------
+
+	public boolean shieldBreakerEnabled() {
+		return shieldBreakerEnabled;
+	}
+
+	public void setShieldBreakerEnabled(boolean enabled) {
+		this.shieldBreakerEnabled = enabled;
+		save();
+	}
+
+	/** Ticks between axe swings at a blocking target. */
+	public int shieldBreakerCooldown() {
+		return shieldBreakerCooldown;
+	}
+
+	public void setShieldBreakerCooldown(int value) {
+		this.shieldBreakerCooldown = Math.clamp(value, SHIELD_BREAK_COOLDOWN_MIN, SHIELD_BREAK_COOLDOWN_MAX);
 		save();
 	}
 
@@ -1346,6 +2034,28 @@ public final class NexoConfig {
 		damageNumbersEnabled = Boolean.parseBoolean(props.getProperty("damageNumbersEnabled", "false"));
 		smoothEdgesEnabled = Boolean.parseBoolean(props.getProperty("smoothEdgesEnabled", "true"));
 		tntTimerEnabled = Boolean.parseBoolean(props.getProperty("tntTimerEnabled", "false"));
+		knockbackDisplacementEnabled = Boolean.parseBoolean(props.getProperty("knockbackDisplacementEnabled", "false"));
+		durabilityWarningEnabled = Boolean.parseBoolean(props.getProperty("durabilityWarningEnabled", "false"));
+		autoReconnectEnabled = Boolean.parseBoolean(props.getProperty("autoReconnectEnabled", "false"));
+		stackCountEnabled = Boolean.parseBoolean(props.getProperty("stackCountEnabled", "false"));
+		containerSearchEnabled = Boolean.parseBoolean(props.getProperty("containerSearchEnabled", "false"));
+		oreHighlightEnabled = Boolean.parseBoolean(props.getProperty("oreHighlightEnabled", "false"));
+		fallWarningEnabled = Boolean.parseBoolean(props.getProperty("fallWarningEnabled", "false"));
+		playerRadarEnabled = Boolean.parseBoolean(props.getProperty("playerRadarEnabled", "false"));
+		combatLogEnabled = Boolean.parseBoolean(props.getProperty("combatLogEnabled", "false"));
+		serverViewEnabled = Boolean.parseBoolean(props.getProperty("serverViewEnabled", "false"));
+		trajectoryEnabled = Boolean.parseBoolean(props.getProperty("trajectoryEnabled", "false"));
+		trajectoryTicks = boundedIntOrDefault(props.getProperty("trajectoryTicks"), 100,
+				TRAJECTORY_TICKS_MIN, TRAJECTORY_TICKS_MAX);
+		targetHudEnabled = Boolean.parseBoolean(props.getProperty("targetHudEnabled", "false"));
+		reachDisplayEnabled = Boolean.parseBoolean(props.getProperty("reachDisplayEnabled", "false"));
+		totemPopCounterEnabled = Boolean.parseBoolean(props.getProperty("totemPopCounterEnabled", "false"));
+		hitOverlayEnabled = Boolean.parseBoolean(props.getProperty("hitOverlayEnabled", "false"));
+		hitboxDisplayEnabled = Boolean.parseBoolean(props.getProperty("hitboxDisplayEnabled", "false"));
+		critIndicatorEnabled = Boolean.parseBoolean(props.getProperty("critIndicatorEnabled", "false"));
+		wTapAssistEnabled = Boolean.parseBoolean(props.getProperty("wTapAssistEnabled", "false"));
+		threatWarningEnabled = Boolean.parseBoolean(props.getProperty("threatWarningEnabled", "false"));
+		autoTotemEnabled = Boolean.parseBoolean(props.getProperty("autoTotemEnabled", "false"));
 		toggleSprintEnabled = Boolean.parseBoolean(props.getProperty("toggleSprintEnabled", "false"));
 		toggleSneakEnabled = Boolean.parseBoolean(props.getProperty("toggleSneakEnabled", "false"));
 		zoomEnabled = Boolean.parseBoolean(props.getProperty("zoomEnabled", "false"));
@@ -1359,6 +2069,7 @@ public final class NexoConfig {
 		crosshairThickness = boundedIntOrDefault(props.getProperty("crosshairThickness"), 1, 1, 6);
 		crosshairGap = boundedIntOrDefault(props.getProperty("crosshairGap"), 2, 0, 12);
 		crosshairOutline = Boolean.parseBoolean(props.getProperty("crosshairOutline", "true"));
+		crosshairCooldown = Boolean.parseBoolean(props.getProperty("crosshairCooldown", "true"));
 		return this;
 	}
 
@@ -1426,12 +2137,66 @@ public final class NexoConfig {
 				LIGHT_OVERLAY_THRESHOLD_MIN, LIGHT_OVERLAY_THRESHOLD_MAX);
 		lightOverlayShowSafe = Boolean.parseBoolean(props.getProperty("lightOverlayShowSafe", "false"));
 		freecamEnabled = Boolean.parseBoolean(props.getProperty("freecamEnabled", "false"));
+		aimAssistEnabled = Boolean.parseBoolean(props.getProperty("aimAssistEnabled", "false"));
+		aimAssistStrength = boundedIntOrDefault(props.getProperty("aimAssistStrength"), 30, 1, 100);
+		aimAssistFov = boundedIntOrDefault(props.getProperty("aimAssistFov"), 60, 5, 180);
+		aimAssistRange = boundedIntOrDefault(props.getProperty("aimAssistRange"), 4, 2, 6);
+		aimAssistTargets = boundedIntOrDefault(props.getProperty("aimAssistTargets"), 0, 0, AIM_TARGET_MODES - 1);
+		aimAssistPoint = boundedIntOrDefault(props.getProperty("aimAssistPoint"), 0, 0, AIM_POINT_MODES - 1);
+		aimAssistStealth = boundedIntOrDefault(props.getProperty("aimAssistStealth"),
+				AIM_ASSIST_STEALTH_DEFAULT, 0, AIM_ASSIST_STEALTH_STAGES - 1);
+		aimAssistReactionMin = boundedIntOrDefault(props.getProperty("aimAssistReactionMin"),
+				1, 0, AIM_ASSIST_REACTION_MAX_TICKS);
+		aimAssistReactionMax = boundedIntOrDefault(props.getProperty("aimAssistReactionMax"),
+				2, 0, AIM_ASSIST_REACTION_MAX_TICKS);
+		if (aimAssistReactionMin > aimAssistReactionMax) {
+			int lower = aimAssistReactionMax;
+			aimAssistReactionMax = aimAssistReactionMin;
+			aimAssistReactionMin = lower;
+		}
+		aimAssistRamp = boundedIntOrDefault(props.getProperty("aimAssistRamp"), 65, 0, 100);
+		aimAssistNoise = boundedIntOrDefault(props.getProperty("aimAssistNoise"), 25, 0, 100);
+		aimAssistOvershoot = boundedIntOrDefault(props.getProperty("aimAssistOvershoot"), 5, 0, 100);
+		aimAssistSkip = boundedIntOrDefault(props.getProperty("aimAssistSkip"), 1, 0, 100);
+		aimAssistSpeed = boundedIntOrDefault(props.getProperty("aimAssistSpeed"), 95,
+				AIM_ASSIST_SPEED_MIN, AIM_ASSIST_SPEED_MAX);
+		aimAssistSnap = Boolean.parseBoolean(props.getProperty("aimAssistSnap", "true"));
+		rangeIndicatorEnabled = Boolean.parseBoolean(props.getProperty("rangeIndicatorEnabled", "false"));
+		triggerBotEnabled = Boolean.parseBoolean(props.getProperty("triggerBotEnabled", "false"));
+		triggerBotTargets = boundedIntOrDefault(props.getProperty("triggerBotTargets"), 0, 0, AIM_TARGET_MODES - 1);
+		triggerBotCharge = boundedIntOrDefault(props.getProperty("triggerBotCharge"), 90, 50, 100);
+		triggerBotDelayMin = boundedIntOrDefault(props.getProperty("triggerBotDelayMin"),
+				TRIGGER_BOT_DELAY_MIN_DEFAULT, TRIGGER_BOT_DELAY_FLOOR, TRIGGER_BOT_DELAY_CEILING);
+		triggerBotDelayMax = boundedIntOrDefault(props.getProperty("triggerBotDelayMax"),
+				TRIGGER_BOT_DELAY_MAX_DEFAULT, TRIGGER_BOT_DELAY_FLOOR, TRIGGER_BOT_DELAY_CEILING);
+		// A hand-edited file can invert the window; heal it rather than silently
+		// pinning both ends to whichever one came first.
+		if (triggerBotDelayMin > triggerBotDelayMax) {
+			int lower = triggerBotDelayMax;
+			triggerBotDelayMax = triggerBotDelayMin;
+			triggerBotDelayMin = lower;
+		}
+		aimAssistOnlyAttacking = Boolean.parseBoolean(props.getProperty("aimAssistOnlyAttacking", "true"));
 		freecamSpeed = boundedIntOrDefault(props.getProperty("freecamSpeed"), 2,
 				FREECAM_SPEED_MIN, FREECAM_SPEED_MAX);
 		fullbrightEnabled = Boolean.parseBoolean(props.getProperty("fullbrightEnabled", "false"));
 		fullbrightPercent = boundedIntOrDefault(props.getProperty("fullbrightPercent"), 100,
 				FULLBRIGHT_PERCENT_MIN, FULLBRIGHT_PERCENT_MAX);
 		macroTriggersEnabled = Boolean.parseBoolean(props.getProperty("macroTriggersEnabled", "false"));
+		crystalAuraEnabled = Boolean.parseBoolean(props.getProperty("crystalAuraEnabled", "false"));
+		crystalAuraRange = boundedIntOrDefault(props.getProperty("crystalAuraRange"), 4, AURA_RANGE_MIN, AURA_RANGE_MAX);
+		crystalAuraTargets = boundedIntOrDefault(props.getProperty("crystalAuraTargets"), 0, 0, AIM_TARGET_MODES - 1);
+		crystalAuraPlaceDelay = boundedIntOrDefault(props.getProperty("crystalAuraPlaceDelay"), 1, AURA_DELAY_MIN, AURA_DELAY_MAX);
+		crystalAuraBreakDelay = boundedIntOrDefault(props.getProperty("crystalAuraBreakDelay"), 1, AURA_DELAY_MIN, AURA_DELAY_MAX);
+		crystalAuraMaxSelfDamage = boundedIntOrDefault(props.getProperty("crystalAuraMaxSelfDamage"), 4, 0, AURA_MAX_SELF_DAMAGE);
+		anchorAuraEnabled = Boolean.parseBoolean(props.getProperty("anchorAuraEnabled", "false"));
+		anchorAuraRange = boundedIntOrDefault(props.getProperty("anchorAuraRange"), 4, AURA_RANGE_MIN, AURA_RANGE_MAX);
+		anchorAuraTargets = boundedIntOrDefault(props.getProperty("anchorAuraTargets"), 0, 0, AIM_TARGET_MODES - 1);
+		anchorAuraDelay = boundedIntOrDefault(props.getProperty("anchorAuraDelay"), 1, AURA_DELAY_MIN, AURA_DELAY_MAX);
+		anchorAuraMaxSelfDamage = boundedIntOrDefault(props.getProperty("anchorAuraMaxSelfDamage"), 4, 0, AURA_MAX_SELF_DAMAGE);
+		shieldBreakerEnabled = Boolean.parseBoolean(props.getProperty("shieldBreakerEnabled", "false"));
+		shieldBreakerCooldown = boundedIntOrDefault(props.getProperty("shieldBreakerCooldown"), 4,
+				SHIELD_BREAK_COOLDOWN_MIN, SHIELD_BREAK_COOLDOWN_MAX);
 		return this;
 	}
 
@@ -1539,6 +2304,27 @@ public final class NexoConfig {
 		props.setProperty("hideBossBars", Boolean.toString(hideBossBars));
 		props.setProperty("damageNumbersEnabled", Boolean.toString(damageNumbersEnabled));
 		props.setProperty("tntTimerEnabled", Boolean.toString(tntTimerEnabled));
+		props.setProperty("knockbackDisplacementEnabled", Boolean.toString(knockbackDisplacementEnabled));
+		props.setProperty("durabilityWarningEnabled", Boolean.toString(durabilityWarningEnabled));
+		props.setProperty("autoReconnectEnabled", Boolean.toString(autoReconnectEnabled));
+		props.setProperty("stackCountEnabled", Boolean.toString(stackCountEnabled));
+		props.setProperty("containerSearchEnabled", Boolean.toString(containerSearchEnabled));
+		props.setProperty("oreHighlightEnabled", Boolean.toString(oreHighlightEnabled));
+		props.setProperty("fallWarningEnabled", Boolean.toString(fallWarningEnabled));
+		props.setProperty("playerRadarEnabled", Boolean.toString(playerRadarEnabled));
+		props.setProperty("combatLogEnabled", Boolean.toString(combatLogEnabled));
+		props.setProperty("serverViewEnabled", Boolean.toString(serverViewEnabled));
+		props.setProperty("trajectoryEnabled", Boolean.toString(trajectoryEnabled));
+		props.setProperty("trajectoryTicks", Integer.toString(trajectoryTicks));
+		props.setProperty("targetHudEnabled", Boolean.toString(targetHudEnabled));
+		props.setProperty("reachDisplayEnabled", Boolean.toString(reachDisplayEnabled));
+		props.setProperty("totemPopCounterEnabled", Boolean.toString(totemPopCounterEnabled));
+		props.setProperty("hitOverlayEnabled", Boolean.toString(hitOverlayEnabled));
+		props.setProperty("hitboxDisplayEnabled", Boolean.toString(hitboxDisplayEnabled));
+		props.setProperty("critIndicatorEnabled", Boolean.toString(critIndicatorEnabled));
+		props.setProperty("wTapAssistEnabled", Boolean.toString(wTapAssistEnabled));
+		props.setProperty("threatWarningEnabled", Boolean.toString(threatWarningEnabled));
+		props.setProperty("autoTotemEnabled", Boolean.toString(autoTotemEnabled));
 		props.setProperty("toggleSprintEnabled", Boolean.toString(toggleSprintEnabled));
 		props.setProperty("toggleSneakEnabled", Boolean.toString(toggleSneakEnabled));
 		props.setProperty("zoomEnabled", Boolean.toString(zoomEnabled));
@@ -1552,6 +2338,7 @@ public final class NexoConfig {
 		props.setProperty("crosshairThickness", Integer.toString(crosshairThickness));
 		props.setProperty("crosshairGap", Integer.toString(crosshairGap));
 		props.setProperty("crosshairOutline", Boolean.toString(crosshairOutline));
+		props.setProperty("crosshairCooldown", Boolean.toString(crosshairCooldown));
 		props.setProperty("tacticalEnabled", Boolean.toString(tacticalEnabled));
 		props.setProperty("tacticalRange", Integer.toString(tacticalRange));
 		props.setProperty("tacticalCategoryMask", Integer.toString(tacticalCategoryMask));
@@ -1581,9 +2368,44 @@ public final class NexoConfig {
 		props.setProperty("lightOverlayShowSafe", Boolean.toString(lightOverlayShowSafe));
 		props.setProperty("freecamEnabled", Boolean.toString(freecamEnabled));
 		props.setProperty("freecamSpeed", Integer.toString(freecamSpeed));
+		props.setProperty("aimAssistEnabled", Boolean.toString(aimAssistEnabled));
+		props.setProperty("aimAssistStrength", Integer.toString(aimAssistStrength));
+		props.setProperty("aimAssistFov", Integer.toString(aimAssistFov));
+		props.setProperty("aimAssistRange", Integer.toString(aimAssistRange));
+		props.setProperty("aimAssistTargets", Integer.toString(aimAssistTargets));
+		props.setProperty("aimAssistPoint", Integer.toString(aimAssistPoint));
+		props.setProperty("aimAssistStealth", Integer.toString(aimAssistStealth));
+		props.setProperty("aimAssistReactionMin", Integer.toString(aimAssistReactionMin));
+		props.setProperty("aimAssistReactionMax", Integer.toString(aimAssistReactionMax));
+		props.setProperty("aimAssistRamp", Integer.toString(aimAssistRamp));
+		props.setProperty("aimAssistNoise", Integer.toString(aimAssistNoise));
+		props.setProperty("aimAssistOvershoot", Integer.toString(aimAssistOvershoot));
+		props.setProperty("aimAssistSkip", Integer.toString(aimAssistSkip));
+		props.setProperty("aimAssistSpeed", Integer.toString(aimAssistSpeed));
+		props.setProperty("aimAssistSnap", Boolean.toString(aimAssistSnap));
+		props.setProperty("rangeIndicatorEnabled", Boolean.toString(rangeIndicatorEnabled));
+		props.setProperty("triggerBotEnabled", Boolean.toString(triggerBotEnabled));
+		props.setProperty("triggerBotTargets", Integer.toString(triggerBotTargets));
+		props.setProperty("triggerBotCharge", Integer.toString(triggerBotCharge));
+		props.setProperty("triggerBotDelayMin", Integer.toString(triggerBotDelayMin));
+		props.setProperty("triggerBotDelayMax", Integer.toString(triggerBotDelayMax));
+		props.setProperty("aimAssistOnlyAttacking", Boolean.toString(aimAssistOnlyAttacking));
 		props.setProperty("fullbrightEnabled", Boolean.toString(fullbrightEnabled));
 		props.setProperty("fullbrightPercent", Integer.toString(fullbrightPercent));
 		props.setProperty("macroTriggersEnabled", Boolean.toString(macroTriggersEnabled));
+		props.setProperty("crystalAuraEnabled", Boolean.toString(crystalAuraEnabled));
+		props.setProperty("crystalAuraRange", Integer.toString(crystalAuraRange));
+		props.setProperty("crystalAuraTargets", Integer.toString(crystalAuraTargets));
+		props.setProperty("crystalAuraPlaceDelay", Integer.toString(crystalAuraPlaceDelay));
+		props.setProperty("crystalAuraBreakDelay", Integer.toString(crystalAuraBreakDelay));
+		props.setProperty("crystalAuraMaxSelfDamage", Integer.toString(crystalAuraMaxSelfDamage));
+		props.setProperty("anchorAuraEnabled", Boolean.toString(anchorAuraEnabled));
+		props.setProperty("anchorAuraRange", Integer.toString(anchorAuraRange));
+		props.setProperty("anchorAuraTargets", Integer.toString(anchorAuraTargets));
+		props.setProperty("anchorAuraDelay", Integer.toString(anchorAuraDelay));
+		props.setProperty("anchorAuraMaxSelfDamage", Integer.toString(anchorAuraMaxSelfDamage));
+		props.setProperty("shieldBreakerEnabled", Boolean.toString(shieldBreakerEnabled));
+		props.setProperty("shieldBreakerCooldown", Integer.toString(shieldBreakerCooldown));
 		try {
 			Files.createDirectories(PATH.getParent());
 			try (OutputStream out = Files.newOutputStream(PATH)) {

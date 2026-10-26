@@ -47,6 +47,7 @@ public class NexoSettingsScreen extends Screen {
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.positionObscuring"), () -> new NexoPositionObscuringScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.chat"), () -> new NexoChatScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.servers"), () -> new NexoQuickServerScreen(this)));
+		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.serverProfiles"), () -> new NexoServerProfilesScreen(this)));
 		helper.addChild(openScreenButton(Component.translatable("nexomod.settings.paperServer"), () -> new NexoPaperServerScreen(this)));
 		// Bedrock Holes used to be named here. It lives in src/full now and this
 		// class is compiled into the light jar too, so it arrives through the

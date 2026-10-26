@@ -87,7 +87,23 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 		NexoTacticalStats.register();
 		NexoLightOverlay.register();
 		NexoFreecam.register();
+		dev.nexoclient.nexomod.tactical.aim.NexoAimAssist.register();
+		dev.nexoclient.nexomod.tactical.combat.NexoTriggerBot.register();
+		dev.nexoclient.nexomod.tactical.knockback.NexoKnockbackAngle.register();
+		dev.nexoclient.nexomod.tactical.combat.NexoCombatAssist.register();
+		dev.nexoclient.nexomod.tactical.combat.NexoCombatHud.register();
+		dev.nexoclient.nexomod.tactical.combat.NexoCombatLog.register();
+		dev.nexoclient.nexomod.tactical.combat.NexoCrystalAura.register();
+		dev.nexoclient.nexomod.tactical.combat.NexoAnchorAura.register();
+		dev.nexoclient.nexomod.tactical.combat.NexoShieldBreaker.register();
+		dev.nexoclient.nexomod.tactical.ore.NexoOreHighlight.register();
+		dev.nexoclient.nexomod.tactical.stealth.NexoServerView.register();
+		dev.nexoclient.nexomod.tactical.trajectory.NexoTrajectory.register();
 		NexoLocateCommand.register();
+
+		// The full-only modules the per-server profiles can force. Main
+		// registers its own in NexoServerProfiles.registerBuiltins().
+		registerProfileModules(NexoConfig.get());
 
 		// A bearing to something in a world you have left is nonsense, and a
 		// stale ping would otherwise survive into the next server.
@@ -130,10 +146,166 @@ public class NexoTacticalFeatures implements ClientModInitializer {
 				config::freecamEnabled,
 				() -> config.setFreecamEnabled(!config.freecamEnabled()),
 				parent -> new NexoFreecamConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.aimAssist"),
+				Component.translatable("nexomod.qol.aimAssist.description"),
+				config::aimAssistEnabled,
+				() -> config.setAimAssistEnabled(!config.aimAssistEnabled()),
+				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoAimAssistConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.rangeIndicator"),
+				Component.translatable("nexomod.qol.rangeIndicator.description"),
+				config::rangeIndicatorEnabled,
+				() -> config.setRangeIndicatorEnabled(!config.rangeIndicatorEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.triggerBot"),
+				Component.translatable("nexomod.qol.triggerBot.description"),
+				config::triggerBotEnabled,
+				() -> config.setTriggerBotEnabled(!config.triggerBotEnabled()),
+				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoTriggerBotConfigScreen(parent));
 		NexoQolModules.register(Component.translatable("nexomod.qol.fullbright"),
 				Component.translatable("nexomod.qol.fullbright.description"),
 				config::fullbrightEnabled,
 				() -> config.setFullbrightEnabled(!config.fullbrightEnabled()),
 				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoFullbrightConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.knockback"),
+				Component.translatable("nexomod.qol.knockback.description"),
+				config::knockbackDisplacementEnabled,
+				() -> config.setKnockbackDisplacementEnabled(!config.knockbackDisplacementEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.hitboxes"),
+				Component.translatable("nexomod.qol.hitboxes.description"),
+				config::hitboxDisplayEnabled,
+				() -> config.setHitboxDisplayEnabled(!config.hitboxDisplayEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.critIndicator"),
+				Component.translatable("nexomod.qol.critIndicator.description"),
+				config::critIndicatorEnabled,
+				() -> config.setCritIndicatorEnabled(!config.critIndicatorEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.wTap"),
+				Component.translatable("nexomod.qol.wTap.description"),
+				config::wTapAssistEnabled,
+				() -> config.setWTapAssistEnabled(!config.wTapAssistEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.threat"),
+				Component.translatable("nexomod.qol.threat.description"),
+				config::threatWarningEnabled,
+				() -> config.setThreatWarningEnabled(!config.threatWarningEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.autoTotem"),
+				Component.translatable("nexomod.qol.autoTotem.description"),
+				config::autoTotemEnabled,
+				() -> config.setAutoTotemEnabled(!config.autoTotemEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.crystalAura"),
+				Component.translatable("nexomod.qol.crystalAura.description"),
+				config::crystalAuraEnabled,
+				() -> config.setCrystalAuraEnabled(!config.crystalAuraEnabled()),
+				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoCrystalAuraConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.anchorAura"),
+				Component.translatable("nexomod.qol.anchorAura.description"),
+				config::anchorAuraEnabled,
+				() -> config.setAnchorAuraEnabled(!config.anchorAuraEnabled()),
+				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoAnchorAuraConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.shieldBreaker"),
+				Component.translatable("nexomod.qol.shieldBreaker.description"),
+				config::shieldBreakerEnabled,
+				() -> config.setShieldBreakerEnabled(!config.shieldBreakerEnabled()),
+				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoShieldBreakerConfigScreen(parent));
+		NexoQolModules.register(Component.translatable("nexomod.qol.oreHighlight"),
+				Component.translatable("nexomod.qol.oreHighlight.description"),
+				config::oreHighlightEnabled,
+				() -> config.setOreHighlightEnabled(!config.oreHighlightEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.fallWarning"),
+				Component.translatable("nexomod.qol.fallWarning.description"),
+				config::fallWarningEnabled,
+				() -> config.setFallWarningEnabled(!config.fallWarningEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.playerRadar"),
+				Component.translatable("nexomod.qol.playerRadar.description"),
+				config::playerRadarEnabled,
+				() -> config.setPlayerRadarEnabled(!config.playerRadarEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.combatLog"),
+				Component.translatable("nexomod.qol.combatLog.description"),
+				config::combatLogEnabled,
+				() -> config.setCombatLogEnabled(!config.combatLogEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.serverView"),
+				Component.translatable("nexomod.qol.serverView.description"),
+				config::serverViewEnabled,
+				() -> config.setServerViewEnabled(!config.serverViewEnabled()),
+				null);
+		NexoQolModules.register(Component.translatable("nexomod.qol.trajectory"),
+				Component.translatable("nexomod.qol.trajectory.description"),
+				config::trajectoryEnabled,
+				() -> config.setTrajectoryEnabled(!config.trajectoryEnabled()),
+				parent -> new dev.nexoclient.nexomod.tactical.screen.NexoTrajectoryConfigScreen(parent));
+	}
+
+	private static void registerProfileModules(NexoConfig config) {
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("aimAssist",
+				Component.translatable("nexomod.qol.aimAssist"),
+				config::aimAssistEnabled, config::setAimAssistEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("triggerBot",
+				Component.translatable("nexomod.qol.triggerBot"),
+				config::triggerBotEnabled, config::setTriggerBotEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("autoTotem",
+				Component.translatable("nexomod.qol.autoTotem"),
+				config::autoTotemEnabled, config::setAutoTotemEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("crystalAura",
+				Component.translatable("nexomod.qol.crystalAura"),
+				config::crystalAuraEnabled, config::setCrystalAuraEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("anchorAura",
+				Component.translatable("nexomod.qol.anchorAura"),
+				config::anchorAuraEnabled, config::setAnchorAuraEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("shieldBreaker",
+				Component.translatable("nexomod.qol.shieldBreaker"),
+				config::shieldBreakerEnabled, config::setShieldBreakerEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("knockback",
+				Component.translatable("nexomod.qol.knockback"),
+				config::knockbackDisplacementEnabled, config::setKnockbackDisplacementEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("wTap",
+				Component.translatable("nexomod.qol.wTap"),
+				config::wTapAssistEnabled, config::setWTapAssistEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("hitboxes",
+				Component.translatable("nexomod.qol.hitboxes"),
+				config::hitboxDisplayEnabled, config::setHitboxDisplayEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("critIndicator",
+				Component.translatable("nexomod.qol.critIndicator"),
+				config::critIndicatorEnabled, config::setCritIndicatorEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("rangeIndicator",
+				Component.translatable("nexomod.qol.rangeIndicator"),
+				config::rangeIndicatorEnabled, config::setRangeIndicatorEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("threatWarning",
+				Component.translatable("nexomod.qol.threat"),
+				config::threatWarningEnabled, config::setThreatWarningEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("freecam",
+				Component.translatable("nexomod.qol.freecam"),
+				config::freecamEnabled, config::setFreecamEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("fullbright",
+				Component.translatable("nexomod.qol.fullbright"),
+				config::fullbrightEnabled, config::setFullbrightEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("oreHighlight",
+				Component.translatable("nexomod.qol.oreHighlight"),
+				config::oreHighlightEnabled, config::setOreHighlightEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("lightOverlay",
+				Component.translatable("nexomod.qol.lightOverlay"),
+				config::lightOverlayEnabled, config::setLightOverlayEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("playerRadar",
+				Component.translatable("nexomod.qol.playerRadar"),
+				config::playerRadarEnabled, config::setPlayerRadarEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("combatLog",
+				Component.translatable("nexomod.qol.combatLog"),
+				config::combatLogEnabled, config::setCombatLogEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("fallWarning",
+				Component.translatable("nexomod.qol.fallWarning"),
+				config::fallWarningEnabled, config::setFallWarningEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("serverView",
+				Component.translatable("nexomod.qol.serverView"),
+				config::serverViewEnabled, config::setServerViewEnabled);
+		dev.nexoclient.nexomod.profiles.NexoServerProfiles.registerModule("trajectory",
+				Component.translatable("nexomod.qol.trajectory"),
+				config::trajectoryEnabled, config::setTrajectoryEnabled);
 	}
 }

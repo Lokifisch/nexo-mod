@@ -70,6 +70,14 @@ public class NexoCrosshairConfigScreen extends NexoModalScreen {
 					config.setCrosshairOutline(!config.crosshairOutline());
 					reopen();
 				}));
+		layout.addChild(new NexoModuleRow(0, 0, ROW_WIDTH, 36,
+				Component.translatable("nexomod.qol.crosshair.cooldown"),
+				Component.translatable("nexomod.qol.crosshair.cooldown.description"),
+				config::crosshairCooldown,
+				() -> {
+					config.setCrosshairCooldown(!config.crosshairCooldown());
+					reopen();
+				}));
 
 		finishLayout();
 	}

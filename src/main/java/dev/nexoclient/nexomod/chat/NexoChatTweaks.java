@@ -31,6 +31,8 @@ public final class NexoChatTweaks {
 	public static int maxLines = DEFAULT_MAX_LINES;
 	public static boolean secondEnabled;
 	public static boolean keepCopy;
+	public static boolean mentions;
+	public static boolean copyClick;
 	public static int secondLines = 8;
 	public static String prefixes = "";
 
@@ -58,6 +60,8 @@ public final class NexoChatTweaks {
 		maxLines = clamp(props.getProperty("maxLines"), 100, 2000, DEFAULT_MAX_LINES);
 		secondEnabled = Boolean.parseBoolean(props.getProperty("secondEnabled", "false"));
 		keepCopy = Boolean.parseBoolean(props.getProperty("keepCopy", "false"));
+		mentions = Boolean.parseBoolean(props.getProperty("mentions", "false"));
+		copyClick = Boolean.parseBoolean(props.getProperty("copyClick", "false"));
 		secondLines = clamp(props.getProperty("secondLines"), 3, 20, 8);
 		prefixes = props.getProperty("prefixes", "");
 	}
@@ -69,6 +73,8 @@ public final class NexoChatTweaks {
 		props.setProperty("maxLines", Integer.toString(maxLines));
 		props.setProperty("secondEnabled", Boolean.toString(secondEnabled));
 		props.setProperty("keepCopy", Boolean.toString(keepCopy));
+		props.setProperty("mentions", Boolean.toString(mentions));
+		props.setProperty("copyClick", Boolean.toString(copyClick));
 		props.setProperty("secondLines", Integer.toString(secondLines));
 		props.setProperty("prefixes", prefixes);
 		try (Writer writer = Files.newBufferedWriter(PATH)) {
@@ -130,5 +136,41 @@ public final class NexoChatTweaks {
 		}
 		MutableComponent out = Component.literal("[" + TIME.format(LocalTime.now()) + "] ").withStyle(ChatFormatting.GRAY);
 		return out.append(content);
+	}
+
+	/**
+	 * Mention highlight (gold line plus a chime, for text that isn't your own
+	 * "&lt;name&gt;" line) and click-to-copy. Applied once per line from the
+	 * mixin, after {@link #stamp}, so a line kept in both chats doesn't chime twice.
+	 */
+	public static Component markup(Component content, String plain) {
+		Component result = content;
+		net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+		if (mentions && client.player != null) {
+			String name = client.player.getName().getString();
+			String quoted = java.util.regex.Pattern.quote(name);
+			boolean mentioned = java.util.regex.Pattern.compile("(?<!\\w)" + quoted + "(?!\\w)",
+					java.util.regex.Pattern.CASE_INSENSITIVE).matcher(plain).find();
+			// Your own line in "<name> msg", "name: msg" or "[Rank] name: msg" form.
+			boolean own = plain.matches("(?i)^(\\[[^\\]]*\\]\\s*)*<?" + quoted + ">?\\s*[:»>].*");
+			if (mentioned && !own) {
+				result = Component.empty().withStyle(ChatFormatting.GOLD).append(result);
+				client.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance
+						.forUI(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_PLING, 1.0F));
+			}
+		}
+		if (copyClick) {
+			result = Component.empty().withStyle(net.minecraft.network.chat.Style.EMPTY
+					.withClickEvent(new net.minecraft.network.chat.ClickEvent.CopyToClipboard(safeCopy(plain)))
+					.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(Component.translatable("nexomod.chat.copy"))))
+					.append(result);
+		}
+		return result;
+	}
+
+	/** What a click puts on the clipboard: server text with control characters (newlines included) flattened and a length cap. */
+	private static String safeCopy(String plain) {
+		String flat = plain.replaceAll("\\p{Cntrl}", " ");
+		return flat.length() > 1024 ? flat.substring(0, 1024) : flat;
 	}
 }

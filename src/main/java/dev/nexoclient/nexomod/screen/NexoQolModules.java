@@ -29,7 +29,7 @@ public final class NexoQolModules {
 
 	/**
 	 * @param toggle flips the module without opening anything — what a click on
-	 *               the row's on/off pill runs. See {@link NexoModuleRow#withToggle}.
+	 *               the card's ENABLED/DISABLED bar runs. See {@link NexoModuleCard}.
 	 * @param openConfig may be null for a module with nothing to configure:
 	 *                   pressing the row then toggles it too.
 	 */

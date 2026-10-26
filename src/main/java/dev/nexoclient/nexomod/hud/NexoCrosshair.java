@@ -84,5 +84,15 @@ public final class NexoCrosshair implements HudElement {
 		for (int[] q : r) {
 			graphics.fill(cx + q[0], cy + q[1], cx + q[2], cy + q[3], color);
 		}
+		// Attack cooldown: a thin bar under the crosshair that fills as the weapon recharges, gone when ready.
+		if (config.crosshairCooldown() && client.player != null) {
+			float charge = client.player.getAttackStrengthScale(0.0F);
+			if (charge < 1.0F) {
+				int half = 8;
+				int y = cy + s + gap + 5;
+				graphics.fill(cx - half - 1, y - 1, cx + half + 1, y + 2, 0xFF000000);
+				graphics.fill(cx - half, y, cx - half + Math.round(charge * 2 * half), y + 1, color);
+			}
+		}
 	}
 }

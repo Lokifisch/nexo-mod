@@ -98,7 +98,9 @@ public class NexoMacroTriggerOptionList extends NexoOptionList {
 					}));
 			cursor += half + SPACE_SMALL;
 
-			if (trigger.condition == NexoMacroTrigger.Condition.INVENTORY_FULL) {
+			if (trigger.condition == NexoMacroTrigger.Condition.INVENTORY_FULL
+					|| trigger.condition == NexoMacroTrigger.Condition.TOTEM_POP
+					|| trigger.condition == NexoMacroTrigger.Condition.EFFECT_EXPIRED) {
 				// No threshold to set; the cooldown is the only number that
 				// still means anything for this condition.
 				elements.add(new NexoIntSlider(cursor, 0, half, height, "nexomod.macroTriggers.cooldown",

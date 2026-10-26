@@ -56,6 +56,8 @@ public class NexoChatTweaksScreen extends NexoModalScreen {
 				.size(ROW_WIDTH, 20).build());
 
 		toggle("timestamps", () -> NexoChatTweaks.timestamps, v -> NexoChatTweaks.timestamps = v);
+		toggle("mentions", () -> NexoChatTweaks.mentions, v -> NexoChatTweaks.mentions = v);
+		toggle("copyClick", () -> NexoChatTweaks.copyClick, v -> NexoChatTweaks.copyClick = v);
 		toggle("compact", () -> NexoChatTweaks.compact, v -> NexoChatTweaks.compact = v);
 		cycle("maxLines", HISTORY, NexoChatTweaks.maxLines, v -> NexoChatTweaks.maxLines = v);
 

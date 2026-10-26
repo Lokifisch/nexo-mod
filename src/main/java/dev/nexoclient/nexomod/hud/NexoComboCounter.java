@@ -55,6 +55,7 @@ public final class NexoComboCounter implements HudElement {
 	private static final AtomicInteger combo = new AtomicInteger();
 	private static final AtomicInteger crits = new AtomicInteger();
 	private static volatile long lastHitTime;
+	private static volatile double lastReach;
 
 	private NexoComboCounter() {
 	}
@@ -62,8 +63,9 @@ public final class NexoComboCounter implements HudElement {
 	public static void register() {
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, ID, new NexoComboCounter());
 		ClientPreAttackCallback.EVENT.register((client, player, button) -> {
-			if (client.hitResult instanceof EntityHitResult && player.getAttackStrengthScale(1.0f) > CHARGED_THRESHOLD) {
+			if (client.hitResult instanceof EntityHitResult hit && player.getAttackStrengthScale(1.0f) > CHARGED_THRESHOLD) {
 				combo.incrementAndGet();
+				lastReach = player.getEyePosition().distanceTo(hit.getLocation());
 				if (isCritical(player)) {
 					crits.incrementAndGet();
 				}
@@ -74,7 +76,7 @@ public final class NexoComboCounter implements HudElement {
 	}
 
 	/** Vanilla's own crit eligibility check (see the class doc) — not a combo requirement. */
-	private static boolean isCritical(LocalPlayer player) {
+	public static boolean isCritical(LocalPlayer player) {
 		return player.fallDistance > 0.0
 				&& !player.onGround()
 				&& !player.onClimbable()
@@ -121,6 +123,9 @@ public final class NexoComboCounter implements HudElement {
 		Component text = currentCrits > 0
 				? Component.translatable("nexomod.qol.combo.count.crit", current, currentCrits)
 				: Component.translatable("nexomod.qol.combo.count", current);
+		if (NexoConfig.get().reachDisplayEnabled()) {
+			text = text.copy().append(String.format(" · %.2fm", lastReach));
+		}
 		int textWidth = client.font.width(text);
 		int x = bounds.left() + (bounds.width() - textWidth) / 2;
 		int y = bounds.top() + (bounds.height() - client.font.lineHeight) / 2;

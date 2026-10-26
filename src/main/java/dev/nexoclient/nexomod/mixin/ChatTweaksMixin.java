@@ -77,7 +77,7 @@ public abstract class ChatTweaksMixin {
 		}
 		// Unconditional, so switching compact on later never compares against a stale line.
 		nexomod$lastPlain = plain;
-		result = NexoChatTweaks.stamp(result);
+		result = NexoChatTweaks.markup(NexoChatTweaks.stamp(result), plain);
 		nexomod$lastAdded = result;
 		return result;
 	}

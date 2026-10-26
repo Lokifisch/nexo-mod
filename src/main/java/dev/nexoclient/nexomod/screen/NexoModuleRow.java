@@ -25,14 +25,13 @@ import net.minecraft.network.chat.Component;
  * directly. Either way the row never needs to know which job it's doing —
  * it just reflects {@code state} and reports a click.
  *
- * <p>Three things here animate off wall-clock time rather than ticks, so
+ * <p>Two things here animate off wall-clock time rather than ticks, so
  * they keep moving on a screen that doesn't pause the game and stay
  * framerate-independent:
  * <ul>
  *   <li>the pill knob and the hover halo ease toward their target by a
  *   per-second rate multiplied by the real frame delta, so a 30fps client
  *   and a 200fps one take the same wall time to settle;</li>
- *   <li>the accent bar's glow pulses on a fixed 2s period while enabled;</li>
  *   <li>the whole row slides in and fades up once on first appearance,
  *   offset by {@link #stagger(int)} so a menu's worth of rows cascades
  *   instead of snapping in as one block.</li>
@@ -42,7 +41,6 @@ import net.minecraft.network.chat.Component;
  */
 public class NexoModuleRow extends AbstractButton {
 	private static final int CORNER_RADIUS = 4;
-	private static final int ACCENT_BAR_WIDTH = 3;
 	private static final int TOGGLE_WIDTH = 20;
 	private static final int TOGGLE_HEIGHT = 10;
 	private static final int TOGGLE_MARGIN = 9;
@@ -165,34 +163,25 @@ public class NexoModuleRow extends AbstractButton {
 		int x1 = x0 + getWidth();
 		int y1 = y0 + getHeight();
 
-		int accent = on ? NexoStyle.TEXT_ACTIVE_ACCENT : NexoStyle.BORDER_DIM;
-		// A slow breath while enabled, so an active module reads as live rather than just tinted.
-		float pulse = on ? 0.6F + 0.4F * (float) Math.sin((now % 2000L) / 2000.0 * Math.PI * 2) : 0F;
+		int accent = NexoStyle.ACCENT;
 
-		if (hoverGlow > 0.01F) {
-			// Drawn a touch larger than the row and then covered by the fill below, which
-			// leaves a 2px halo — GuiGraphicsExtractor has no rounded-outline primitive.
-			int halo = NexoStyle.cycle(now, 4000L);
-			NexoShapes.fillRounded(graphics, x0 - 2, y0 - 2, x1 + 2, y1 + 2,
-					NexoStyle.fade(halo, 0.55F * hoverGlow * reveal), CORNER_RADIUS + 2);
-		}
-
-		int top = on ? NexoStyle.mix(NexoStyle.PANEL_BG_RAISED, accent, 0.18F) : NexoStyle.PANEL_BG_RAISED;
-		int bottom = on ? NexoStyle.mix(NexoStyle.PANEL_BG_RAISED, accent, 0.04F) : 0xE6101020;
-		if (hoverGlow > 0F) {
-			top = NexoStyle.mix(top, 0xFFFFFFFF, 0.10F * hoverGlow);
-			bottom = NexoStyle.mix(bottom, 0xFFFFFFFF, 0.06F * hoverGlow);
-		}
-		NexoShapes.fillRoundedGradient(graphics, x0, y0, x1, y1,
-				NexoStyle.fade(top, reveal), NexoStyle.fade(bottom, reveal), CORNER_RADIUS);
-
-		// Accent bar, with a soft bleed to its right that breathes with `pulse`.
+		// A flat card. Enabled is the one state that earns light: accent outline,
+		// faint tint, soft glow. Hover on an off row only tints its outline, so a
+		// hovered row never looks like an enabled one.
 		if (on) {
-			graphics.fill(x0 + 1, y0 + 2, x0 + ACCENT_BAR_WIDTH + 7, y1 - 2,
-					NexoStyle.fade(accent, 0.16F * pulse * reveal));
+			NexoShapes.glow(graphics, x0, y0, x1, y1, accent, CORNER_RADIUS, 0.16F * reveal);
 		}
-		graphics.fill(x0 + 1, y0 + 3, x0 + 1 + ACCENT_BAR_WIDTH, y1 - 3,
-				NexoStyle.fade(on ? NexoStyle.mix(accent, 0xFFFFFFFF, 0.25F * pulse) : accent, reveal));
+		int fill = on ? NexoStyle.mix(NexoStyle.RAISED, accent, 0.18F) : NexoStyle.RAISED;
+		// Hover/focus brightens an enabled row's outline toward white, so a keyboard
+		// user tabbing through still sees where focus is on a lit row.
+		int border = on
+				? NexoStyle.mix(accent, 0xFFFFFFFF, 0.35F * hoverGlow)
+				: NexoStyle.mix(NexoStyle.LINE, accent, 0.6F * hoverGlow);
+		// The fill goes on top of the outline colour, so while the row fades in
+		// (fill translucent) the outline would tint the whole card; fading the
+		// outline by reveal² keeps that leak under a few percent.
+		NexoShapes.outlined(graphics, x0, y0, x1, y1,
+				NexoStyle.fade(fill, reveal), NexoStyle.fade(border, reveal * reveal), CORNER_RADIUS);
 
 		boolean pillHovered = onToggle != null && overToggle(mouseX, mouseY);
 		drawToggle(graphics, slide, accent, reveal, pillHovered);
@@ -206,29 +195,31 @@ public class NexoModuleRow extends AbstractButton {
 		int ty0 = toggleTop();
 		int ty1 = ty0 + TOGGLE_HEIGHT;
 
-		if (knob > 0.01F) {
-			NexoShapes.fillRounded(graphics, tx0 - 2, ty0 - 2, tx1 + 2, ty1 + 2,
-					NexoStyle.fade(accent, 0.25F * knob * reveal), TOGGLE_HEIGHT / 2 + 2);
-		}
 		// A ring while the cursor is over the pill specifically — without it there
 		// is nothing telling anyone that this part of the row does something else.
 		if (pillHovered) {
-			NexoShapes.fillRounded(graphics, tx0 - 3, ty0 - 3, tx1 + 3, ty1 + 3,
-					NexoStyle.fade(NexoStyle.BORDER_BRIGHT, 0.45F * reveal), TOGGLE_HEIGHT / 2 + 3);
+			NexoShapes.fillRounded(graphics, tx0 - 2, ty0 - 2, tx1 + 2, ty1 + 2,
+					NexoStyle.fade(NexoStyle.BORDER_BRIGHT, 0.35F * reveal), TOGGLE_HEIGHT / 2 + 2);
 		}
-		NexoShapes.fillRounded(graphics, tx0, ty0, tx1, ty1,
-				NexoStyle.fade(NexoStyle.mix(0xFF262633, accent, 0.75F * knob), reveal), TOGGLE_HEIGHT / 2);
+		// On: tinted track in an accent outline, white knob. Off: dark track, dim
+		// knob — so the two differ in lightness, not only in hue.
+		int track = NexoStyle.mix(0xFF16161C, NexoStyle.mix(0xFF0A0A0D, accent, 0.3F), knob);
+		int edge = NexoStyle.mix(0xFF2A2A34, accent, knob);
+		// Edge with the fast fill: at 10px tall the smooth corners don't show,
+		// and every row draws one of these each frame.
+		NexoShapes.fillRoundedFast(graphics, tx0, ty0, tx1, ty1, NexoStyle.fade(edge, reveal * reveal), TOGGLE_HEIGHT / 2);
+		NexoShapes.fillRounded(graphics, tx0 + 1, ty0 + 1, tx1 - 1, ty1 - 1, NexoStyle.fade(track, reveal), TOGGLE_HEIGHT / 2 - 1);
 
 		int size = TOGGLE_HEIGHT - 4;
 		int kx = tx0 + 2 + Math.round(knob * (TOGGLE_WIDTH - 4 - size));
 		NexoShapes.fillRounded(graphics, kx, ty0 + 2, kx + size, ty1 - 2,
-				NexoStyle.fade(NexoStyle.mix(0xFF8E8CA0, 0xFFFFFFFF, knob), reveal), size / 2);
+				NexoStyle.fade(NexoStyle.mix(0xFF5A5A68, 0xFFFFFFFF, knob), reveal), size / 2);
 	}
 
 	private void drawLabels(GuiGraphicsExtractor graphics, int x0, int y0, boolean on, float reveal) {
 		Minecraft mc = Minecraft.getInstance();
-		int textX = x0 + ACCENT_BAR_WIDTH + 8;
-		int nameColor = on ? NexoStyle.TEXT_ACTIVE_ACCENT : NexoStyle.TEXT_PRIMARY;
+		int textX = x0 + 9;
+		int nameColor = on ? NexoStyle.TEXT_PRIMARY : NexoStyle.TEXT_SECONDARY;
 		Component name = getMessage().copy().withStyle(style -> style.withColor(nameColor).withBold(true));
 		graphics.text(mc.font, name, textX, y0 + 8, NexoStyle.fade(nameColor, reveal));
 
@@ -243,7 +234,7 @@ public class NexoModuleRow extends AbstractButton {
 		pose.scale(DESCRIPTION_SCALE, DESCRIPTION_SCALE);
 		graphics.text(mc.font, line,
 				Math.round(textX / DESCRIPTION_SCALE), Math.round((y0 + 21) / DESCRIPTION_SCALE),
-				NexoStyle.fade(NexoStyle.TEXT_SECONDARY, reveal));
+				NexoStyle.fade(NexoStyle.MUTED, reveal));
 		pose.popMatrix();
 	}
 

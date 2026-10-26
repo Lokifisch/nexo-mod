@@ -52,6 +52,9 @@ public final class NexoMacroTriggers {
 	private static final Map<NexoMacroTrigger, Boolean> armed = new HashMap<>();
 	/** When each rule last fired, in {@code System.currentTimeMillis()}. */
 	private static final Map<NexoMacroTrigger, Long> lastFired = new HashMap<>();
+	/** Effects active last tick, to notice one ending; and when one last did. */
+	private static java.util.Set<net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>> lastEffects = java.util.Set.of();
+	private static long lastEffectEnd;
 
 	private NexoMacroTriggers() {
 	}
@@ -66,9 +69,18 @@ public final class NexoMacroTriggers {
 			return;
 		}
 		LocalPlayer player = client.player;
+		if (player == null) {
+			lastEffects = java.util.Set.of();
+		}
 		if (player == null || client.getConnection() == null || client.gui.screen() != null) {
 			return;
 		}
+
+		java.util.Set<net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>> effects = player.getActiveEffectsMap().keySet();
+		if (!effects.containsAll(lastEffects)) {
+			lastEffectEnd = System.currentTimeMillis();
+		}
+		lastEffects = java.util.Set.copyOf(effects);
 
 		long now = System.currentTimeMillis();
 		for (NexoMacroTrigger trigger : NexoMacroTriggerConfig.get().triggers()) {
@@ -102,6 +114,12 @@ public final class NexoMacroTriggers {
 			}
 			case HUNGER_LOW -> player.getFoodData().getFoodLevel() <= trigger.threshold;
 			case INVENTORY_FULL -> isInventoryFull(player);
+			case TOTEM_POP -> dev.nexoclient.nexomod.hud.NexoTotemPops.selfPoppedRecently();
+			case EFFECT_EXPIRED -> System.currentTimeMillis() - lastEffectEnd < 1500;
+			case ELYTRA_LOW -> {
+				ItemStack worn = player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
+				yield worn.is(net.minecraft.world.item.Items.ELYTRA) && remainingPercent(worn) <= trigger.threshold;
+			}
 		};
 	}
 

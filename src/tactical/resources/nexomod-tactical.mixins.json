@@ -9,7 +9,13 @@
 		"WeatherOverrideMixin",
 		"FreecamCameraMixin",
 		"FreecamBodyFreezeMixin",
-		"FullbrightMixin"
+		"FullbrightMixin",
+		"KnockbackDisplacementMixin",
+		"WTapAssistMixin",
+		"HitboxDisplayMixin",
+		"KnockbackAngleMouseMixin",
+		"ServerViewPacketMixin",
+		"AnchorPlaceTrackerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
