@@ -4,6 +4,13 @@ The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client) �
 
 > **Status:** alpha. See [Releases](../../releases) for builds.
 
+![Nexo Mod — the right-shift mod menu](docs/screenshots/mod-menu.png)
+
+<p>
+  <img src="docs/screenshots/title-screen.png" width="49%" alt="Title screen">
+  <img src="docs/screenshots/hud-editor.png" width="49%" alt="HUD editor">
+</p>
+
 ## Features
 
 - **LAN-over-internet tunneling** — share a singleplayer world with friends over the internet without port forwarding, via a QUIC relay. Uses [e4mc](https://github.com/vgskye/e4mc-minecraft-architectury)'s public relay by default; swappable via config. Cross-platform (Linux/Windows/macOS) native codec bundled into the jar.
