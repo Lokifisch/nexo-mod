@@ -100,6 +100,36 @@ public final class NexoTitleExtras {
 	private NexoTitleExtras() {
 	}
 
+	/** The signed-in account's id the skin below belongs to, so an account switch fetches again. */
+	private static java.util.UUID skinOwner;
+	private static volatile Supplier<PlayerSkin> fullSkin;
+
+	/**
+	 * The signed-in player's skin. A profile built from the session alone has no
+	 * texture data, so it shows a default skin; the full profile comes from
+	 * mc.getGameProfile(), which blocks until Mojang answers — so it is fetched
+	 * off the render thread and swapped in once it arrives.
+	 */
+	private static Supplier<PlayerSkin> skinLookup(Minecraft mc) {
+		net.minecraft.client.User user = mc.getUser();
+		Supplier<PlayerSkin> fallback = mc.getSkinManager().createLookup(
+				new com.mojang.authlib.GameProfile(user.getProfileId(), user.getName()), false);
+		if (!user.getProfileId().equals(skinOwner)) {
+			skinOwner = user.getProfileId();
+			fullSkin = null;
+			java.util.concurrent.CompletableFuture.supplyAsync(mc::getGameProfile, net.minecraft.util.Util.nonCriticalIoPool())
+					.thenAccept(profile -> {
+						if (profile.id().equals(skinOwner)) {
+							fullSkin = mc.getSkinManager().createLookup(profile, false);
+						}
+					});
+		}
+		return () -> {
+			Supplier<PlayerSkin> full = fullSkin;
+			return (full != null ? full : fallback).get();
+		};
+	}
+
 	public static void register() {
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
 			if (screen instanceof TitleScreen && NexoHudVisibility.nexoSkinActive()) {
@@ -112,12 +142,7 @@ public final class NexoTitleExtras {
 		boolean network = dev.nexoclient.nexomod.screen.NexoConfig.get().titleNetworkEnabled();
 		State state = STATES.computeIfAbsent(screen, s -> network ? listServers(mc) : new State());
 		Font font = mc.font;
-		// From the session, not mc.getGameProfile(): that one waits on a profile
-		// lookup an account switch has just restarted, which would freeze the
-		// title screen until Mojang answers.
-		net.minecraft.client.User user = mc.getUser();
-		Supplier<PlayerSkin> skin = mc.getSkinManager().createLookup(
-				new com.mojang.authlib.GameProfile(user.getProfileId(), user.getName()), false);
+		Supplier<PlayerSkin> skin = skinLookup(mc);
 
 		AccountChip chip = new AccountChip(mc, screen, skin);
 		chip.setPosition(width - MARGIN - chip.getWidth(), MARGIN);
