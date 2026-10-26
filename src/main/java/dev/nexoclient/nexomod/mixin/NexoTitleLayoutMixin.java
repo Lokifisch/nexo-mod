@@ -46,10 +46,10 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  *
  * <p>Essential's buttons (its "Minimal" menu layout — its "Full" layout draws a
  * side menu against vanilla's centred buttons, which this column breaks) are
- * moved into the small-icon row at the bottom left, after vanilla's. Its
- * character preview is hidden while the re-skin is on — for now by guessing
- * it is any Essential widget taller than a button; its buttons are only moved,
- * never removed.
+ * moved into the small-icon row at the bottom left, after vanilla's, each
+ * with its notice flags (unread count, NEW) pinned to its corner. Its
+ * character preview ({@code UIPlayerProxy}) is hidden while the re-skin is on;
+ * its buttons are only moved, never removed.
  *
  * <p>The logo and splash are wrapped with MixinExtras rather than
  * {@code @Redirect}ed: TitleScreen is one of the most mixed-into classes, and
@@ -87,16 +87,20 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 		List<AbstractWidget> big = new ArrayList<>();
 		List<AbstractWidget> small = new ArrayList<>();
 		List<AbstractWidget> essential = new ArrayList<>();
+		List<AbstractWidget> flags = new ArrayList<>();
 		for (GuiEventListener child : children()) {
 			if (!(child instanceof AbstractWidget widget) || !widget.visible) {
 				continue;
 			}
-			if (widget.getClass().getName().startsWith("gg.essential.")) {
-				// A guess, until the log below names the real class: anything of
-				// Essential's taller than a button is taken to be its character
-				// preview, not a control, and hidden while the re-skin is on.
-				if (widget.getHeight() > 24) {
+			String name = widget.getClass().getName();
+			if (name.startsWith("gg.essential.")) {
+				// Essential's character preview is hidden; its notice flags (the
+				// red count and the green NEW) ride on their button, see below;
+				// everything else of Essential's joins the bottom row.
+				if (name.endsWith("UIPlayerProxy")) {
 					widget.visible = false;
+				} else if (name.endsWith("NoticeFlagProxy")) {
+					flags.add(widget);
 				} else {
 					essential.add(widget);
 				}
@@ -148,6 +152,12 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 		if (!small.isEmpty() && !essential.isEmpty()) {
 			x += BUTTON_GAP * 2;
 		}
+		// Each flag's host is decided once, from where Essential first put it:
+		// beside its button, on the same row. After that only this layout moves
+		// either of them, so the pairing must not be re-derived from positions.
+		for (AbstractWidget flag : flags) {
+			nexomod$flagHosts.computeIfAbsent(flag, f -> nexomod$nearest(f, essential));
+		}
 		for (AbstractWidget widget : essential) {
 			if (x + widget.getWidth() > width - 8 && x > left) {
 				x = left;
@@ -156,6 +166,42 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 			widget.setPosition(x, rowY + (BUTTON_HEIGHT - widget.getHeight()) / 2);
 			x += widget.getWidth() + BUTTON_GAP;
 		}
+		// A button's flags sit on its top-right corner, stacking leftwards, like
+		// an unread badge, instead of taking a slot of their own in the row.
+		java.util.Map<AbstractWidget, Integer> stacked = new java.util.IdentityHashMap<>();
+		for (AbstractWidget flag : flags) {
+			AbstractWidget host = nexomod$flagHosts.get(flag);
+			if (host == null) {
+				continue;
+			}
+			int offset = stacked.merge(host, flag.getWidth() + 1, Integer::sum) - flag.getWidth() - 1;
+			flag.setPosition(host.getX() + host.getWidth() - flag.getWidth() + 4 - offset, host.getY() - flag.getHeight() + 6);
+		}
+	}
+
+	/** Which of Essential's widgets each of its notice flags belongs to — see the layout above. */
+	@Unique
+	private final java.util.Map<AbstractWidget, AbstractWidget> nexomod$flagHosts = new java.util.IdentityHashMap<>();
+
+	/** The widget whose centre is closest to {@code flag}'s, preferring the same row. */
+	@Unique
+	private static AbstractWidget nexomod$nearest(AbstractWidget flag, List<AbstractWidget> candidates) {
+		AbstractWidget best = null;
+		long bestScore = Long.MAX_VALUE;
+		int fx = flag.getX() + flag.getWidth() / 2;
+		int fy = flag.getY() + flag.getHeight() / 2;
+		for (AbstractWidget candidate : candidates) {
+			long dx = candidate.getX() + candidate.getWidth() / 2 - fx;
+			long dy = candidate.getY() + candidate.getHeight() / 2 - fy;
+			// Vertical distance weighs four times as much: a flag is beside its
+			// button, so a button straight above or below is never the host.
+			long score = dx * dx + 16 * dy * dy;
+			if (score < bestScore) {
+				bestScore = score;
+				best = candidate;
+			}
+		}
+		return best;
 	}
 
 	@Unique

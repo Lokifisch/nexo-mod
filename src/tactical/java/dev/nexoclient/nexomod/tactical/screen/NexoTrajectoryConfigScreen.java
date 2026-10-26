@@ -23,7 +23,7 @@ public class NexoTrajectoryConfigScreen extends NexoModalScreen {
 		super.init();
 		layout.defaultCellSetting().alignHorizontallyCenter();
 		layout.addChild(new StringWidget(
-				title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
+				title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_PRIMARY).withBold(true)), font));
 
 		NexoConfig config = NexoConfig.get();
 		layout.addChild(new NexoModuleRow(0, 0, ROW_WIDTH, 36,

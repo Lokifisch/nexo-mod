@@ -83,6 +83,15 @@ tasks.named('compileTacticalJava') {
 // previous value and no cycle exists.
 sourceSets.main.runtimeClasspath += sourceSets.tactical.output
 
+// `runClient` only: Minecraft 26.3's library list names Netty's epoll natives
+// for every platform, and Loom resolves Netty from libraries.minecraft.net
+// alone — which has no linux-riscv64 build, so the dev client fails to start.
+// Epoll is an optional speed-up over Java's own NIO; the release jars never
+// bundle Minecraft's libraries, so this changes nothing that ships.
+configurations.matching { it.name == 'runtimeClasspath' }.configureEach {
+	exclude group: 'io.netty', module: 'netty-transport-native-epoll'
+}
+
 repositories {
 	mavenCentral()
 	// Hosts a patched build of Netty's incubator QUIC "classes" (API) jar that

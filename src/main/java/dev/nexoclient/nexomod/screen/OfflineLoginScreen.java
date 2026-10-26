@@ -25,7 +25,7 @@ public class OfflineLoginScreen extends NexoModalScreen {
 	protected void init() {
 		super.init();
 		layout.defaultCellSetting().alignHorizontallyCenter();
-		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
+		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_PRIMARY).withBold(true)), font));
 
 		usernameBox = layout.addChild(new EditBox(font, 200, 20, Component.translatable("nexomod.login.offline.username")));
 		usernameBox.setMaxLength(16);

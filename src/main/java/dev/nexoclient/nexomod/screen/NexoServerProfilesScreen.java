@@ -35,7 +35,7 @@ public class NexoServerProfilesScreen extends NexoModalScreen {
 		super.init();
 		layout.defaultCellSetting().alignHorizontallyCenter();
 		layout.addChild(new StringWidget(
-				title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
+				title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_PRIMARY).withBold(true)), font));
 
 		String current = NexoServerProfiles.currentHost();
 		if (current == null) {

@@ -105,6 +105,8 @@
   "nexomod.qol.search": "Module suchen...",
   "nexomod.qol.title": "Nexo-QoL-Menü",
   "nexomod.qol.modMenu": "MOD-MENÜ",
+  "nexomod.hudEditor.hint": "ziehen zum Verschieben · Ecke zum Skalieren",
+  "nexomod.hudEditor.title": "HUD-EDITOR",
   "nexomod.qol.tab.settings": "Nexo-Einstellungen",
   "nexomod.qol.tab.hudEditor": "HUD-Layout bearbeiten",
   "nexomod.qol.tab.chat": "Chat",

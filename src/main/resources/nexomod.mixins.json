@@ -17,6 +17,8 @@
 		"AbstractContainerScreenAccessor",
 		"NexoSettingsButtonMixin",
 		"NeonSliderMixin",
+		"NexoCycleButtonMixin",
+		"NexoPlainButtonMixin",
 		"NexoFontToggleMixin",
 		"DebugOverlayCoordWarningMixin",
 		"BlockSeedObscureMixin",

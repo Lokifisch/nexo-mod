@@ -112,23 +112,69 @@ public class NexoHudEditorScreen extends Screen {
 
 	@Override
 	protected void init() {
+		// Reset and Done sit in a small titled panel at the bottom centre — see
+		// drawPanel — rather than as two bare buttons on the HUD.
 		addRenderableWidget(Button.builder(Component.translatable("nexomod.qol.resetLayout"),
 						button -> NexoHudLayout.get().resetAll())
-				.pos(width / 2 - 205, height - 28).size(200, 20).build());
+				.pos(width / 2 - PANEL_HALF_WIDTH + 10, height - 32).size(PANEL_HALF_WIDTH - 14, 20).build());
 		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> onClose())
-				.pos(width / 2 + 5, height - 28).size(200, 20).build());
+				.pos(width / 2 + 4, height - 32).size(PANEL_HALF_WIDTH - 14, 20).build());
+	}
+
+	/** Half the bottom panel's width; its two buttons split it. */
+	private static final int PANEL_HALF_WIDTH = 130;
+	private static final int GRID = 20;
+
+	/** A faint grid over the (blurred) world, so moving a box reads as placing it on something. */
+	@Override
+	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		super.extractBackground(graphics, mouseX, mouseY, partialTick);
+		for (int x = GRID; x < width; x += GRID) {
+			graphics.fill(x, 0, x + 1, height, 0x0FFFFFFF);
+		}
+		for (int y = GRID; y < height; y += GRID) {
+			graphics.fill(0, y, width, y + 1, 0x0FFFFFFF);
+		}
 	}
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+		// Boxes, then the panel over any box that reaches it, then the panel's
+		// buttons on top of both — so Reset and Done are never covered.
 		for (Draggable d : elements()) {
 			ScreenRectangle bounds = d.bounds().apply(graphics.guiWidth(), graphics.guiHeight());
-			int color = d.element() == dragging ? NexoStyle.TEXT_ACTIVE_ACCENT : NexoStyle.BORDER_BRIGHT;
-			drawOutline(graphics, bounds, color);
-			graphics.fill(bounds.right() - RESIZE_GRIP, bounds.bottom() - RESIZE_GRIP, bounds.right(), bounds.bottom(), color);
-			graphics.text(font, d.label(), bounds.left(), bounds.top() - font.lineHeight - 2, NexoStyle.TEXT_PRIMARY);
+			// The box under the cursor or being dragged is the one that lights up;
+			// the rest are dashed placeholders.
+			boolean lit = d.element() == dragging || (dragging == null && bounds.containsPoint(mouseX, mouseY));
+			if (lit) {
+				NexoShapes.glow(graphics, bounds.left(), bounds.top(), bounds.right(), bounds.bottom(), NexoStyle.ACCENT, 3, 0.2F);
+			}
+			graphics.fill(bounds.left(), bounds.top(), bounds.right(), bounds.bottom(), 0x700A0A0E);
+			int color = lit ? NexoStyle.ACCENT : 0x80FFFFFF;
+			if (lit) {
+				drawOutline(graphics, bounds, color);
+			} else {
+				drawDashed(graphics, bounds, color);
+			}
+			graphics.fill(bounds.right() - RESIZE_GRIP / 2, bounds.bottom() - RESIZE_GRIP / 2, bounds.right(), bounds.bottom(), color);
+			Component label = d.label().copy().withStyle(style -> style.withBold(true));
+			graphics.text(font, label, bounds.left(), bounds.top() - font.lineHeight - 1,
+					lit ? NexoStyle.ACCENT : NexoStyle.TEXT_SECONDARY);
 		}
+		drawPanel(graphics);
+		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+	}
+
+	/** The bottom panel behind Reset and Done, with the editor's name and a one-line hint. */
+	private void drawPanel(GuiGraphicsExtractor graphics) {
+		int x0 = width / 2 - PANEL_HALF_WIDTH;
+		int x1 = width / 2 + PANEL_HALF_WIDTH;
+		int y0 = height - 52;
+		NexoPanelRenderer.draw(graphics, x0, y0, x1, height - 6);
+		graphics.text(font, Component.translatable("nexomod.hudEditor.title").copy().withStyle(style -> style.withBold(true)),
+				x0 + 10, y0 + 6, NexoStyle.TEXT_PRIMARY);
+		Component hint = Component.translatable("nexomod.hudEditor.hint");
+		graphics.text(font, hint, x1 - 10 - font.width(hint), y0 + 6, NexoStyle.MUTED);
 	}
 
 	private void drawOutline(GuiGraphicsExtractor graphics, ScreenRectangle bounds, int color) {
@@ -136,6 +182,20 @@ public class NexoHudEditorScreen extends Screen {
 		graphics.fill(bounds.left(), bounds.bottom() - 1, bounds.right(), bounds.bottom(), color);
 		graphics.fill(bounds.left(), bounds.top(), bounds.left() + 1, bounds.bottom(), color);
 		graphics.fill(bounds.right() - 1, bounds.top(), bounds.right(), bounds.bottom(), color);
+	}
+
+	/** The same rectangle as {@link #drawOutline}, in 3-on-2-off dashes. */
+	private void drawDashed(GuiGraphicsExtractor graphics, ScreenRectangle bounds, int color) {
+		for (int x = bounds.left(); x < bounds.right(); x += 5) {
+			int x1 = Math.min(x + 3, bounds.right());
+			graphics.fill(x, bounds.top(), x1, bounds.top() + 1, color);
+			graphics.fill(x, bounds.bottom() - 1, x1, bounds.bottom(), color);
+		}
+		for (int y = bounds.top(); y < bounds.bottom(); y += 5) {
+			int y1 = Math.min(y + 3, bounds.bottom());
+			graphics.fill(bounds.left(), y, bounds.left() + 1, y1, color);
+			graphics.fill(bounds.right() - 1, y, bounds.right(), y1, color);
+		}
 	}
 
 	@Override

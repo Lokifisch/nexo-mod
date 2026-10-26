@@ -47,7 +47,7 @@ public class AccountSwitcherScreen extends NexoModalScreen {
 
 		accountList = LinearLayout.vertical().spacing(ROW_SPACING);
 		layout.defaultCellSetting().alignHorizontallyCenter();
-		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_ACTIVE_ACCENT).withBold(true)), font));
+		layout.addChild(new StringWidget(title.copy().withStyle(style -> style.withColor(NexoStyle.TEXT_PRIMARY).withBold(true)), font));
 
 		AccountStore store = AccountStore.get();
 		// The live session, not the store's marker, decides which row is "current" —

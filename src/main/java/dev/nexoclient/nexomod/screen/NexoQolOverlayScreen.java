@@ -150,6 +150,9 @@ public class NexoQolOverlayScreen extends Screen {
 		layout.defaultCellSetting().alignHorizontallyCenter();
 		searchBox = new EditBox(minecraft.font, 60, SEARCH_HEIGHT, Component.translatable("nexomod.qol.search"));
 		searchBox.setHint(Component.translatable("nexomod.qol.search"));
+		// The flat field behind it is drawn by drawHeader; vanilla's own border
+		// is the black-and-white box the rest of the menu doesn't use.
+		searchBox.setBordered(false);
 		searchBox.setValue(query);
 		searchBox.setResponder(text -> {
 			if (!text.equals(query)) {
@@ -517,9 +520,11 @@ public class NexoQolOverlayScreen extends Screen {
 		Component badge = Component.translatable("nexomod.qol.activeCount", moduleStates.size(), moduleStates.size());
 		int left = x0 + 14;
 		int right = x1 - 16 - Math.round(font.width(badge) * SMALL_TEXT_SCALE) - 14 - 10;
-		searchBox.setPosition(left, y0 + SEARCH_TOP);
-		searchBox.setWidth(Math.max(40, right - left));
-		searchBox.setHeight(SEARCH_HEIGHT);
+		// Inset inside the field drawHeader paints: an unbordered EditBox draws
+		// its text at its own top-left, so the padding has to come from here.
+		searchBox.setPosition(left + 6, y0 + SEARCH_TOP + 3);
+		searchBox.setWidth(Math.max(40, right - left) - 12);
+		searchBox.setHeight(SEARCH_HEIGHT - 3);
 	}
 
 	@Override
@@ -594,6 +599,11 @@ public class NexoQolOverlayScreen extends Screen {
 	}
 
 	private void drawHeader(GuiGraphicsExtractor graphics, int x0, int y0, int x1) {
+		// The search field: searchBox sits inset inside this box, see placeSearchBox.
+		int sx0 = searchBox.getX() - 6;
+		int sy0 = searchBox.getY() - 3;
+		NexoShapes.outlined(graphics, sx0, sy0, sx0 + searchBox.getWidth() + 12, sy0 + SEARCH_HEIGHT + 2,
+				NexoStyle.FIELD, searchBox.isFocused() ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.7F) : NexoStyle.CONTROL, 3);
 		drawActiveBadge(graphics, x1, y0);
 		drawSeparator(graphics, x0, y0, x1);
 	}

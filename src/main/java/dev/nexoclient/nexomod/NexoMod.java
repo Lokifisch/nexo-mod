@@ -94,6 +94,7 @@ public class NexoMod implements ClientModInitializer {
 		// scrubber first. A no-op when the native core is absent.
 		NexoLogScrubber.install();
 		HardwareKey.warmUp();
+		dev.nexoclient.nexomod.util.NexoDevTour.registerIfRequested();
 		CommandRegistrationCallback.EVENT.register((dispatcher, ignoredRegistryAccess, ignoredEnvironment) -> {
 			LanTunnel.registerCommands(dispatcher);
 			PaperServerDebug.registerCommands(dispatcher);
