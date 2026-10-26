@@ -366,7 +366,6 @@ public final class NexoTitleExtras {
 			super(0, 0, width, ROW_HEIGHT - 2, Component.literal(server.data().name));
 			this.screen = screen;
 			this.server = server;
-			setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.title.join", server.data().ip)));
 		}
 
 		@Override

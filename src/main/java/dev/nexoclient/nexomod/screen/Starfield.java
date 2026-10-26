@@ -6,7 +6,6 @@ import com.mojang.blaze3d.platform.NativeImage;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 
@@ -127,7 +126,7 @@ public final class Starfield {
 		}
 
 		texture.upload();
-		graphics.blit(RenderPipelines.GUI_OPAQUE_TEXTURED_BACKGROUND, TEXTURE_ID, 0, 0, 0.0F, 0.0F, blitWidth, blitHeight, width, height, width, height);
+		graphics.blit(NexoPipelines.BACKGROUND, TEXTURE_ID, 0, 0, 0.0F, 0.0F, blitWidth, blitHeight, width, height, width, height);
 	}
 
 	/** Composites a white value {@code fg} (0-255) at fg/255 opacity over one background channel. */
