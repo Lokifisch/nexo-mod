@@ -48,6 +48,7 @@ public final class NexoHudLayout {
 	/** Every HUD element the editor can drag. Adding one here is the only step needed to make it editable. */
 	public enum Element {
 		KEYSTROKES, CPS, ARMOR, STATS, POTION, COMBO, ACTIONBAR_LOG, PICKUP_LOG, SECOND_CHAT, INVENTORY, MINI_PLAYER,
+		TARGET, TOGGLE_KEYS,
 		/**
 		 * Vanilla's own HUD pieces, moved by translating the pose vanilla draws
 		 * under rather than by any position of ours — see {@link NexoVanillaHud}.
@@ -95,8 +96,8 @@ public final class NexoHudLayout {
 
 	/**
 	 * Updates the live in-memory position only — deliberately does not write
-	 * to disk. {@code NexoHudEditorScreen} calls this once per {@code
-	 * mouseDragged} event, dozens of times over the course of one drag; a
+	 * to disk. {@code NexoHudEditorScreen} calls this once per frame
+	 * of a drag, dozens of times over the course of one drag; a
 	 * disk write on every one of those would be needless I/O and could stutter
 	 * the drag. Call {@link #save()} once the gesture ends.
 	 */
@@ -135,8 +136,19 @@ public final class NexoHudLayout {
 		}
 		try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {
 			Map<Element, Position> loaded = GSON.fromJson(reader, MAP_TYPE);
-			return new NexoHudLayout(loaded != null ? new EnumMap<>(loaded) : new EnumMap<>(Element.class));
-		} catch (IOException e) {
+			Map<Element, Position> clean = new EnumMap<>(Element.class);
+			if (loaded != null) {
+				// An element this build doesn't know (a file from a newer one) comes
+				// back as a null key; a hand-edited scale can be anything.
+				loaded.forEach((element, position) -> {
+					if (element != null && position != null) {
+						position.scale = Float.isFinite(position.scale) ? Math.clamp(position.scale, 0.5f, 3f) : 1f;
+						clean.put(element, position);
+					}
+				});
+			}
+			return new NexoHudLayout(clean);
+		} catch (IOException | RuntimeException e) {
 			LOGGER.warn("Failed to read {}, starting with default HUD layout", PATH, e);
 			return new NexoHudLayout(new EnumMap<>(Element.class));
 		}

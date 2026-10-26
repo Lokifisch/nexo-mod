@@ -48,6 +48,8 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  */
 public final class NexoStatsHud implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "stats_hud");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoStatsHud INSTANCE = new NexoStatsHud();
 	private static final int LINE_HEIGHT = 10;
 	private static final int NOMINAL_WIDTH = 150;
 	private static final int EDGE_MARGIN = 4;
@@ -84,7 +86,7 @@ public final class NexoStatsHud implements HudElement {
 
 	public static void register() {
 		registerBuiltinStats();
-		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, new NexoStatsHud());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, INSTANCE);
 
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
 			sessionStart.set(System.currentTimeMillis());

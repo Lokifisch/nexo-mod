@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -41,6 +42,21 @@ public final class NexoTargetHud implements HudElement {
 
 	public static void register() {
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, ID, new NexoTargetHud());
+	}
+
+	/** Nominal size of the box the layout editor drags: room for a name, three stats and a few effects. */
+	private static final int NOMINAL_WIDTH = 130;
+	private static final int NOMINAL_HEIGHT = 85;
+
+	/** Where the panel draws: the saved position, else just right of the crosshair. */
+	public static ScreenRectangle resolveBounds(int guiWidth, int guiHeight) {
+		NexoHudLayout.Position override = NexoHudLayout.get().get(NexoHudLayout.Element.TARGET);
+		float scale = override != null ? override.scale : 1f;
+		int width = Math.round(NOMINAL_WIDTH * scale);
+		int height = Math.round(NOMINAL_HEIGHT * scale);
+		int x = override != null ? override.x : guiWidth / 2 + 36;
+		int y = override != null ? override.y : guiHeight / 2 - 23;
+		return NexoHudBounds.clamp(x, y, width, height, guiWidth, guiHeight);
 	}
 
 	@Override
@@ -87,12 +103,20 @@ public final class NexoTargetHud implements HudElement {
 			width = Math.max(width, client.font.width(line));
 		}
 		int lineHeight = client.font.lineHeight + 1;
-		int x = graphics.guiWidth() / 2 + 40;
-		int y = graphics.guiHeight() / 2 - 20;
-		graphics.fill(x - 4, y - 3, x + width + 4, y + lines.size() * lineHeight + 2, 0x90000000);
+		// Drawn in the box's own coordinates from its top-left corner, scaled by
+		// the layout editor's size, so it lands wherever the box was dragged.
+		ScreenRectangle bounds = resolveBounds(graphics.guiWidth(), graphics.guiHeight());
+		NexoHudLayout.Position override = NexoHudLayout.get().get(NexoHudLayout.Element.TARGET);
+		float scale = override != null ? override.scale : 1f;
+		var pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate(bounds.left(), bounds.top());
+		pose.scale(scale, scale);
+		graphics.fill(0, 0, width + 8, lines.size() * lineHeight + 5, 0x90000000);
 		for (int i = 0; i < lines.size(); i++) {
-			graphics.text(client.font, lines.get(i), x, y + i * lineHeight,
+			graphics.text(client.font, lines.get(i), 4, 3 + i * lineHeight,
 					i == 0 ? NexoStyle.TEXT_ACTIVE_ACCENT : 0xFFFFFFFF);
 		}
+		pose.popMatrix();
 	}
 }

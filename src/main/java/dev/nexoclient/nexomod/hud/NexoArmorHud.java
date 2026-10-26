@@ -55,6 +55,8 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
  */
 public final class NexoArmorHud implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "armor_hud");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoArmorHud INSTANCE = new NexoArmorHud();
 
 	private static final int ICON = 16;
 	private static final int ROW_HEIGHT = 18;
@@ -89,7 +91,7 @@ public final class NexoArmorHud implements HudElement {
 	}
 
 	public static void register() {
-		HudElementRegistry.attachElementAfter(VanillaHudElements.ARMOR_BAR, ID, new NexoArmorHud());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.ARMOR_BAR, ID, INSTANCE);
 	}
 
 	/**

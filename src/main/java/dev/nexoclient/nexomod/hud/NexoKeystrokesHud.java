@@ -43,6 +43,8 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  */
 public final class NexoKeystrokesHud implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "keystrokes_hud");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoKeystrokesHud INSTANCE = new NexoKeystrokesHud();
 
 	private static final int BOX = 18;
 	private static final int GAP = 2;
@@ -66,7 +68,7 @@ public final class NexoKeystrokesHud implements HudElement {
 	}
 
 	public static void register() {
-		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, new NexoKeystrokesHud());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, INSTANCE);
 	}
 
 	private static Layout layout() {

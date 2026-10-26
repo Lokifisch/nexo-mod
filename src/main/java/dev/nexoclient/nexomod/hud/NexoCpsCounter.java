@@ -34,6 +34,8 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  */
 public final class NexoCpsCounter implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "cps_counter");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoCpsCounter INSTANCE = new NexoCpsCounter();
 	private static final long WINDOW_MS = 1000;
 
 	/**
@@ -55,7 +57,7 @@ public final class NexoCpsCounter implements HudElement {
 	}
 
 	public static void register() {
-		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, ID, new NexoCpsCounter());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, ID, INSTANCE);
 		ClientTickEvents.END_CLIENT_TICK.register(NexoCpsCounter::tick);
 	}
 

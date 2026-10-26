@@ -57,8 +57,7 @@ public class NexoHudCleanerConfigScreen extends NexoModalScreen {
 				state,
 				() -> {
 					setter.accept(!state.getAsBoolean());
-					// Rebuild rather than re-init: the same reason every other Nexo
-					// config screen does it, see NexoComboConfigScreen.
+					// Rebuild rather than re-init, like every other Nexo config screen.
 					minecraft.gui.setScreen(new NexoHudCleanerConfigScreen(parent));
 				}));
 	}

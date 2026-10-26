@@ -152,7 +152,7 @@ public class NexoTextField extends EditBox {
 
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-		if (event.button() != 0) {
+		if (event.button() != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
 			return false;
 		}
 		String str = getValue();

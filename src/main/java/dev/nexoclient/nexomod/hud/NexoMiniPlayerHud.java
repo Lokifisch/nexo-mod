@@ -37,6 +37,8 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  */
 public final class NexoMiniPlayerHud implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "mini_player_hud");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoMiniPlayerHud INSTANCE = new NexoMiniPlayerHud();
 	private static final String ELLIPSIS = "…";
 
 	private static final int EDGE_MARGIN = 4;
@@ -58,7 +60,7 @@ public final class NexoMiniPlayerHud implements HudElement {
 	}
 
 	public static void register() {
-		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, new NexoMiniPlayerHud());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, INSTANCE);
 	}
 
 	/** Where this element draws right now — shared by rendering and the layout editor. */

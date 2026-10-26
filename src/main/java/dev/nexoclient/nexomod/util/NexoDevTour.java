@@ -15,7 +15,6 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.screen.NexoArmorHudConfigScreen;
 import dev.nexoclient.nexomod.screen.NexoHudEditorScreen;
-import dev.nexoclient.nexomod.screen.NexoPotionConfigScreen;
 import dev.nexoclient.nexomod.screen.NexoQolModules;
 import dev.nexoclient.nexomod.screen.NexoQolOverlayScreen;
 import dev.nexoclient.nexomod.screen.NexoSettingsScreen;
@@ -48,6 +47,8 @@ public final class NexoDevTour {
 	/** The dev run's world, in {@code run/saves/}. */
 	private static final String WORLD = "New World";
 
+	private static boolean stay;
+
 	private NexoDevTour() {}
 
 	public static void registerIfRequested() {
@@ -56,11 +57,17 @@ public final class NexoDevTour {
 		}
 		STEPS.add(new Step("qol", NexoQolOverlayScreen::new));
 		STEPS.add(new Step("armor-hud-settings", () -> new NexoArmorHudConfigScreen(null)));
-		STEPS.add(new Step("potion-settings", () -> new NexoPotionConfigScreen(null)));
 		STEPS.add(new Step("nexo-settings", () -> new NexoSettingsScreen(null)));
 		STEPS.add(new Step("hud-editor", () -> new NexoHudEditorScreen(null)));
 		STEPS.add(new Step("aim-assist", () -> tacticalConfig("nexomod.qol.aimAssist")));
 		STEPS.add(new Step("title", TitleScreen::new));
+		// NEXOMOD_DEV_TOUR=stay:<step> opens just that screen and leaves it up, to
+		// try it by hand instead of screenshotting it.
+		String mode = System.getenv("NEXOMOD_DEV_TOUR");
+		if (mode.startsWith("stay:")) {
+			stay = true;
+			STEPS.removeIf(step -> !step.name().equals(mode.substring(5)));
+		}
 		NexoMod.LOGGER.info("dev tour: {} screens queued", STEPS.size());
 		ClientTickEvents.END_CLIENT_TICK.register(NexoDevTour::tick);
 	}
@@ -101,7 +108,7 @@ public final class NexoDevTour {
 			advance(mc);
 			return;
 		}
-		if (++wait < SCREEN_SETTLE_TICKS) {
+		if (stay || ++wait < SCREEN_SETTLE_TICKS) {
 			return;
 		}
 		String file = "tour-" + STEPS.get(stepIndex).name() + ".png";

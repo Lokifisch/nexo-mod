@@ -36,6 +36,8 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  */
 public final class NexoInventoryHud implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "inventory_hud");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoInventoryHud INSTANCE = new NexoInventoryHud();
 	private static final int FIRST_MAIN_SLOT = 9;
 	private static final int COLUMNS = 9;
 	private static final int ROWS = 3;
@@ -48,7 +50,7 @@ public final class NexoInventoryHud implements HudElement {
 	}
 
 	public static void register() {
-		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, new NexoInventoryHud());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, ID, INSTANCE);
 	}
 
 	/** Where this element draws right now — shared by rendering and the layout editor. */

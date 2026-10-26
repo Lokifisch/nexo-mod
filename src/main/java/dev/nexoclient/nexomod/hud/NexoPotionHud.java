@@ -31,6 +31,8 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  */
 public final class NexoPotionHud implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "potion_hud");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoPotionHud INSTANCE = new NexoPotionHud();
 	private static final int LINE_HEIGHT = 10;
 	private static final int NOMINAL_WIDTH = 120;
 	private static final int NOMINAL_ROWS = 6;
@@ -42,7 +44,7 @@ public final class NexoPotionHud implements HudElement {
 	}
 
 	public static void register() {
-		HudElementRegistry.attachElementAfter(VanillaHudElements.MOB_EFFECTS, ID, new NexoPotionHud());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.MOB_EFFECTS, ID, INSTANCE);
 	}
 
 	/** Where this element draws right now — shared by rendering and the layout editor. */

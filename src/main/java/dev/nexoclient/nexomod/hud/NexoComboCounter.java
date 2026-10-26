@@ -47,6 +47,8 @@ import dev.nexoclient.nexomod.screen.NexoStyle;
  */
 public final class NexoComboCounter implements HudElement {
 	private static final Identifier ID = Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "combo_counter");
+	/** The one registered instance, also drawn by the quick-settings preview. */
+	public static final NexoComboCounter INSTANCE = new NexoComboCounter();
 	private static final long TIMEOUT_MS = 3000;
 	private static final int NOMINAL_WIDTH = 70;
 	private static final int NOMINAL_HEIGHT = 10;
@@ -61,7 +63,7 @@ public final class NexoComboCounter implements HudElement {
 	}
 
 	public static void register() {
-		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, ID, new NexoComboCounter());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.CROSSHAIR, ID, INSTANCE);
 		ClientPreAttackCallback.EVENT.register((client, player, button) -> {
 			if (client.hitResult instanceof EntityHitResult hit && player.getAttackStrengthScale(1.0f) > CHARGED_THRESHOLD) {
 				combo.incrementAndGet();

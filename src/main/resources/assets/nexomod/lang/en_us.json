@@ -607,5 +607,10 @@
   "nexomod.seedIndex.source.manual": "Entered by you",
   "nexomod.seedIndex.source.singleplayer": "From the world itself",
   "nexomod.seedIndex.source.seedcracker": "Found by SeedcrackerX",
-  "nexomod.seedIndex.source.community": "From the community seed list"
+  "nexomod.seedIndex.source.community": "From the community seed list",
+  "nexomod.hudEditor.vanilla.vanilla_actionbar": "Actionbar",
+  "nexomod.hudEditor.vanilla.vanilla_potions": "Potion Icons",
+  "nexomod.hudEditor.vanilla.vanilla_scoreboard": "Scoreboard",
+  "nexomod.hudEditor.vanilla.vanilla_boss_bar": "Boss Bars",
+  "nexomod.hudEditor.toggleKeys": "Toggle Sprint / Sneak"
 }

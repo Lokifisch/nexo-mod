@@ -81,10 +81,19 @@ public final class Starfield {
 		if (width <= 0 || height <= 0) {
 			return;
 		}
+		// Sized to the window, never to the caller: another mod drawing a menu
+		// background at some other size in the same frame (Essential does, while
+		// one of its buttons is hovered) used to rebuild the texture under the
+		// title screen's blit and wipe every star. Callers of another size get
+		// the same image stretched to their area.
+		Minecraft mc = Minecraft.getInstance();
+		int blitWidth = width;
+		int blitHeight = height;
+		width = Math.max(1, mc.getWindow().getGuiScaledWidth());
+		height = Math.max(1, mc.getWindow().getGuiScaledHeight());
 		ensureTexture(width, height);
 		NativeImage image = texture.getPixels();
 
-		Minecraft mc = Minecraft.getInstance();
 		double mouseX = mc.mouseHandler.getScaledXPos(mc.getWindow());
 		double mouseY = mc.mouseHandler.getScaledYPos(mc.getWindow());
 		float parallaxX = (float) (mouseX / width - 0.5);
@@ -118,7 +127,7 @@ public final class Starfield {
 		}
 
 		texture.upload();
-		graphics.blit(RenderPipelines.GUI_OPAQUE_TEXTURED_BACKGROUND, TEXTURE_ID, 0, 0, 0.0F, 0.0F, width, height, width, height, width, height);
+		graphics.blit(RenderPipelines.GUI_OPAQUE_TEXTURED_BACKGROUND, TEXTURE_ID, 0, 0, 0.0F, 0.0F, blitWidth, blitHeight, width, height, width, height);
 	}
 
 	/** Composites a white value {@code fg} (0-255) at fg/255 opacity over one background channel. */

@@ -3,6 +3,7 @@ package dev.nexoclient.nexomod.screen;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -49,48 +50,69 @@ public class NexoHudEditorScreen extends Screen {
 			BiFunction<Integer, Integer, ScreenRectangle> bounds) {
 	}
 
-	/**
-	 * Everything Nexo draws itself. Vanilla's own movable pieces are appended by
-	 * {@link #elements()} rather than listed here, since which of them are
-	 * draggable depends on which are currently visible.
-	 */
-	private static final List<Draggable> NEXO_ELEMENTS = List.of(
-			new Draggable(NexoHudLayout.Element.KEYSTROKES, Component.translatable("nexomod.qol.keystrokes"),
-					NexoKeystrokesHud::resolveBounds),
-			new Draggable(NexoHudLayout.Element.CPS, Component.translatable("nexomod.qol.cps"),
-					NexoCpsCounter::resolveBounds),
-			new Draggable(NexoHudLayout.Element.ARMOR, Component.translatable("nexomod.settings.armorHud.enabled"),
-					NexoArmorHud::resolveBounds),
-			new Draggable(NexoHudLayout.Element.STATS, Component.translatable("nexomod.stats.title"),
-					NexoStatsHud::resolveBounds),
-			new Draggable(NexoHudLayout.Element.POTION, Component.translatable("nexomod.qol.potion"),
-					NexoPotionHud::resolveBounds),
-			new Draggable(NexoHudLayout.Element.COMBO, Component.translatable("nexomod.qol.combo"),
-					NexoComboCounter::resolveBounds),
-			new Draggable(NexoHudLayout.Element.ACTIONBAR_LOG, Component.translatable("nexomod.qol.actionbarLog"),
-					NexoFadingLogHud.ACTIONBAR::resolveBounds),
-			new Draggable(NexoHudLayout.Element.PICKUP_LOG, Component.translatable("nexomod.qol.pickupLog"),
-					NexoFadingLogHud.PICKUPS::resolveBounds),
-			new Draggable(NexoHudLayout.Element.SECOND_CHAT, Component.translatable("nexomod.chat.second"),
-					dev.nexoclient.nexomod.hud.NexoSecondChatHud::resolveBounds),
-			new Draggable(NexoHudLayout.Element.INVENTORY, Component.translatable("nexomod.qol.inventoryHud"),
-					NexoInventoryHud::resolveBounds),
-			new Draggable(NexoHudLayout.Element.MINI_PLAYER, Component.translatable("nexomod.qol.miniPlayer"),
-					NexoMiniPlayerHud::resolveBounds));
+	private record NexoElement(Draggable draggable, BooleanSupplier enabled) {
+	}
 
 	/**
-	 * Nexo's own elements plus every vanilla piece that is currently on screen.
-	 * A hidden vanilla element is left out on purpose: dragging an outline around
-	 * for something the HUD Cleaner has switched off would move a thing nobody can
-	 * see, and the empty box would read as a bug.
+	 * Everything Nexo draws itself, each with the switch that turns it on.
+	 * Vanilla's own movable pieces are appended by {@link #elements()}.
+	 */
+	private static final List<NexoElement> NEXO_ELEMENTS = List.of(
+			nexo(NexoHudLayout.Element.KEYSTROKES, "nexomod.qol.keystrokes", NexoKeystrokesHud::resolveBounds,
+					() -> NexoConfig.get().keystrokesHudEnabled()),
+			nexo(NexoHudLayout.Element.CPS, "nexomod.qol.cps", NexoCpsCounter::resolveBounds,
+					() -> NexoConfig.get().cpsCounterEnabled()),
+			nexo(NexoHudLayout.Element.ARMOR, "nexomod.settings.armorHud.enabled", NexoArmorHud::resolveBounds,
+					() -> NexoConfig.get().armorHudEnabled()),
+			nexo(NexoHudLayout.Element.STATS, "nexomod.stats.title", NexoStatsHud::resolveBounds,
+					() -> NexoConfig.get().statsHudEnabled()),
+			nexo(NexoHudLayout.Element.POTION, "nexomod.qol.potion", NexoPotionHud::resolveBounds,
+					() -> NexoConfig.get().potionHudEnabled()),
+			nexo(NexoHudLayout.Element.COMBO, "nexomod.qol.combo", NexoComboCounter::resolveBounds,
+					() -> NexoConfig.get().comboCounterEnabled()),
+			nexo(NexoHudLayout.Element.ACTIONBAR_LOG, "nexomod.qol.actionbarLog", NexoFadingLogHud.ACTIONBAR::resolveBounds,
+					() -> NexoConfig.get().actionbarLogEnabled()),
+			nexo(NexoHudLayout.Element.PICKUP_LOG, "nexomod.qol.pickupLog", NexoFadingLogHud.PICKUPS::resolveBounds,
+					() -> NexoConfig.get().pickupLogEnabled()),
+			nexo(NexoHudLayout.Element.SECOND_CHAT, "nexomod.chat.second",
+					dev.nexoclient.nexomod.hud.NexoSecondChatHud::resolveBounds,
+					() -> dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled),
+			nexo(NexoHudLayout.Element.INVENTORY, "nexomod.qol.inventoryHud", NexoInventoryHud::resolveBounds,
+					() -> NexoConfig.get().inventoryHudEnabled()),
+			nexo(NexoHudLayout.Element.MINI_PLAYER, "nexomod.qol.miniPlayer", NexoMiniPlayerHud::resolveBounds,
+					() -> NexoConfig.get().miniPlayerEnabled()),
+			nexo(NexoHudLayout.Element.TARGET, "nexomod.qol.targetHud", dev.nexoclient.nexomod.hud.NexoTargetHud::resolveBounds,
+					() -> NexoConfig.get().targetHudEnabled()),
+			nexo(NexoHudLayout.Element.TOGGLE_KEYS, "nexomod.hudEditor.toggleKeys",
+					dev.nexoclient.nexomod.hud.NexoToggleKeys::resolveBounds,
+					() -> NexoConfig.get().toggleSprintEnabled() || NexoConfig.get().toggleSneakEnabled()));
+
+	private static NexoElement nexo(NexoHudLayout.Element element, String label,
+			BiFunction<Integer, Integer, ScreenRectangle> bounds, BooleanSupplier enabled) {
+		return new NexoElement(new Draggable(element, Component.translatable(label), bounds), enabled);
+	}
+
+	/**
+	 * Only what is actually on screen: the Nexo elements that are switched on,
+	 * plus every vanilla piece the HUD Cleaner has not hidden. An outline for
+	 * something switched off would move a thing nobody can see.
 	 */
 	private static List<Draggable> elements() {
-		List<Draggable> all = new ArrayList<>(NEXO_ELEMENTS);
+		List<Draggable> all = new ArrayList<>();
+		for (NexoElement element : NEXO_ELEMENTS) {
+			if (element.enabled().getAsBoolean()) {
+				all.add(element.draggable());
+			}
+		}
 		for (NexoVanillaHud.Entry entry : NexoVanillaHud.ENTRIES) {
 			if (entry.hidden().getAsBoolean()) {
 				continue;
 			}
-			all.add(new Draggable(entry.slot(), entry.label(), entry::resolveBounds));
+			// entry.label() is the HUD Cleaner's "Hide …" toggle text; the editor
+			// names the thing itself.
+			all.add(new Draggable(entry.slot(),
+					Component.translatable("nexomod.hudEditor.vanilla." + entry.slot().name().toLowerCase(java.util.Locale.ROOT)),
+					entry::resolveBounds));
 		}
 		return all;
 	}
@@ -139,6 +161,7 @@ public class NexoHudEditorScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		followCursor(mouseX, mouseY);
 		// Boxes, then the panel over any box that reaches it, then the panel's
 		// buttons on top of both — so Reset and Done are never covered.
 		for (Draggable d : elements()) {
@@ -207,12 +230,20 @@ public class NexoHudEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		// A release that never arrived leaves a box stuck to the cursor; the next
+		// click puts it down instead of grabbing something else.
+		if (dragging != null) {
+			endDrag();
+			return true;
+		}
 		// The bottom panel is drawn over the boxes, so it takes clicks first: a
 		// box hidden under Done must not start a drag when Done is clicked.
 		if (overPanel(event.x(), event.y())) {
 			return super.mouseClicked(event, doubleClick);
 		}
-		if (event.button() == 0) {
+		// 26.3 numbers mouse buttons from 1 (left), not GLFW's 0 — a hardcoded 0
+		// here is why no box could be grabbed.
+		if (event.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
 			for (Draggable d : elements()) {
 				ScreenRectangle bounds = d.bounds().apply(width, height);
 				int mx = (int) event.x();
@@ -231,37 +262,59 @@ public class NexoHudEditorScreen extends Screen {
 	private void startDrag(NexoHudLayout.Element element, ScreenRectangle bounds, MouseButtonEvent event, boolean resize) {
 		dragging = element;
 		resizingDrag = resize;
-		dragStartMouseX = event.x();
-		dragStartMouseY = event.y();
+		moved = false;
+		// Floored to whole pixels like the per-frame cursor position it is compared
+		// with, so grabbing doesn't nudge the box by a fraction rounded up.
+		dragStartMouseX = Math.floor(event.x());
+		dragStartMouseY = Math.floor(event.y());
 		dragStartX = bounds.left();
 		dragStartY = bounds.top();
 		NexoHudLayout.Position existing = NexoHudLayout.get().get(element);
 		dragStartScale = existing != null ? existing.scale : 1f;
 	}
 
-	@Override
-	public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+	/**
+	 * Moves (or resizes) the held box to follow the cursor, once per frame from
+	 * {@link #extractRenderState}. Polling the cursor rather than relying on
+	 * {@code mouseDragged} keeps the box moving even when another mod (Mouse
+	 * Tweaks, Essential) handles drag events in screens.
+	 */
+	/** Whether the held box has actually moved yet — only then is anything saved. */
+	private boolean moved;
+
+	private void followCursor(double mouseX, double mouseY) {
 		if (dragging == null) {
-			return super.mouseDragged(event, dragX, dragY);
+			return;
 		}
+		// A click that never moves must not write a position: a saved entry pins
+		// the element to fixed pixels instead of its own default placement.
+		if (!moved && Math.abs(mouseX - dragStartMouseX) < 2 && Math.abs(mouseY - dragStartMouseY) < 2) {
+			return;
+		}
+		moved = true;
 		if (resizingDrag) {
-			double delta = (event.x() - dragStartMouseX + event.y() - dragStartMouseY) / 2.0;
+			double delta = (mouseX - dragStartMouseX + mouseY - dragStartMouseY) / 2.0;
 			float scale = (float) Math.clamp(dragStartScale + delta / 80.0, 0.5, 3.0);
 			NexoHudLayout.get().set(dragging, new NexoHudLayout.Position(dragStartX, dragStartY, scale));
 		} else {
-			int x = (int) Math.round(dragStartX + (event.x() - dragStartMouseX));
-			int y = (int) Math.round(dragStartY + (event.y() - dragStartMouseY));
+			int x = (int) Math.round(dragStartX + (mouseX - dragStartMouseX));
+			int y = (int) Math.round(dragStartY + (mouseY - dragStartMouseY));
 			NexoHudLayout.get().set(dragging, new NexoHudLayout.Position(x, y, dragStartScale));
 		}
-		return true;
+	}
+
+	private void endDrag() {
+		if (dragging != null) {
+			dragging = null;
+			if (moved) {
+				NexoHudLayout.get().save();
+			}
+		}
 	}
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
-		if (dragging != null) {
-			dragging = null;
-			NexoHudLayout.get().save();
-		}
+		endDrag();
 		return super.mouseReleased(event);
 	}
 

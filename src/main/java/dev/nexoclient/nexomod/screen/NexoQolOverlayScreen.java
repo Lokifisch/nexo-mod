@@ -173,8 +173,7 @@ public class NexoQolOverlayScreen extends Screen {
 		addRow(Component.translatable("nexomod.qol.cps"),
 				Component.translatable("nexomod.qol.cps.description"),
 				config::cpsCounterEnabled,
-				() -> config.setCpsCounterEnabled(!config.cpsCounterEnabled()),
-				() -> minecraft.gui.setScreen(new NexoCpsConfigScreen(this)));
+				() -> config.setCpsCounterEnabled(!config.cpsCounterEnabled()));
 		addRow(Component.translatable("nexomod.settings.armorHud.enabled"),
 				Component.translatable("nexomod.qol.armorHud.description"),
 				config::armorHudEnabled,
@@ -201,13 +200,11 @@ public class NexoQolOverlayScreen extends Screen {
 		addRow(Component.translatable("nexomod.qol.potion"),
 				Component.translatable("nexomod.qol.potion.description"),
 				config::potionHudEnabled,
-				() -> config.setPotionHudEnabled(!config.potionHudEnabled()),
-				() -> minecraft.gui.setScreen(new NexoPotionConfigScreen(this)));
+				() -> config.setPotionHudEnabled(!config.potionHudEnabled()));
 		addRow(Component.translatable("nexomod.qol.combo"),
 				Component.translatable("nexomod.qol.combo.description"),
 				config::comboCounterEnabled,
-				() -> config.setComboCounterEnabled(!config.comboCounterEnabled()),
-				() -> minecraft.gui.setScreen(new NexoComboConfigScreen(this)));
+				() -> config.setComboCounterEnabled(!config.comboCounterEnabled()));
 		addRow(Component.translatable("nexomod.qol.targetHud"),
 				Component.translatable("nexomod.qol.targetHud.description"),
 				config::targetHudEnabled,
@@ -243,13 +240,11 @@ public class NexoQolOverlayScreen extends Screen {
 		addRow(Component.translatable("nexomod.qol.actionbarLog"),
 				Component.translatable("nexomod.qol.actionbarLog.description"),
 				config::actionbarLogEnabled,
-				() -> config.setActionbarLogEnabled(!config.actionbarLogEnabled()),
-				() -> minecraft.gui.setScreen(new NexoActionbarLogConfigScreen(this)));
+				() -> config.setActionbarLogEnabled(!config.actionbarLogEnabled()));
 		addRow(Component.translatable("nexomod.qol.pickupLog"),
 				Component.translatable("nexomod.qol.pickupLog.description"),
 				config::pickupLogEnabled,
-				() -> config.setPickupLogEnabled(!config.pickupLogEnabled()),
-				() -> minecraft.gui.setScreen(new NexoPickupLogConfigScreen(this)));
+				() -> config.setPickupLogEnabled(!config.pickupLogEnabled()));
 		addRow(Component.translatable("nexomod.qol.chat"),
 				Component.translatable("nexomod.qol.chat.description"),
 				() -> dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled,

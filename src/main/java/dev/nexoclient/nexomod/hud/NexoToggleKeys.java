@@ -8,6 +8,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
@@ -81,6 +82,21 @@ public final class NexoToggleKeys implements HudElement {
 		return latched;
 	}
 
+	/** Two lines of label text, sprint under sneak. */
+	private static final int NOMINAL_WIDTH = 150;
+	private static final int NOMINAL_HEIGHT = 20;
+
+	/** Where the indicator draws: the saved position, else the bottom-left corner it always used. */
+	public static ScreenRectangle resolveBounds(int guiWidth, int guiHeight) {
+		NexoHudLayout.Position override = NexoHudLayout.get().get(NexoHudLayout.Element.TOGGLE_KEYS);
+		float scale = override != null ? override.scale : 1f;
+		int width = Math.round(NOMINAL_WIDTH * scale);
+		int height = Math.round(NOMINAL_HEIGHT * scale);
+		int x = override != null ? override.x : 4;
+		int y = override != null ? override.y : guiHeight - 12 - height;
+		return NexoHudBounds.clamp(x, y, width, height, guiWidth, guiHeight);
+	}
+
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker delta) {
 		if (NexoHudVisibility.hidden() || (!sprintLatched && !sneakLatched)) {
@@ -90,13 +106,23 @@ public final class NexoToggleKeys implements HudElement {
 		if (client.player == null || client.options == null || client.gui.hud.isHidden()) {
 			return;
 		}
-		int y = graphics.guiHeight() - 12 - client.font.lineHeight;
+		// Lines stack upward from the box's bottom edge, the way they always sat
+		// above the bottom-left corner, so a dragged box keeps that shape.
+		ScreenRectangle bounds = resolveBounds(graphics.guiWidth(), graphics.guiHeight());
+		NexoHudLayout.Position override = NexoHudLayout.get().get(NexoHudLayout.Element.TOGGLE_KEYS);
+		float scale = override != null ? override.scale : 1f;
+		var pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate(bounds.left(), bounds.top());
+		pose.scale(scale, scale);
+		int y = NOMINAL_HEIGHT - client.font.lineHeight;
 		if (sprintLatched) {
-			graphics.text(client.font, Component.translatable("nexomod.qol.toggleSprint.label"), 4, y, NexoStyle.TEXT_SECONDARY);
+			graphics.text(client.font, Component.translatable("nexomod.qol.toggleSprint.label"), 0, y, NexoStyle.TEXT_SECONDARY);
 			y -= client.font.lineHeight + 2;
 		}
 		if (sneakLatched) {
-			graphics.text(client.font, Component.translatable("nexomod.qol.toggleSneak.label"), 4, y, NexoStyle.TEXT_SECONDARY);
+			graphics.text(client.font, Component.translatable("nexomod.qol.toggleSneak.label"), 0, y, NexoStyle.TEXT_SECONDARY);
 		}
+		pose.popMatrix();
 	}
 }
