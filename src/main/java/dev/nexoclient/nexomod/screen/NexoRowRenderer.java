@@ -31,7 +31,7 @@ public final class NexoRowRenderer {
 	 * game uses. A message without one is shown whole, as the name.
 	 */
 	public static void slider(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1, Component message,
-			double value, boolean active) {
+			double value, boolean active, boolean editing) {
 		Font font = Minecraft.getInstance().font;
 		String text = message.getString();
 		int split = text.lastIndexOf(": ");
@@ -39,6 +39,7 @@ public final class NexoRowRenderer {
 		String shown = split > 0 ? text.substring(split + 2) : "";
 
 		int textY = y0 + (y1 - y0 - 8) / 2;
+		shown = ellipsize(font, shown, x1 - x0 - PAD * 2);
 		int valueWidth = font.width(shown);
 		graphics.text(font, shown, x1 - PAD - valueWidth, textY, active ? NexoStyle.TEXT_PRIMARY : NexoStyle.TEXT_DISABLED);
 
@@ -53,6 +54,9 @@ public final class NexoRowRenderer {
 		if (trackX1 - trackX0 < 24) {
 			return;
 		}
+		// Keyboard adjust mode (Enter on a focused slider): the knob lights up so
+		// it is clear the arrow keys now move the value.
+		int knobColor = editing ? NexoStyle.ACCENT : NexoStyle.TEXT_PRIMARY;
 
 		int mid = (y0 + y1) / 2;
 		NexoShapes.fillRoundedFast(graphics, trackX0, mid - 1, trackX1, mid + 1, NexoStyle.CONTROL, 1);
@@ -62,8 +66,11 @@ public final class NexoRowRenderer {
 		}
 		int knob = 3;
 		NexoShapes.fillRounded(graphics, fillX1 - knob, mid - knob, fillX1 + knob, mid + knob,
-				active ? NexoStyle.TEXT_PRIMARY : NexoStyle.TEXT_DISABLED, knob);
+				active ? knobColor : NexoStyle.TEXT_DISABLED, knob);
 	}
+
+	/** Narrower than this, a row has no room for a name and a control: callers keep vanilla's label. */
+	public static final int MIN_ROW_WIDTH = 60;
 
 	/**
 	 * A cycling option's row: name on the left; on the right a switch when the
@@ -138,6 +145,12 @@ public final class NexoRowRenderer {
 			}
 		}
 		return new Parts(Component.literal(name), raw, arg);
+	}
+
+	/** Whether {@code label} is vanilla's ON or OFF text. */
+	public static boolean isOnOff(Component label) {
+		return label.getContents() instanceof TranslatableContents key
+				&& (key.getKey().equals("options.on") || key.getKey().equals("options.off"));
 	}
 
 	public record Parts(Component name, Object value, Component valueLabel) {}

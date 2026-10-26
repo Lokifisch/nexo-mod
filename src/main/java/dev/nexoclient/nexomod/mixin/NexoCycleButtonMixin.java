@@ -49,12 +49,17 @@ public abstract class NexoCycleButtonMixin<T> {
 					target = "Lnet/minecraft/client/gui/components/CycleButton;extractDefaultLabel(Lnet/minecraft/client/gui/ActiveTextCollector;)V"))
 	private void nexomod$row(CycleButton<T> self, ActiveTextCollector text, Operation<Void> original,
 			@Local(argsOnly = true) GuiGraphicsExtractor graphics) {
-		if (!NexoHudVisibility.nexoSkinActive() || displayState != CycleButton.DisplayState.NAME_AND_VALUE) {
+		if (!NexoHudVisibility.nexoSkinActive() || displayState != CycleButton.DisplayState.NAME_AND_VALUE
+				|| self.getWidth() < NexoRowRenderer.MIN_ROW_WIDTH) {
 			original.call(self, text);
 			return;
 		}
 		T value = getValue();
+		Component label = valueStringifier.apply(value);
+		// A switch only when the value reads as vanilla's own ON/OFF: a boolean
+		// option with custom labels ("Shown"/"Hidden") keeps them, as a pill.
+		Object shown = value instanceof Boolean && NexoRowRenderer.isOnOff(label) ? value : label;
 		NexoRowRenderer.option(graphics, self.getX(), self.getY(), self.getX() + self.getWidth(),
-				self.getY() + self.getHeight(), name, value, valueStringifier.apply(value), self.active);
+				self.getY() + self.getHeight(), name, shown, label, self.active);
 	}
 }

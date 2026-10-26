@@ -165,6 +165,11 @@ public class NexoHudEditorScreen extends Screen {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 	}
 
+	private boolean overPanel(double mx, double my) {
+		return mx >= width / 2.0 - PANEL_HALF_WIDTH && mx < width / 2.0 + PANEL_HALF_WIDTH
+				&& my >= height - 52 && my < height - 6;
+	}
+
 	/** The bottom panel behind Reset and Done, with the editor's name and a one-line hint. */
 	private void drawPanel(GuiGraphicsExtractor graphics) {
 		int x0 = width / 2 - PANEL_HALF_WIDTH;
@@ -200,6 +205,11 @@ public class NexoHudEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		// The bottom panel is drawn over the boxes, so it takes clicks first: a
+		// box hidden under Done must not start a drag when Done is clicked.
+		if (overPanel(event.x(), event.y())) {
+			return super.mouseClicked(event, doubleClick);
+		}
 		if (event.button() == 0) {
 			for (Draggable d : elements()) {
 				ScreenRectangle bounds = d.bounds().apply(width, height);

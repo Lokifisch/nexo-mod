@@ -179,6 +179,16 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 		}
 	}
 
+	/**
+	 * Every {@code init} (first open, resize) rebuilds Essential's widgets in
+	 * their own places, so the pairing starts again from those — and the old,
+	 * no-longer-shown widgets stop being held.
+	 */
+	@Inject(method = "init", at = @At("TAIL"))
+	private void nexomod$resetFlagHosts(CallbackInfo ci) {
+		nexomod$flagHosts.clear();
+	}
+
 	/** Which of Essential's widgets each of its notice flags belongs to — see the layout above. */
 	@Unique
 	private final java.util.Map<AbstractWidget, AbstractWidget> nexomod$flagHosts = new java.util.IdentityHashMap<>();

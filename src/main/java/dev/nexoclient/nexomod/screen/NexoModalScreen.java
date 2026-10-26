@@ -38,6 +38,10 @@ public abstract class NexoModalScreen extends Screen {
 	protected final Screen parent;
 	protected LinearLayout layout = LinearLayout.vertical().spacing(8);
 
+	/** The ‹ in the panel's top-left corner, back to {@link #parent} — placed by repositionElements. */
+	private NexoButton backButton;
+	private static final int BACK_SIZE = 16;
+
 	/** Non-null only when the content did not fit and had to be wrapped. */
 	private ScrollableLayout scrollArea;
 	/** Whatever is actually positioned and framed: {@link #layout}, or the scroll area wrapping it. */
@@ -86,6 +90,8 @@ public abstract class NexoModalScreen extends Screen {
 			root = scrollArea;
 			scrollArea.visitWidgets(this::addRenderableWidget);
 		}
+		backButton = addRenderableWidget(NexoButton.builder(Component.literal("‹"), this::onClose)
+				.size(BACK_SIZE, BACK_SIZE).build());
 		repositionElements();
 	}
 
@@ -128,6 +134,9 @@ public abstract class NexoModalScreen extends Screen {
 		}
 		root.arrangeElements();
 		FrameLayout.centerInRectangle(root, getRectangle());
+		if (backButton != null) {
+			backButton.setPosition(root.getX() - 20 + 6, root.getY() - PANEL_PAD_Y + 6);
+		}
 	}
 
 	@Override

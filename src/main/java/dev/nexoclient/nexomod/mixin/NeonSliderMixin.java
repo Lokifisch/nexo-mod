@@ -35,6 +35,9 @@ public abstract class NeonSliderMixin {
 	@Shadow
 	protected double value;
 
+	@Shadow
+	protected boolean canChangeValue;
+
 	@Redirect(
 			method = "extractWidgetRenderState",
 			at = @At(
@@ -70,11 +73,11 @@ public abstract class NeonSliderMixin {
 					target = "Lnet/minecraft/client/gui/components/AbstractSliderButton;extractScrollingStringOverContents(Lnet/minecraft/client/gui/ActiveTextCollector;Lnet/minecraft/network/chat/Component;I)V"))
 	private void nexomod$row(AbstractSliderButton self, ActiveTextCollector text, Component message, int margin,
 			Operation<Void> original, @Local(argsOnly = true) GuiGraphicsExtractor graphics) {
-		if (!NexoHudVisibility.nexoSkinActive()) {
+		if (!NexoHudVisibility.nexoSkinActive() || self.getWidth() < NexoRowRenderer.MIN_ROW_WIDTH) {
 			original.call(self, text, message, margin);
 			return;
 		}
 		NexoRowRenderer.slider(graphics, self.getX(), self.getY(), self.getX() + self.getWidth(),
-				self.getY() + self.getHeight(), message, value, self.active);
+				self.getY() + self.getHeight(), message, value, self.active, canChangeValue);
 	}
 }
