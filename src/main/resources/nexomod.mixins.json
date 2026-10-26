@@ -13,6 +13,7 @@
 		"NeonButtonMixin",
 		"TitleScreenBrandingMixin",
 		"NexoTitleLayoutMixin",
+		"PlayerSkinWidgetAccessor",
 		"InventoryWatermarkMixin",
 		"AbstractContainerScreenAccessor",
 		"NexoSettingsButtonMixin",

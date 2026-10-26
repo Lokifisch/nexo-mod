@@ -168,6 +168,14 @@ public class NexoModuleRow extends AbstractButton {
 		// A flat card. Enabled is the one state that earns light: accent outline,
 		// faint tint, soft glow. Hover on an off row only tints its outline, so a
 		// hovered row never looks like an enabled one.
+		if (NexoRowRenderer.isFlat(this)) {
+			// A list row on the quick-settings screen: no card, the switch alone
+			// carries the on/off state.
+			NexoRowRenderer.flatBox(graphics, x0, y0, x1, y1, active, isHoveredOrFocused());
+			drawToggle(graphics, slide, accent, reveal, onToggle != null && overToggle(mouseX, mouseY));
+			drawLabels(graphics, x0, y0, on, reveal);
+			return;
+		}
 		if (on) {
 			NexoShapes.glow(graphics, x0, y0, x1, y1, accent, CORNER_RADIUS, 0.16F * reveal);
 		}

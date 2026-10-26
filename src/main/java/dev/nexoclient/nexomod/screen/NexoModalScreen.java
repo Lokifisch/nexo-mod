@@ -48,9 +48,53 @@ public abstract class NexoModalScreen extends Screen {
 	/** Whatever is actually positioned and framed: {@link #layout}, or the scroll area wrapping it. */
 	private Layout root;
 
+	/** Set only by {@link NexoModuleInfoScreen}; every other screen is matched to its module by title. */
+	private final NexoModules.Module explicitModule;
+	/** Non-null while this screen shows in the wide quick-settings layout. */
+	private NexoModuleShell shell;
+
 	protected NexoModalScreen(Component title, Screen parent) {
+		this(title, parent, null);
+	}
+
+	NexoModalScreen(Component title, Screen parent, NexoModules.Module module) {
 		super(title);
 		this.parent = parent;
+		this.explicitModule = module;
+	}
+
+	/** Adds a small heading over the rows that follow it. */
+	protected void section(String translationKey) {
+		layout.addChild(new NexoSectionHeading(Component.translatable(translationKey)));
+	}
+
+	/**
+	 * The module this screen configures, when it was opened from the
+	 * right-shift menu — the case that gets the wide layout. Opened from
+	 * anywhere else it stays a centred dialog.
+	 */
+	private NexoModules.Module shellModule() {
+		if (!(parent instanceof NexoQolOverlayScreen)) {
+			return null;
+		}
+		return explicitModule != null ? explicitModule : NexoModules.find(title);
+	}
+
+	public boolean inShell() {
+		return shell != null;
+	}
+
+	<T extends net.minecraft.client.gui.components.events.GuiEventListener & net.minecraft.client.gui.components.Renderable
+			& net.minecraft.client.gui.narration.NarratableEntry> T shellWidget(T widget) {
+		return addRenderableWidget(widget);
+	}
+
+	void shellRebuild() {
+		rebuildWidgets();
+	}
+
+	void shellFocus(net.minecraft.client.gui.components.events.GuiEventListener widget) {
+		setFocused(widget);
 	}
 
 	/**
@@ -68,6 +112,13 @@ public abstract class NexoModalScreen extends Screen {
 		layout = LinearLayout.vertical().spacing(8);
 		scrollArea = null;
 		root = null;
+		NexoModules.Module module = shellModule();
+		shell = module != null ? new NexoModuleShell(this, module, parent) : null;
+		if (shell != null) {
+			// Rows sit edge to edge with a divider between them, like a list.
+			layout = LinearLayout.vertical().spacing(2);
+			shell.layout(width, height);
+		}
 	}
 
 	/**
@@ -80,6 +131,9 @@ public abstract class NexoModalScreen extends Screen {
 		// content layout reports 0 and yields a negative range, which clamps the
 		// scroll position to a negative value and pushes every row out of the
 		// scissor. See NexoQolOverlayScreen.init() for the long version.
+		if (shell != null) {
+			shell.prepare(layout);
+		}
 		layout.arrangeElements();
 
 		if (layout.getHeight() <= maxContentHeight()) {
@@ -91,6 +145,12 @@ public abstract class NexoModalScreen extends Screen {
 			root = scrollArea;
 			scrollArea.visitWidgets(this::addRenderableWidget);
 		}
+		if (shell != null) {
+			// The MOD MENU tab is the way back; no "<" in the corner.
+			shell.addWidgets();
+			repositionElements();
+			return;
+		}
 		backButton = addRenderableWidget(NexoButton.builder(Component.literal("<"), this::onClose)
 				.size(BACK_SIZE, BACK_SIZE).build());
 		// The tooltip says "Back" for anyone hovering it — and for the narrator,
@@ -101,6 +161,9 @@ public abstract class NexoModalScreen extends Screen {
 
 	/** Tallest the content may be before the panel would start leaving the screen. */
 	private int maxContentHeight() {
+		if (shell != null) {
+			return shell.contentHeight();
+		}
 		return Math.max(ROW_FLOOR, height - PANEL_PAD_Y * 2 - SCREEN_MARGIN * 2);
 	}
 
@@ -109,6 +172,11 @@ public abstract class NexoModalScreen extends Screen {
 
 	@Override
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		if (shell != null) {
+			// Like the menu it came from: the blurred game, not the menu redrawn behind.
+			super.extractBackground(graphics, mouseX, mouseY, partialTick);
+			return;
+		}
 		if (parent != null) {
 			// -1,-1 so the parent's own widgets don't render a stale hover highlight.
 			parent.extractBackground(graphics, -1, -1, partialTick);
@@ -119,6 +187,11 @@ public abstract class NexoModalScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		if (shell != null) {
+			shell.draw(graphics, mouseX, mouseY);
+			super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+			return;
+		}
 		Layout framed = root != null ? root : layout;
 		int x0 = framed.getX() - 20;
 		int y0 = framed.getY() - PANEL_PAD_Y;
@@ -137,10 +210,22 @@ public abstract class NexoModalScreen extends Screen {
 			scrollArea.setMaxHeight(maxContentHeight());
 		}
 		root.arrangeElements();
+		if (shell != null) {
+			root.setPosition(shell.contentX0() + 10, shell.contentTop());
+			return;
+		}
 		FrameLayout.centerInRectangle(root, getRectangle());
 		if (backButton != null) {
 			backButton.setPosition(root.getX() - 20 + 4, root.getY() - PANEL_PAD_Y + 1);
 		}
+	}
+
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		if (shell != null && shell.mouseScrolled(mouseX, mouseY, scrollY)) {
+			return true;
+		}
+		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 
 	@Override

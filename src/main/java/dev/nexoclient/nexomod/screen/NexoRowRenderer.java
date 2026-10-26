@@ -26,6 +26,30 @@ public final class NexoRowRenderer {
 	private NexoRowRenderer() {}
 
 	/**
+	 * Widgets the quick-settings screen ({@link NexoModuleShell}) lays out as
+	 * list rows: drawn as a flat line with a divider under it rather than a
+	 * boxed button. Weak, so a closed screen's widgets simply drop out.
+	 */
+	private static final java.util.Set<Object> FLAT =
+			java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+
+	public static void markFlat(Object widget) {
+		FLAT.add(widget);
+	}
+
+	public static boolean isFlat(Object widget) {
+		return FLAT.contains(widget);
+	}
+
+	/** A flat row's background: a faint tint while hovered, a hairline divider along the bottom. */
+	public static void flatBox(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1, boolean active, boolean hovered) {
+		if (hovered && active) {
+			NexoShapes.fillRoundedFast(graphics, x0, y0, x1, y1, NexoStyle.fade(NexoStyle.ACCENT, 0.08F), 3);
+		}
+		graphics.fill(x0, y1 - 1, x1, y1, 0xFF17171D);
+	}
+
+	/**
 	 * A slider row. Vanilla only hands sliders one message, so name and value
 	 * are split at its last ": " — the "Name: Value" shape every slider in the
 	 * game uses. A message without one is shown whole, as the name.

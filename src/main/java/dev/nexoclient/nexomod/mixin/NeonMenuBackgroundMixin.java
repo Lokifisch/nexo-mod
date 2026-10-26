@@ -73,6 +73,8 @@ public abstract class NeonMenuBackgroundMixin {
 				// showing through — replacing it with the neon starfield would be
 				// exactly the "overtaken" look it's deliberately avoiding.
 				|| screen instanceof NexoQolOverlayScreen
+				// A module's quick-settings page opened from that menu keeps its look.
+				|| (screen instanceof dev.nexoclient.nexomod.screen.NexoModalScreen modal && modal.inShell())
 				// Same reasoning, more strongly: the editor needs the crisp real
 				// game (not even blurred) to align things precisely against it.
 				|| screen instanceof NexoHudEditorScreen;

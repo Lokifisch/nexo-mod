@@ -106,6 +106,7 @@ public class NexoMod implements ClientModInitializer {
 		NexoChatSearch.register();
 		NexoQuickConnect.register();
 		NexoBadges.register();
+		dev.nexoclient.nexomod.title.NexoTitleExtras.register();
 		// Builtins first: the registry must be populated before a profile is
 		// applied, and the Tactical initialiser adds its own modules to the same
 		// list later in the same startup.

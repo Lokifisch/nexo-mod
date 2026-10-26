@@ -14,6 +14,7 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 
 import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.screen.NexoArmorHudConfigScreen;
+import dev.nexoclient.nexomod.screen.NexoConfig;
 import dev.nexoclient.nexomod.screen.NexoHudEditorScreen;
 import dev.nexoclient.nexomod.screen.NexoQolModules;
 import dev.nexoclient.nexomod.screen.NexoQolOverlayScreen;
@@ -56,7 +57,8 @@ public final class NexoDevTour {
 			return;
 		}
 		STEPS.add(new Step("qol", NexoQolOverlayScreen::new));
-		STEPS.add(new Step("armor-hud-settings", () -> new NexoArmorHudConfigScreen(null)));
+		// Opened from the menu, as a player would: the wide quick-settings layout.
+		STEPS.add(new Step("armor-hud-settings", () -> new NexoArmorHudConfigScreen(new NexoQolOverlayScreen())));
 		STEPS.add(new Step("nexo-settings", () -> new NexoSettingsScreen(null)));
 		STEPS.add(new Step("hud-editor", () -> new NexoHudEditorScreen(null)));
 		STEPS.add(new Step("aim-assist", () -> tacticalConfig("nexomod.qol.aimAssist")));
@@ -101,6 +103,15 @@ public final class NexoDevTour {
 					mc.createWorldOpenFlows().openWorld(WORLD, () -> mc.gui.setScreen(new TitleScreen()));
 				}
 				return;
+			}
+			if (wait == 0) {
+				// Something for the Armor HUD preview to show. Dev world only, which
+				// has cheats on; the dev config is a throwaway too.
+				NexoConfig.get().setArmorHudEnabled(true);
+				for (String piece : List.of("head with diamond_helmet", "chest with iron_chestplate",
+						"legs with netherite_leggings", "feet with golden_boots")) {
+					mc.player.connection.sendCommand("item replace entity @s armor." + piece);
+				}
 			}
 			if (++wait < WORLD_SETTLE_TICKS) {
 				return;

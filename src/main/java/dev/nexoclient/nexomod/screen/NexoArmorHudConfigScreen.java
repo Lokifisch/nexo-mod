@@ -38,6 +38,7 @@ public class NexoArmorHudConfigScreen extends NexoModalScreen {
 				}));
 
 		if (config.armorHudEnabled()) {
+			section("nexomod.settings.armorHud.section.layout");
 			layout.addChild(CycleButton.<NexoConfig.ArmorOrientation>builder(NexoArmorHudConfigScreen::orientationLabel,
 							config.armorHudOrientation())
 					.withValues(NexoConfig.ArmorOrientation.values())
@@ -52,17 +53,6 @@ public class NexoArmorHudConfigScreen extends NexoModalScreen {
 								NexoHudLayout.get().reset(NexoHudLayout.Element.ARMOR);
 								minecraft.gui.setScreen(new NexoArmorHudConfigScreen(parent));
 							}));
-			layout.addChild(CycleButton.<NexoConfig.ArmorDurabilityMode>builder(NexoArmorHudConfigScreen::durabilityLabel,
-							config.armorHudDurabilityMode())
-					.withValues(NexoConfig.ArmorDurabilityMode.values())
-					.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.armorHud.durability.tooltip")))
-					.create(0, 0, ROW_WIDTH, 20, Component.translatable("nexomod.settings.armorHud.durability"),
-							(button, value) -> config.setArmorHudDurabilityMode(value)));
-
-			NexoIntSlider warn = new NexoIntSlider(0, 0, ROW_WIDTH, 20,
-					"nexomod.settings.armorHud.warn", 0, 100, config.armorHudWarnPercent(), config::setArmorHudWarnPercent);
-			warn.setTooltip(Tooltip.create(Component.translatable("nexomod.settings.armorHud.warn.tooltip")));
-			layout.addChild(warn);
 			layout.addChild(new NexoModuleRow(0, 0, ROW_WIDTH, 36,
 					Component.translatable("nexomod.settings.armorHud.offhand"),
 					Component.translatable("nexomod.qol.armorHud.offhand.description"),
@@ -79,6 +69,18 @@ public class NexoArmorHudConfigScreen extends NexoModalScreen {
 						config.setArmorHudHeldItemEnabled(!config.armorHudHeldItemEnabled());
 						minecraft.gui.setScreen(new NexoArmorHudConfigScreen(parent));
 					}));
+			section("nexomod.settings.armorHud.section.durability");
+			layout.addChild(CycleButton.<NexoConfig.ArmorDurabilityMode>builder(NexoArmorHudConfigScreen::durabilityLabel,
+							config.armorHudDurabilityMode())
+					.withValues(NexoConfig.ArmorDurabilityMode.values())
+					.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.armorHud.durability.tooltip")))
+					.create(0, 0, ROW_WIDTH, 20, Component.translatable("nexomod.settings.armorHud.durability"),
+							(button, value) -> config.setArmorHudDurabilityMode(value)));
+
+			NexoIntSlider warn = new NexoIntSlider(0, 0, ROW_WIDTH, 20,
+					"nexomod.settings.armorHud.warn", 0, 100, config.armorHudWarnPercent(), config::setArmorHudWarnPercent);
+			warn.setTooltip(Tooltip.create(Component.translatable("nexomod.settings.armorHud.warn.tooltip")));
+			layout.addChild(warn);
 		}
 		layout.addChild(Button.builder(Component.translatable("nexomod.qol.editLayout"),
 						button -> minecraft.gui.setScreen(new NexoHudEditorScreen(this)))

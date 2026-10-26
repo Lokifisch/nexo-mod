@@ -314,6 +314,12 @@ public final class NexoConfig {
 	/** Default true — the panel is the existing look, and an update should not silently restyle it. */
 	private boolean inventoryHudBackgroundEnabled = true;
 	private boolean miniPlayerEnabled;
+	/**
+	 * The title screen's network cards: quick-join pings to saved servers (each
+	 * sees this machine's IP, as on the multiplayer screen) and the "What's new"
+	 * notes from GitHub. On by default; off sends neither.
+	 */
+	private boolean titleNetworkEnabled = true;
 
 	/**
 	 * HUD cleaner. Every one of these defaults to false: they hide vanilla
@@ -916,6 +922,15 @@ public final class NexoConfig {
 
 	public boolean miniPlayerEnabled() {
 		return miniPlayerEnabled;
+	}
+
+	public boolean titleNetworkEnabled() {
+		return titleNetworkEnabled;
+	}
+
+	public void setTitleNetworkEnabled(boolean enabled) {
+		this.titleNetworkEnabled = enabled;
+		save();
 	}
 
 	public void setMiniPlayerEnabled(boolean enabled) {
@@ -2027,6 +2042,7 @@ public final class NexoConfig {
 		inventoryHudEnabled = Boolean.parseBoolean(props.getProperty("inventoryHudEnabled", "false"));
 		inventoryHudBackgroundEnabled = Boolean.parseBoolean(props.getProperty("inventoryHudBackgroundEnabled", "true"));
 		miniPlayerEnabled = Boolean.parseBoolean(props.getProperty("miniPlayerEnabled", "false"));
+		titleNetworkEnabled = Boolean.parseBoolean(props.getProperty("titleNetworkEnabled", "true"));
 		hideVanillaActionbar = Boolean.parseBoolean(props.getProperty("hideVanillaActionbar", "false"));
 		hideVanillaPotionIcons = Boolean.parseBoolean(props.getProperty("hideVanillaPotionIcons", "false"));
 		hideScoreboard = Boolean.parseBoolean(props.getProperty("hideScoreboard", "false"));
@@ -2298,6 +2314,7 @@ public final class NexoConfig {
 		props.setProperty("inventoryHudEnabled", Boolean.toString(inventoryHudEnabled));
 		props.setProperty("inventoryHudBackgroundEnabled", Boolean.toString(inventoryHudBackgroundEnabled));
 		props.setProperty("miniPlayerEnabled", Boolean.toString(miniPlayerEnabled));
+		props.setProperty("titleNetworkEnabled", Boolean.toString(titleNetworkEnabled));
 		props.setProperty("hideVanillaActionbar", Boolean.toString(hideVanillaActionbar));
 		props.setProperty("hideVanillaPotionIcons", Boolean.toString(hideVanillaPotionIcons));
 		props.setProperty("hideScoreboard", Boolean.toString(hideScoreboard));

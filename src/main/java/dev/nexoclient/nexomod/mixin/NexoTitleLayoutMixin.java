@@ -93,6 +93,10 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 				continue;
 			}
 			String name = widget.getClass().getName();
+			if (name.startsWith("dev.nexoclient.nexomod.title.") || widget instanceof net.minecraft.client.gui.components.PlayerSkinWidget) {
+				// The right-hand cards, account chip and player model place themselves.
+				continue;
+			}
 			if (name.startsWith("gg.essential.")) {
 				// Essential's character preview is hidden; its notice flags (the
 				// red count and the green NEW) ride on their button, see below;

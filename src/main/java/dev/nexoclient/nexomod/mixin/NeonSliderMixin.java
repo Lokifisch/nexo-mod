@@ -50,6 +50,10 @@ public abstract class NeonSliderMixin {
 			return;
 		}
 		AbstractSliderButton self = (AbstractSliderButton) (Object) this;
+		if (NexoRowRenderer.isFlat(self)) {
+			NexoRowRenderer.flatBox(graphics, x, y, x + width, y + height, self.active, self.isHoveredOrFocused());
+			return;
+		}
 		NexoSliderRenderer.draw(graphics, x, y, x + width, y + height, value, self.active, self.isHoveredOrFocused());
 	}
 

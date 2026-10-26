@@ -17,10 +17,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
-import dev.nexoclient.nexomod.hud.NexoPotatoMode;
 import dev.nexoclient.nexomod.hud.NexoQolMenu;
-import dev.nexoclient.nexomod.norender.NexoNoRender;
-import dev.nexoclient.nexomod.norender.NexoNoRenderConfig;
 
 /**
  * The right-shift QoL menu: a small floating panel of feature toggles over
@@ -85,7 +82,7 @@ public class NexoQolOverlayScreen extends Screen {
 	private static final int SEARCH_HEIGHT = 13;
 	private static final int SEARCH_TOP = 8;
 	/** The row above the panel: the MOD MENU tab, the icon tabs and the close button. */
-	private static final int TAB_HEIGHT = 20;
+	static final int TAB_HEIGHT = 20;
 	private static final int TAB_PAD = 10;
 	private static final int TAB_GAP = 4;
 	/** Height of that row plus its gap to the panel. */
@@ -164,150 +161,12 @@ public class NexoQolOverlayScreen extends Screen {
 		moduleGrid.defaultCellSetting().paddingHorizontal(CELL_PADDING).paddingBottom(CELL_PADDING);
 		moduleRows = moduleGrid.createRowHelper(columns());
 
-		NexoConfig config = NexoConfig.get();
-		addRow(Component.translatable("nexomod.qol.keystrokes"),
-				Component.translatable("nexomod.qol.keystrokes.description"),
-				config::keystrokesHudEnabled,
-				() -> config.setKeystrokesHudEnabled(!config.keystrokesHudEnabled()),
-				() -> minecraft.gui.setScreen(new NexoKeystrokesConfigScreen(this)));
-		addRow(Component.translatable("nexomod.qol.cps"),
-				Component.translatable("nexomod.qol.cps.description"),
-				config::cpsCounterEnabled,
-				() -> config.setCpsCounterEnabled(!config.cpsCounterEnabled()));
-		addRow(Component.translatable("nexomod.settings.armorHud.enabled"),
-				Component.translatable("nexomod.qol.armorHud.description"),
-				config::armorHudEnabled,
-				() -> config.setArmorHudEnabled(!config.armorHudEnabled()),
-				() -> minecraft.gui.setScreen(new NexoArmorHudConfigScreen(this)));
-		// Directly under the Armor HUD row on purpose: the two names are one word
-		// apart and the only way to tell them apart is seeing them side by side.
-		addRow(Component.translatable("nexomod.settings.armorBar.enabled"),
-				Component.translatable("nexomod.qol.armorBar.description"),
-				config::armorBarEnabled,
-				() -> config.setArmorBarEnabled(!config.armorBarEnabled()),
-				() -> minecraft.gui.setScreen(new NexoArmorBarConfigScreen(this)));
-		// Toggles directly on click rather than opening a config screen — there is
-		// nothing to configure, and a quick single click is the point before AFK.
-		addRow(Component.translatable("nexomod.qol.potatoMode"),
-				Component.translatable("nexomod.qol.potatoMode.description"),
-				NexoPotatoMode::active,
-				NexoPotatoMode::toggle);
-		addRow(Component.translatable("nexomod.stats.title"),
-				Component.translatable("nexomod.stats.description"),
-				config::statsHudEnabled,
-				() -> config.setStatsHudEnabled(!config.statsHudEnabled()),
-				() -> minecraft.gui.setScreen(new NexoStatsConfigScreen(this)));
-		addRow(Component.translatable("nexomod.qol.potion"),
-				Component.translatable("nexomod.qol.potion.description"),
-				config::potionHudEnabled,
-				() -> config.setPotionHudEnabled(!config.potionHudEnabled()));
-		addRow(Component.translatable("nexomod.qol.combo"),
-				Component.translatable("nexomod.qol.combo.description"),
-				config::comboCounterEnabled,
-				() -> config.setComboCounterEnabled(!config.comboCounterEnabled()));
-		addRow(Component.translatable("nexomod.qol.targetHud"),
-				Component.translatable("nexomod.qol.targetHud.description"),
-				config::targetHudEnabled,
-				() -> config.setTargetHudEnabled(!config.targetHudEnabled()));
-		addRow(Component.translatable("nexomod.qol.reach"),
-				Component.translatable("nexomod.qol.reach.description"),
-				config::reachDisplayEnabled,
-				() -> config.setReachDisplayEnabled(!config.reachDisplayEnabled()));
-		addRow(Component.translatable("nexomod.qol.totemPops"),
-				Component.translatable("nexomod.qol.totemPops.description"),
-				config::totemPopCounterEnabled,
-				() -> config.setTotemPopCounterEnabled(!config.totemPopCounterEnabled()));
-		addRow(Component.translatable("nexomod.qol.hitOverlay"),
-				Component.translatable("nexomod.qol.hitOverlay.description"),
-				config::hitOverlayEnabled,
-				() -> config.setHitOverlayEnabled(!config.hitOverlayEnabled()));
-		addRow(Component.translatable("nexomod.qol.durability"),
-				Component.translatable("nexomod.qol.durability.description"),
-				config::durabilityWarningEnabled,
-				() -> config.setDurabilityWarningEnabled(!config.durabilityWarningEnabled()));
-		addRow(Component.translatable("nexomod.qol.autoReconnect"),
-				Component.translatable("nexomod.qol.autoReconnect.description"),
-				config::autoReconnectEnabled,
-				() -> config.setAutoReconnectEnabled(!config.autoReconnectEnabled()));
-		addRow(Component.translatable("nexomod.qol.stackCount"),
-				Component.translatable("nexomod.qol.stackCount.description"),
-				config::stackCountEnabled,
-				() -> config.setStackCountEnabled(!config.stackCountEnabled()));
-		addRow(Component.translatable("nexomod.qol.containerSearch"),
-				Component.translatable("nexomod.qol.containerSearch.description"),
-				config::containerSearchEnabled,
-				() -> config.setContainerSearchEnabled(!config.containerSearchEnabled()));
-		addRow(Component.translatable("nexomod.qol.actionbarLog"),
-				Component.translatable("nexomod.qol.actionbarLog.description"),
-				config::actionbarLogEnabled,
-				() -> config.setActionbarLogEnabled(!config.actionbarLogEnabled()));
-		addRow(Component.translatable("nexomod.qol.pickupLog"),
-				Component.translatable("nexomod.qol.pickupLog.description"),
-				config::pickupLogEnabled,
-				() -> config.setPickupLogEnabled(!config.pickupLogEnabled()));
-		addRow(Component.translatable("nexomod.qol.chat"),
-				Component.translatable("nexomod.qol.chat.description"),
-				() -> dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled,
-				() -> {
-					dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled = !dev.nexoclient.nexomod.chat.NexoChatTweaks.secondEnabled;
-					dev.nexoclient.nexomod.chat.NexoChatTweaks.save();
-				},
-				() -> minecraft.gui.setScreen(new NexoChatTweaksScreen(this)));
-		addRow(Component.translatable("nexomod.qol.inventoryHud"),
-				Component.translatable("nexomod.qol.inventoryHud.description"),
-				config::inventoryHudEnabled,
-				() -> config.setInventoryHudEnabled(!config.inventoryHudEnabled()),
-				() -> minecraft.gui.setScreen(new NexoInventoryHudConfigScreen(this)));
-		// Toggles directly on click, like Potato Mode above — nothing to
-		// configure, it just shows whatever the desktop's MPRIS bus reports.
-		addRow(Component.translatable("nexomod.qol.miniPlayer"),
-				Component.translatable("nexomod.qol.miniPlayer.description"),
-				config::miniPlayerEnabled,
-				() -> config.setMiniPlayerEnabled(!config.miniPlayerEnabled()));
-		addRow(Component.translatable("nexomod.qol.damageNumbers"),
-				Component.translatable("nexomod.qol.damageNumbers.description"),
-				config::damageNumbersEnabled,
-				() -> config.setDamageNumbersEnabled(!config.damageNumbersEnabled()));
-		// Four independent hide toggles behind one row; the row reads as on when
-		// any of them is hiding something.
-		addRow(Component.translatable("nexomod.qol.hudCleaner"),
-				Component.translatable("nexomod.qol.hudCleaner.description"),
-				config::hudCleanerActive,
-				() -> config.setHudCleanerAll(!config.hudCleanerActive()),
-				() -> minecraft.gui.setScreen(new NexoHudCleanerConfigScreen(this)));
-		addRow(Component.translatable("nexomod.qol.toggleSprint"),
-				Component.translatable("nexomod.qol.toggleSprint.description"),
-				config::toggleSprintEnabled,
-				() -> config.setToggleSprintEnabled(!config.toggleSprintEnabled()));
-		addRow(Component.translatable("nexomod.qol.toggleSneak"),
-				Component.translatable("nexomod.qol.toggleSneak.description"),
-				config::toggleSneakEnabled,
-				() -> config.setToggleSneakEnabled(!config.toggleSneakEnabled()));
-		addRow(Component.translatable("nexomod.qol.screenshotCopy"),
-				Component.translatable("nexomod.qol.screenshotCopy.description"),
-				config::screenshotCopyEnabled,
-				() -> config.setScreenshotCopyEnabled(!config.screenshotCopyEnabled()));
-		addRow(Component.translatable("nexomod.qol.zoom"),
-				Component.translatable("nexomod.qol.zoom.description"),
-				config::zoomEnabled,
-				() -> config.setZoomEnabled(!config.zoomEnabled()),
-				() -> minecraft.gui.setScreen(new NexoZoomConfigScreen(this)));
-		addRow(Component.translatable("nexomod.qol.crosshair"),
-				Component.translatable("nexomod.qol.crosshair.description"),
-				config::crosshairEnabled,
-				() -> config.setCrosshairEnabled(!config.crosshairEnabled()),
-				() -> minecraft.gui.setScreen(new NexoCrosshairConfigScreen(this)));
-		// The card reflects and toggles Dynamic specifically, not "is anything
-		// hidden" — manually-hidden entities don't clear when Dynamic is off, so
-		// using the combined state here would show the pill permanently on (and
-		// impossible to turn off by clicking it) the moment any single entity
-		// type was ever hidden by hand.
-		addRow(Component.translatable("nexomod.qol.noRender"),
-				Component.translatable("nexomod.qol.noRender.description"),
-				() -> NexoNoRenderConfig.get().dynamicEnabled(),
-				NexoNoRender::toggleDynamic,
-				() -> minecraft.gui.setScreen(new NexoNoRenderScreen(this)));
-		addModuleRows();
+		// The same list, in the same order, as the quick-settings sidebar.
+		for (NexoModules.Module module : NexoModules.all()) {
+			addRow(module.name(), module.description(), module.enabled(), module.toggle(),
+					module.config() == null ? null : () -> minecraft.gui.setScreen(module.config().apply(this)),
+					module.tactical() ? Component.translatable("nexomod.qol.card.tactical") : null);
+		}
 
 		// Measure the content BEFORE wrapping it. ScrollableLayout's scroll range is
 		// contentHeight - viewportHeight, and Mth.clamp does not guard min > max: an
@@ -457,17 +316,6 @@ public class NexoQolOverlayScreen extends Screen {
 		return Math.max(1, (matchCount + columns() - 1) / columns());
 	}
 
-	/** Extra module rows contributed by other parts of the mod — see {@link NexoQolModules}. */
-	private void addModuleRows() {
-		for (NexoQolModules.Entry entry : NexoQolModules.entries()) {
-			// Only Tactical registers extra modules, so they wear its tag.
-			addRow(entry.name(), entry.description(), entry.enabled(), entry.toggle(),
-					entry.openConfig() == null ? null
-							: () -> minecraft.gui.setScreen(entry.openConfig().apply(this)),
-					Component.translatable("nexomod.qol.card.tactical"));
-		}
-	}
-
 	/**
 	 * How tall the scrolling list may get: {@link #VISIBLE_ROWS} rows, except
 	 * that it never exceeds what the window can actually hold once the header,
@@ -553,7 +401,7 @@ public class NexoQolOverlayScreen extends Screen {
 		// Content sits at its final position and is revealed or cut off by the moving
 		// panel. The scissor reaches up over the tab row so its buttons draw too.
 		graphics.enableScissor(x0 - 4, Math.min(py0, y0 - TOP_ROW) - 4, x1 + 4, py1);
-		drawModMenuTab(graphics, x0, y0 - TOP_ROW);
+		drawModMenuTab(graphics, minecraft.font, x0, y0 - TOP_ROW);
 		drawHeader(graphics, x0, y0, x1);
 		drawFooter(graphics, x0, x1, y1);
 		drawGhosts(graphics, partialTick, now);
@@ -580,8 +428,7 @@ public class NexoQolOverlayScreen extends Screen {
 	 * The "MOD MENU" tab at the head of the top row: the logo's rainbow, dark
 	 * bold label, accent glow — the menu's one filled control, like the mockup's.
 	 */
-	private void drawModMenuTab(GuiGraphicsExtractor graphics, int tx0, int ty0) {
-		Font font = minecraft.font;
+	static void drawModMenuTab(GuiGraphicsExtractor graphics, Font font, int tx0, int ty0) {
 		int tx1 = tx0 + tabWidth(font);
 		int ty1 = ty0 + TAB_HEIGHT;
 		NexoShapes.glow(graphics, tx0, ty0, tx1, ty1, NexoStyle.ACCENT, 3, 0.22F);
@@ -607,7 +454,7 @@ public class NexoQolOverlayScreen extends Screen {
 		return Component.translatable("nexomod.qol.modMenu").withStyle(style -> style.withBold(true));
 	}
 
-	private static int tabWidth(Font font) {
+	static int tabWidth(Font font) {
 		return font.width(modMenuLabel()) + TAB_PAD * 2;
 	}
 

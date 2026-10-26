@@ -10,6 +10,7 @@ import net.minecraft.client.gui.components.AbstractButton;
 
 import dev.nexoclient.nexomod.hud.NexoHudVisibility;
 import dev.nexoclient.nexomod.screen.NexoButtonRenderer;
+import dev.nexoclient.nexomod.screen.NexoRowRenderer;
 
 /**
  * Draws every vanilla button (stone sprite) as a neon gradient panel
@@ -30,6 +31,12 @@ public abstract class NeonButtonMixin {
 			return;
 		}
 		AbstractButton self = (AbstractButton) (Object) this;
+		if (NexoRowRenderer.isFlat(self)) {
+			NexoRowRenderer.flatBox(graphics, self.getX(), self.getY(), self.getX() + self.getWidth(), self.getY() + self.getHeight(),
+					self.active, self.isHoveredOrFocused());
+			ci.cancel();
+			return;
+		}
 		NexoButtonRenderer.draw(graphics, self.getX(), self.getY(), self.getX() + self.getWidth(), self.getY() + self.getHeight(),
 				self.active, self.isHoveredOrFocused());
 
