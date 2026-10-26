@@ -60,7 +60,10 @@ public abstract class NeonSliderMixin {
 					target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIIII)V",
 					ordinal = 1))
 	private void nexomod$handle(GuiGraphicsExtractor graphics, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height, int color) {
-		if (!NexoHudVisibility.nexoSkinActive()) {
+		// A slider too narrow for the row layout keeps vanilla's label, so it
+		// keeps vanilla's handle too — otherwise it would show no position at all.
+		AbstractSliderButton self = (AbstractSliderButton) (Object) this;
+		if (!NexoHudVisibility.nexoSkinActive() || self.getWidth() < NexoRowRenderer.MIN_ROW_WIDTH) {
 			graphics.blitSprite(pipeline, sprite, x, y, width, height, color);
 		}
 	}

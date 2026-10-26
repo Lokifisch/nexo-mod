@@ -145,7 +145,8 @@ public class NexoHudEditorScreen extends Screen {
 			ScreenRectangle bounds = d.bounds().apply(graphics.guiWidth(), graphics.guiHeight());
 			// The box under the cursor or being dragged is the one that lights up;
 			// the rest are dashed placeholders.
-			boolean lit = d.element() == dragging || (dragging == null && bounds.containsPoint(mouseX, mouseY));
+			boolean lit = d.element() == dragging
+					|| (dragging == null && !overPanel(mouseX, mouseY) && bounds.containsPoint(mouseX, mouseY));
 			if (lit) {
 				NexoShapes.glow(graphics, bounds.left(), bounds.top(), bounds.right(), bounds.bottom(), NexoStyle.ACCENT, 3, 0.2F);
 			}
@@ -165,8 +166,9 @@ public class NexoHudEditorScreen extends Screen {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 	}
 
+	/** Exactly the rectangle drawPanel paints. */
 	private boolean overPanel(double mx, double my) {
-		return mx >= width / 2.0 - PANEL_HALF_WIDTH && mx < width / 2.0 + PANEL_HALF_WIDTH
+		return mx >= width / 2 - PANEL_HALF_WIDTH && mx < width / 2 + PANEL_HALF_WIDTH
 				&& my >= height - 52 && my < height - 6;
 	}
 

@@ -40,7 +40,8 @@ public abstract class NexoModalScreen extends Screen {
 
 	/** The ‹ in the panel's top-left corner, back to {@link #parent} — placed by repositionElements. */
 	private NexoButton backButton;
-	private static final int BACK_SIZE = 16;
+	/** Fits inside the panel's top padding, so it never overlaps the content. */
+	private static final int BACK_SIZE = 12;
 
 	/** Non-null only when the content did not fit and had to be wrapped. */
 	private ScrollableLayout scrollArea;
@@ -90,8 +91,11 @@ public abstract class NexoModalScreen extends Screen {
 			root = scrollArea;
 			scrollArea.visitWidgets(this::addRenderableWidget);
 		}
-		backButton = addRenderableWidget(NexoButton.builder(Component.literal("‹"), this::onClose)
+		backButton = addRenderableWidget(NexoButton.builder(Component.literal("<"), this::onClose)
 				.size(BACK_SIZE, BACK_SIZE).build());
+		// The tooltip says "Back" for anyone hovering it — and for the narrator,
+		// which reads tooltips — since "<" alone means little.
+		backButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(net.minecraft.network.chat.CommonComponents.GUI_BACK));
 		repositionElements();
 	}
 
@@ -135,7 +139,7 @@ public abstract class NexoModalScreen extends Screen {
 		root.arrangeElements();
 		FrameLayout.centerInRectangle(root, getRectangle());
 		if (backButton != null) {
-			backButton.setPosition(root.getX() - 20 + 6, root.getY() - PANEL_PAD_Y + 6);
+			backButton.setPosition(root.getX() - 20 + 4, root.getY() - PANEL_PAD_Y + 1);
 		}
 	}
 
