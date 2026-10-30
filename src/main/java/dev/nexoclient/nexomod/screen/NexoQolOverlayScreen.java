@@ -227,6 +227,7 @@ public class NexoQolOverlayScreen extends Screen {
 		if (minecraft.level == null && minecraft.getConnection() == null) {
 			addTab("nexomod.qol.tab.accounts", net.minecraft.world.item.Items.PLAYER_HEAD, () -> new AccountSwitcherScreen(this));
 		}
+		addTab("nexomod.wardrobe.title", net.minecraft.world.item.Items.LEATHER_CHESTPLATE, () -> new NexoWardrobeScreen(this));
 		closeButton = addRenderableWidget(NexoIconButton.close(TAB_HEIGHT, Component.translatable("gui.done"), this::onClose));
 	}
 

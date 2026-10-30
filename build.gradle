@@ -104,6 +104,8 @@ repositories {
 }
 
 dependencies {
+	// Ships with Minecraft 26.3; just not on the compile classpath. The wardrobe's file picker.
+	compileOnly "org.lwjgl:lwjgl-sdl:3.4.3"
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	// No mappings dependency: Minecraft is unobfuscated from 26.1 onwards.

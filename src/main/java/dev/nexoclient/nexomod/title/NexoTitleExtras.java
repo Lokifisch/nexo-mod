@@ -119,7 +119,8 @@ public final class NexoTitleExtras {
 			fullSkin = null;
 			java.util.concurrent.CompletableFuture.supplyAsync(mc::getGameProfile, net.minecraft.util.Util.nonCriticalIoPool())
 					.thenAccept(profile -> {
-						if (profile.id().equals(skinOwner)) {
+						// Not over a skin worn while this was on its way: this profile predates it.
+						if (profile.id().equals(skinOwner) && fullSkin == null) {
 							fullSkin = mc.getSkinManager().createLookup(profile, false);
 						}
 					});
@@ -128,6 +129,14 @@ public final class NexoTitleExtras {
 			Supplier<PlayerSkin> full = fullSkin;
 			return (full != null ? full : fallback).get();
 		};
+	}
+
+	/** Mojang's profile is cached for the session, so the title screen is told about a skin just worn. */
+	public static void showWornSkin(java.util.UUID owner, net.minecraft.resources.Identifier texture, boolean slim) {
+		PlayerSkin worn = PlayerSkin.insecure(new net.minecraft.core.ClientAsset.ResourceTexture(texture, texture), null, null,
+				slim ? net.minecraft.world.entity.player.PlayerModelType.SLIM : net.minecraft.world.entity.player.PlayerModelType.WIDE);
+		skinOwner = owner;
+		fullSkin = () -> worn;
 	}
 
 	public static void register() {
@@ -147,6 +156,9 @@ public final class NexoTitleExtras {
 		AccountChip chip = new AccountChip(mc, screen, skin);
 		chip.setPosition(width - MARGIN - chip.getWidth(), MARGIN);
 		Screens.getWidgets(screen).add(chip);
+		WardrobeChip wardrobe = new WardrobeChip(mc, screen);
+		wardrobe.setPosition(chip.getX() - wardrobe.getWidth() - 4, MARGIN);
+		Screens.getWidgets(screen).add(wardrobe);
 
 		int leftEdge = Math.max(16, width / 12) + 170 + 16;
 		int columnX1 = width - MARGIN;
@@ -372,6 +384,41 @@ public final class NexoTitleExtras {
 			graphics.text(mc.font, getMessage(), x0 + 24, y0 + 7, NexoStyle.TEXT_PRIMARY);
 			NexoShapes.glow(graphics, x1 - 11, y0 + 9, x1 - 7, y0 + 13, 0xFF2CFF7A, 2, 0.3F);
 			NexoShapes.fillRounded(graphics, x1 - 11, y0 + 9, x1 - 7, y0 + 13, 0xFF2CFF7A, 2);
+		}
+
+		@Override
+		protected void updateWidgetNarration(NarrationElementOutput output) {
+			defaultButtonNarrationText(output);
+		}
+	}
+
+	/** Opens the wardrobe. */
+	private static final class WardrobeChip extends AbstractButton {
+		/** Made on first draw: the title screen is built before item components are bound. */
+		private net.minecraft.world.item.ItemStack icon;
+		private final Minecraft mc;
+		private final Screen screen;
+
+		WardrobeChip(Minecraft mc, Screen screen) {
+			super(0, 0, 22, 22, Component.translatable("nexomod.wardrobe.title"));
+			this.mc = mc;
+			this.screen = screen;
+			setTooltip(net.minecraft.client.gui.components.Tooltip.create(getMessage()));
+		}
+
+		@Override
+		public void onPress(InputWithModifiers input) {
+			mc.gui.setScreen(new dev.nexoclient.nexomod.screen.NexoWardrobeScreen(screen));
+		}
+
+		@Override
+		protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+			NexoShapes.outlined(graphics, getX(), getY(), getRight(), getBottom(), 0xCC101015,
+					isHoveredOrFocused() ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.7F) : NexoStyle.CONTROL, 5);
+			if (icon == null) {
+				icon = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_CHESTPLATE);
+			}
+			graphics.item(icon, getX() + 3, getY() + 3);
 		}
 
 		@Override
