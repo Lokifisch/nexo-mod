@@ -157,6 +157,7 @@ public final class NexoTitleExtras {
 		chip.setPosition(width - MARGIN - chip.getWidth(), MARGIN);
 		Screens.getWidgets(screen).add(chip);
 		WardrobeChip wardrobe = new WardrobeChip(mc, screen);
+		// Beside the account until the player model below gives it a place under the skin.
 		wardrobe.setPosition(chip.getX() - wardrobe.getWidth() - 4, MARGIN);
 		Screens.getWidgets(screen).add(wardrobe);
 
@@ -205,6 +206,7 @@ public final class NexoTitleExtras {
 			((dev.nexoclient.nexomod.mixin.PlayerSkinWidgetAccessor) model).nexomod$setRotationY(-35F);
 			model.setPosition((gapX0 + gapX1 - modelWidth) / 2, (height - modelHeight) / 2 + 10);
 			Screens.getWidgets(screen).add(model);
+			wardrobe.setPosition((gapX0 + gapX1 - wardrobe.getWidth()) / 2, model.getBottom() + 4);
 		}
 
 		// After the title screen's own drawing — it paints its background inside its
@@ -394,16 +396,13 @@ public final class NexoTitleExtras {
 
 	/** Opens the wardrobe. */
 	private static final class WardrobeChip extends AbstractButton {
-		/** Made once it can be: with Essential the title screen is also drawn behind the loading overlay, before item components are bound. */
-		private net.minecraft.world.item.ItemStack icon;
 		private final Minecraft mc;
 		private final Screen screen;
 
 		WardrobeChip(Minecraft mc, Screen screen) {
-			super(0, 0, 22, 22, Component.translatable("nexomod.wardrobe.title"));
+			super(0, 0, mc.font.width(Component.translatable("nexomod.wardrobe.title")) + 30, 20, Component.translatable("nexomod.wardrobe.title"));
 			this.mc = mc;
 			this.screen = screen;
-			setTooltip(net.minecraft.client.gui.components.Tooltip.create(getMessage()));
 		}
 
 		@Override
@@ -415,12 +414,8 @@ public final class NexoTitleExtras {
 		protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 			NexoShapes.outlined(graphics, getX(), getY(), getRight(), getBottom(), 0xCC101015,
 					isHoveredOrFocused() ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.7F) : NexoStyle.CONTROL, 5);
-			if (icon == null && net.minecraft.world.item.Items.LEATHER_CHESTPLATE.builtInRegistryHolder().areComponentsBound()) {
-				icon = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_CHESTPLATE);
-			}
-			if (icon != null) {
-				graphics.item(icon, getX() + 3, getY() + 3);
-			}
+			dev.nexoclient.nexomod.screen.NexoWardrobeScreen.drawChestplate(graphics, getX() + 4, getY() + 2);
+			graphics.text(mc.font, getMessage(), getX() + 24, getY() + 6, NexoStyle.TEXT_PRIMARY);
 		}
 
 		@Override

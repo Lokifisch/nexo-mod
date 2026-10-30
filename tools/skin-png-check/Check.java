@@ -52,5 +52,13 @@ public class Check {
 		expect(NexoPngCheck.fits(png(64, 32, (64 * 4 + 1) * 32), max, 512), true, "cape");
 		expect(NexoPngCheck.fits(png(1024, 512, 1000), max, 512), false, "oversized cape");
 		expect(NexoPngCheck.isSkin(good, 10), false, "over the file limit");
+		byte[] clean = png(64, 64, 1000);
+		byte[] tagged = new byte[clean.length + 16];
+		System.arraycopy(clean, 0, tagged, 0, 33);
+		ByteArrayOutputStream extra = new ByteArrayOutputStream();
+		chunk(extra, "CgBI", new byte[4]);
+		System.arraycopy(extra.toByteArray(), 0, tagged, 33, 16);
+		System.arraycopy(clean, 33, tagged, 49, clean.length - 33);
+		expect(NexoPngCheck.isSkin(tagged, max), false, "CgBI chunk");
 	}
 }

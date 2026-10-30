@@ -56,6 +56,9 @@ public final class NexoSkinLibrary {
 
 	private static Index index;
 	private static boolean loadFailed;
+	/** A broken index that could not be backed up: saving would destroy the only copy. */
+	private static boolean saveBlocked;
+	private static boolean autoImporting;
 	private static final Map<String, Identifier> TEXTURES = new HashMap<>();
 
 	private NexoSkinLibrary() {
@@ -80,7 +83,6 @@ public final class NexoSkinLibrary {
 						if (read.outfits != null) {
 							read.outfits.stream().filter(o -> o != null && find(o.skinId) != null).forEach(o -> {
 								o.name = cleanName(o.name);
-								o.capeId = o.capeId == null ? "" : o.capeId;
 								index.outfits.add(o);
 							});
 						}
@@ -102,6 +104,7 @@ public final class NexoSkinLibrary {
 			Files.copy(INDEX, DIR.resolve("index.json.broken-" + System.currentTimeMillis()));
 		} catch (IOException e) {
 			NexoMod.LOGGER.warn("[nexomod] Wardrobe: could not back up the broken index.", e);
+			saveBlocked = true;
 		}
 	}
 
@@ -131,12 +134,20 @@ public final class NexoSkinLibrary {
 	/** True once, ever, when the empty library should get the account's own skin. */
 	public static boolean claimAutoImport() {
 		Index current = index();
-		if (loadFailed || current.imported || !current.skins.isEmpty()) {
+		if (loadFailed || autoImporting || current.imported || !current.skins.isEmpty()) {
 			return false;
 		}
-		current.imported = true;
-		save();
+		autoImporting = true;
 		return true;
+	}
+
+	public static void autoImportDone() {
+		autoImporting = false;
+	}
+
+	public static void markImported() {
+		index().imported = true;
+		save();
 	}
 
 	public static List<Skin> skins() {
@@ -188,7 +199,9 @@ public final class NexoSkinLibrary {
 		skin.name = cleanName(name);
 		skin.slim = slim;
 		Files.createDirectories(DIR);
-		Files.write(file(skin), png);
+		Path temp = DIR.resolve(skin.id + ".tmp");
+		Files.write(temp, png);
+		Files.move(temp, file(skin), StandardCopyOption.ATOMIC_MOVE);
 		index().skins.add(skin);
 		save();
 		return skin;
@@ -210,6 +223,9 @@ public final class NexoSkinLibrary {
 	}
 
 	public static void save() {
+		if (saveBlocked) {
+			return;
+		}
 		try {
 			Files.createDirectories(DIR);
 			Path temp = DIR.resolve("index.json.tmp");

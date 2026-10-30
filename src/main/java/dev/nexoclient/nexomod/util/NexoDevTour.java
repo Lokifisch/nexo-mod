@@ -79,6 +79,13 @@ public final class NexoDevTour {
 		if (stepIndex == STEPS.size()) {
 			return;
 		}
+		// NEXOMOD_DEV_TOUR=cold: the wardrobe from a title screen no world has been
+		// loaded behind, where item components are still unbound. The normal tour
+		// loads a world first and cannot see what breaks here.
+		if ("cold".equals(System.getenv("NEXOMOD_DEV_TOUR"))) {
+			coldTick(mc);
+			return;
+		}
 		if (stepIndex < 0) {
 			// Waiting for the world: opened from the title screen once it is up,
 			// and the tour starts once the player has stood there a moment.
@@ -127,6 +134,20 @@ public final class NexoDevTour {
 		Screenshot.grab(mc.gameDirectory, file, mc.gameRenderer.mainRenderTarget(), 1,
 				message -> NexoMod.LOGGER.info("dev tour: {}", message.getString()));
 		advance(mc);
+	}
+
+	private static void coldTick(Minecraft mc) {
+		wait++;
+		if (wait == 200) {
+			Screenshot.grab(mc.gameDirectory, "tour-title-cold.png", mc.gameRenderer.mainRenderTarget(), 1,
+					message -> NexoMod.LOGGER.info("dev tour: {}", message.getString()));
+			mc.gui.setScreen(new dev.nexoclient.nexomod.screen.NexoWardrobeScreen(mc.gui.screen()));
+		} else if (wait == 260) {
+			Screenshot.grab(mc.gameDirectory, "tour-wardrobe-cold.png", mc.gameRenderer.mainRenderTarget(), 1,
+					message -> NexoMod.LOGGER.info("dev tour: {}", message.getString()));
+		} else if (wait == 280) {
+			mc.stop();
+		}
 	}
 
 	private static void advance(Minecraft mc) {

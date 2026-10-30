@@ -27,14 +27,13 @@ import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.title.NexoTitleExtras;
@@ -67,6 +66,15 @@ public class NexoWardrobeScreen extends Screen {
 
 	/** Downloaded cape textures by cape id, kept for the session. */
 	private static final Map<String, Identifier> CAPE_TEXTURES = new HashMap<>();
+	/*
+	 * Item textures, not ItemStacks: until a world has been loaded this session item
+	 * components are unbound and making a stack throws, and this screen and its
+	 * title-screen button both show before that.
+	 */
+	private static final Identifier CHESTPLATE = Identifier.withDefaultNamespace("textures/item/leather_chestplate.png");
+	private static final Identifier ARMOR_STAND = Identifier.withDefaultNamespace("textures/item/armor_stand.png");
+	private static final Identifier ELYTRA = Identifier.withDefaultNamespace("textures/item/elytra.png");
+	private static final int LEATHER_TINT = 0xFFA0653F;
 	private static final Identifier WORN = Identifier.fromNamespaceAndPath("nexomod", "wardrobe/worn");
 	private static Model.Simple wide;
 	private static Model.Simple slimModel;
@@ -92,6 +100,8 @@ public class NexoWardrobeScreen extends Screen {
 
 	private List<NexoSkinApi.Cape> capes;
 	private String activeCape = "";
+	/** Whether the account's capes were really read: until then an outfit must not claim "no cape". */
+	private boolean capesKnown;
 	private String previewCape = "";
 	private Component capesMessage;
 
@@ -138,9 +148,9 @@ public class NexoWardrobeScreen extends Screen {
 
 		addRenderableWidget(NexoButton.builder(Component.literal("<"), this::onClose).pos(px0 + 6, py0 + 6).size(18, 18).build());
 		int y = py0 + HEADER + 4;
-		y = addTab(Tab.SKINS, "nexomod.wardrobe.tab.skins", Items.LEATHER_CHESTPLATE, y);
-		y = addTab(Tab.OUTFITS, "nexomod.wardrobe.tab.outfits", Items.ARMOR_STAND, y);
-		addTab(Tab.CAPES, "nexomod.wardrobe.tab.capes", Items.ELYTRA, y);
+		y = addTab(Tab.SKINS, "nexomod.wardrobe.tab.skins", CHESTPLATE, LEATHER_TINT, y);
+		y = addTab(Tab.OUTFITS, "nexomod.wardrobe.tab.outfits", ARMOR_STAND, 0xFFFFFFFF, y);
+		addTab(Tab.CAPES, "nexomod.wardrobe.tab.capes", ELYTRA, 0xFFFFFFFF, y);
 
 		// Header: search, and on Skins the add button. Outfits get theirs from the preview.
 		int headerRight = gridX1;
@@ -206,14 +216,14 @@ public class NexoWardrobeScreen extends Screen {
 		addMenuItem(3, "nexomod.wardrobe.add.current", () -> importCurrent(true));
 	}
 
-	private int addTab(Tab target, String key, net.minecraft.world.item.Item icon, int y) {
+	private int addTab(Tab target, String key, Identifier icon, int tint, int y) {
 		addRenderableWidget(new Chip(px0 + 6, y, RAIL - 12, 24, Component.translatable(key), () -> tab == target, () -> {
 			tab = target;
 			scroll = 0;
 			deleteArmed = false;
 			setMenu(false);
 			rebuildWidgets();
-		}).icon(new ItemStack(icon)));
+		}).icon(icon, tint));
 		return y + 26;
 	}
 
@@ -230,6 +240,14 @@ public class NexoWardrobeScreen extends Screen {
 		chip.menuItem = true;
 		chip.visible = menuOpen;
 		menuChips.add(addRenderableWidget(chip));
+	}
+
+	static void drawIcon(GuiGraphicsExtractor graphics, Identifier texture, int tint, int x, int y) {
+		graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0F, 0F, 16, 16, 16, 16, tint);
+	}
+
+	public static void drawChestplate(GuiGraphicsExtractor graphics, int x, int y) {
+		drawIcon(graphics, CHESTPLATE, LEATHER_TINT, x, y);
 	}
 
 	// --- Actions --------------------------------------------------------
@@ -289,29 +307,43 @@ public class NexoWardrobeScreen extends Screen {
 		}));
 	}
 
-	/** Kept until SDL calls it back; SDL has no other reference that the garbage collector can see. */
+	private static boolean dialogOpen;
+	/** Never freed: SDL may call it from another thread, and it must outlive that call. */
 	private static SDL_DialogFileCallback fileCallback;
 
 	private void pickFile() {
-		if (fileCallback != null) {
+		if (dialogOpen) {
+			say(Component.translatable("nexomod.wardrobe.dialogOpen"), false);
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		fileCallback = SDL_DialogFileCallback.create((userdata, filelist, filter) -> {
-			// NULL on an error, a NULL first entry when the player cancelled.
-			long first = filelist == 0L ? 0L : MemoryUtil.memGetAddress(filelist);
-			String path = first == 0L ? null : MemoryUtil.memUTF8(first);
-			mc.execute(() -> {
-				fileCallback.free();
-				fileCallback = null;
-				if (path == null) {
-					say(Component.translatable("nexomod.wardrobe.dropHint"), false);
-				} else {
-					loadFile(Path.of(path));
-				}
+		if (fileCallback == null) {
+			fileCallback = SDL_DialogFileCallback.create((userdata, filelist, filter) -> {
+				// NULL on an error, a NULL first entry when the player cancelled.
+				long first = filelist == 0L ? 0L : MemoryUtil.memGetAddress(filelist);
+				String path = first == 0L ? null : MemoryUtil.memUTF8(first);
+				Minecraft.getInstance().execute(() -> filePicked(path));
 			});
-		});
+		}
+		dialogOpen = true;
 		SDLDialog.SDL_ShowOpenFileDialog(fileCallback, 0L, mc.getWindow().handle(), null, (CharSequence) null, false);
+	}
+
+	/** Goes to whichever wardrobe is showing now, which may not be the one that asked. */
+	private static void filePicked(String path) {
+		dialogOpen = false;
+		if (!(Minecraft.getInstance().gui.screen() instanceof NexoWardrobeScreen wardrobe)) {
+			return;
+		}
+		if (path == null) {
+			wardrobe.say(Component.translatable("nexomod.wardrobe.dropHint"), false);
+			return;
+		}
+		try {
+			wardrobe.loadFile(Path.of(path));
+		} catch (java.nio.file.InvalidPathException e) {
+			wardrobe.say(Component.translatable("nexomod.wardrobe.error.badImage"), true);
+		}
 	}
 
 	private void loadFile(Path file) {
@@ -367,10 +399,11 @@ public class NexoWardrobeScreen extends Screen {
 			}
 			try {
 				select(NexoSkinLibrary.add(skin.png(), name, skin.slim()));
+				NexoSkinLibrary.markImported();
 			} catch (IOException e) {
 				NexoMod.LOGGER.warn("[nexomod] Wardrobe: could not save the current skin.", e);
 			}
-		});
+		}, () -> NexoSkinLibrary.autoImportDone());
 	}
 
 	private void loadCapes(String token) {
@@ -387,11 +420,15 @@ public class NexoWardrobeScreen extends Screen {
 				return;
 			}
 			capes = list;
+			capesKnown = true;
 			capesMessage = list.isEmpty() ? Component.translatable("nexomod.wardrobe.capes.none") : null;
 			for (NexoSkinApi.Cape cape : list) {
 				if (cape.active()) {
 					activeCape = cape.id();
-					previewCape = cape.id();
+					// Not over the cape of an outfit picked while this was loading.
+					if (selectedOutfit == null) {
+						previewCape = cape.id();
+					}
 				}
 				fetchCape(cape);
 			}
@@ -438,6 +475,7 @@ public class NexoWardrobeScreen extends Screen {
 			byte[] png;
 			try {
 				png = NexoSkinLibrary.bytes(skin);
+				NexoSkinLibrary.checkSkin(png);
 			} catch (IOException e) {
 				throw new NexoSkinApi.ApiException("nexomod.wardrobe.error.badImage");
 			}
@@ -476,7 +514,7 @@ public class NexoWardrobeScreen extends Screen {
 		Outfit outfit = new Outfit();
 		outfit.name = "Outfit #" + (NexoSkinLibrary.outfits().size() + 1);
 		outfit.skinId = selected.id;
-		outfit.capeId = previewCape;
+		outfit.capeId = capesKnown ? previewCape : null;
 		NexoSkinLibrary.outfits().add(outfit);
 		NexoSkinLibrary.save();
 		selectedOutfit = outfit;
@@ -574,7 +612,10 @@ public class NexoWardrobeScreen extends Screen {
 						false, outfit == selectedOutfit, false, () -> {
 							select(skin);
 							selectedOutfit = outfit;
-							previewCape = outfit.capeId;
+							// No recorded cape: saved while capes were unknown, so leave the choice alone.
+							if (outfit.capeId != null) {
+								previewCape = outfit.capeId;
+							}
 						}));
 			}
 		} else if (capes != null && !capes.isEmpty()) {
@@ -912,7 +953,8 @@ public class NexoWardrobeScreen extends Screen {
 	static final class Chip extends AbstractButton {
 		private final BooleanSupplier on;
 		private final Runnable action;
-		private ItemStack icon;
+		private Identifier icon;
+		private int iconTint;
 		/** An entry of the add menu: left-aligned, no outline until hovered. */
 		boolean menuItem;
 
@@ -926,8 +968,9 @@ public class NexoWardrobeScreen extends Screen {
 			this.action = action;
 		}
 
-		Chip icon(ItemStack stack) {
-			icon = stack;
+		Chip icon(Identifier texture, int tint) {
+			icon = texture;
+			iconTint = tint;
 			return this;
 		}
 
@@ -953,7 +996,7 @@ public class NexoWardrobeScreen extends Screen {
 			NexoShapes.outlined(graphics, x0, y0, x1, y1, fill, border, 3);
 			int color = lit || hot ? NexoStyle.TEXT_PRIMARY : NexoStyle.MUTED;
 			if (icon != null) {
-				graphics.item(icon, x0 + 4, y0 + (getHeight() - 16) / 2);
+				drawIcon(graphics, icon, iconTint, x0 + 4, y0 + (getHeight() - 16) / 2);
 				graphics.text(font, getMessage(), x0 + 24, y0 + (getHeight() - 8) / 2, color);
 			} else if (menuItem) {
 				graphics.text(font, getMessage(), x0 + 6, y0 + (getHeight() - 8) / 2, color);

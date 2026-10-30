@@ -572,5 +572,6 @@
   "nexomod.wardrobe.error.rejected": "Mojang hat diesen Skin abgelehnt.",
   "nexomod.wardrobe.error.save": "Der Skin konnte nicht gespeichert werden.",
   "nexomod.wardrobe.wornNoCape": "Skin angezogen, aber der Umhang konnte nicht geändert werden.",
-  "nexomod.wardrobe.url.hint": "Ein https-Link zu einer Skin-PNG (64x64 oder 64x32). Die Seite sieht deine IP-Adresse."
+  "nexomod.wardrobe.url.hint": "Ein https-Link zu einer Skin-PNG (64x64 oder 64x32). Die Seite sieht deine IP-Adresse.",
+  "nexomod.wardrobe.dialogOpen": "Die Dateiauswahl ist schon offen."
 }

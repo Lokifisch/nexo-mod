@@ -57,6 +57,11 @@ public final class NexoPngCheck {
 				if (length < 0 || length > png.length - at - 12) {
 					return false;
 				}
+				// Apple's variant: stb then reads IDAT as raw deflate, not the zlib stream
+				// measured here, so the same bytes could mean something much larger to it.
+				if (type(png, at + 4, "CgBI")) {
+					return false;
+				}
 				if (type(png, at + 4, "IDAT")) {
 					inflater.setInput(png, at + 8, length);
 					while (!inflater.needsInput() && !inflater.finished()) {
