@@ -394,7 +394,7 @@ public final class NexoTitleExtras {
 
 	/** Opens the wardrobe. */
 	private static final class WardrobeChip extends AbstractButton {
-		/** Made on first draw: the title screen is built before item components are bound. */
+		/** Made once it can be: with Essential the title screen is also drawn behind the loading overlay, before item components are bound. */
 		private net.minecraft.world.item.ItemStack icon;
 		private final Minecraft mc;
 		private final Screen screen;
@@ -415,10 +415,12 @@ public final class NexoTitleExtras {
 		protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 			NexoShapes.outlined(graphics, getX(), getY(), getRight(), getBottom(), 0xCC101015,
 					isHoveredOrFocused() ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.7F) : NexoStyle.CONTROL, 5);
-			if (icon == null) {
+			if (icon == null && net.minecraft.world.item.Items.LEATHER_CHESTPLATE.builtInRegistryHolder().areComponentsBound()) {
 				icon = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_CHESTPLATE);
 			}
-			graphics.item(icon, getX() + 3, getY() + 3);
+			if (icon != null) {
+				graphics.item(icon, getX() + 3, getY() + 3);
+			}
 		}
 
 		@Override
