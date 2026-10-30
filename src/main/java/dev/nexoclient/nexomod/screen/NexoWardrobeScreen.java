@@ -119,11 +119,14 @@ public class NexoWardrobeScreen extends Screen {
 		this.parent = parent;
 		List<Skin> skins = NexoSkinLibrary.skins();
 		selected = skins.isEmpty() ? null : skins.get(0);
+		if (NexoSkinLibrary.saveBlocked()) {
+			say(Component.translatable("nexomod.wardrobe.error.index"), true);
+		}
 		String token = Minecraft.getInstance().getUser().getAccessToken();
 		if (NexoSkinApi.hasToken(token)) {
 			loadCapes(token);
 			if (NexoSkinLibrary.claimAutoImport()) {
-				importCurrent(false);
+				autoImport();
 			}
 		} else {
 			capes = List.of();
@@ -213,7 +216,7 @@ public class NexoWardrobeScreen extends Screen {
 		addMenuItem(0, "nexomod.wardrobe.add.file", this::pickFile);
 		addMenuItem(1, "nexomod.wardrobe.add.url", this::askUrl);
 		addMenuItem(2, "nexomod.wardrobe.add.username", this::askUsername);
-		addMenuItem(3, "nexomod.wardrobe.add.current", () -> importCurrent(true));
+		addMenuItem(3, "nexomod.wardrobe.add.current", this::importCurrent);
 	}
 
 	private int addTab(Tab target, String key, Identifier icon, int tint, int y) {
@@ -384,26 +387,44 @@ public class NexoWardrobeScreen extends Screen {
 				}));
 	}
 
-	/** Adds the skin the account has now; on first open it does so unasked and quietly. */
-	private void importCurrent(boolean ask) {
+	/** The menu's entry: the skin the account has now, through the naming dialog. */
+	private void importCurrent() {
 		Minecraft mc = Minecraft.getInstance();
 		String name = mc.getUser().getName();
 		if (!NexoSkinApi.hasToken(mc.getUser().getAccessToken())) {
 			say(Component.translatable("nexomod.wardrobe.error.signIn"), true);
 			return;
 		}
-		background(() -> NexoSkinApi.fromUsername(name), skin -> {
-			if (ask) {
-				offerSkin(skin.png(), name, skin.slim());
+		background(() -> NexoSkinApi.fromUsername(name), skin -> offerSkin(skin.png(), name, skin.slim()));
+	}
+
+	private record AutoImport(NexoSkinApi.FetchedSkin skin, boolean retry) {
+	}
+
+	/** First open with an empty library: adds the account's skin, without a word if that fails. */
+	private void autoImport() {
+		String name = Minecraft.getInstance().getUser().getName();
+		this.<AutoImport>background(() -> {
+			try {
+				return new AutoImport(NexoSkinApi.fromUsername(name), false);
+			} catch (NexoSkinApi.ApiException e) {
+				// Only a network failure can come out differently next time.
+				return new AutoImport(null, "nexomod.wardrobe.error.network".equals(e.getMessage()));
+			}
+		}, result -> {
+			if (result.skin() == null) {
+				if (!result.retry()) {
+					NexoSkinLibrary.markImported();
+				}
 				return;
 			}
 			try {
-				select(NexoSkinLibrary.add(skin.png(), name, skin.slim()));
+				select(NexoSkinLibrary.add(result.skin().png(), name, result.skin().slim()));
 				NexoSkinLibrary.markImported();
-			} catch (IOException e) {
-				NexoMod.LOGGER.warn("[nexomod] Wardrobe: could not save the current skin.", e);
+			} catch (IOException | NexoSkinApi.ApiException e) {
+				NexoMod.LOGGER.warn("[nexomod] Wardrobe: could not save the current skin.");
 			}
-		}, () -> NexoSkinLibrary.autoImportDone());
+		}, NexoSkinLibrary::autoImportDone);
 	}
 
 	private void loadCapes(String token) {
@@ -426,7 +447,7 @@ public class NexoWardrobeScreen extends Screen {
 				if (cape.active()) {
 					activeCape = cape.id();
 					// Not over the cape of an outfit picked while this was loading.
-					if (selectedOutfit == null) {
+					if (selectedOutfit == null || selectedOutfit.capeId == null) {
 						previewCape = cape.id();
 					}
 				}
@@ -612,10 +633,8 @@ public class NexoWardrobeScreen extends Screen {
 						false, outfit == selectedOutfit, false, () -> {
 							select(skin);
 							selectedOutfit = outfit;
-							// No recorded cape: saved while capes were unknown, so leave the choice alone.
-							if (outfit.capeId != null) {
-								previewCape = outfit.capeId;
-							}
+							// No recorded cape: saved while capes were unknown, so keep what the account has.
+							previewCape = outfit.capeId != null ? outfit.capeId : activeCape;
 						}));
 			}
 		} else if (capes != null && !capes.isEmpty()) {
@@ -714,7 +733,7 @@ public class NexoWardrobeScreen extends Screen {
 			slimModel = new Model.Simple(models.bakeLayer(ModelLayers.PLAYER_SLIM), RenderTypes::entityTranslucent);
 			capeModel = new Model.Simple(models.bakeLayer(ModelLayers.PLAYER_CAPE), RenderTypes::entitySolid);
 			// Hangs slightly away from the back, as it does on a standing player.
-			capeModel.root().getChild("body").getChild("cape").xRot = 0.1F;
+			capeModel.root().getChild("body").getChild("cape").xRot = -0.1F;
 		}
 	}
 

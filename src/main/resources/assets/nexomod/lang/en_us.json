@@ -684,5 +684,6 @@
   "nexomod.wardrobe.error.save": "Could not save that skin.",
   "nexomod.wardrobe.wornNoCape": "Skin worn, but the cape could not be changed.",
   "nexomod.wardrobe.url.hint": "An https link to a skin PNG (64x64 or 64x32). That site sees your IP address.",
-  "nexomod.wardrobe.dialogOpen": "The file picker is already open."
+  "nexomod.wardrobe.dialogOpen": "The file picker is already open.",
+  "nexomod.wardrobe.error.index": "Your skin list is damaged and could not be backed up, so changes will not be saved."
 }

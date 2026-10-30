@@ -141,6 +141,11 @@ public final class NexoSkinLibrary {
 		return true;
 	}
 
+	public static boolean saveBlocked() {
+		index();
+		return saveBlocked;
+	}
+
 	public static void autoImportDone() {
 		autoImporting = false;
 	}
@@ -200,8 +205,12 @@ public final class NexoSkinLibrary {
 		skin.slim = slim;
 		Files.createDirectories(DIR);
 		Path temp = DIR.resolve(skin.id + ".tmp");
-		Files.write(temp, png);
-		Files.move(temp, file(skin), StandardCopyOption.ATOMIC_MOVE);
+		try {
+			Files.write(temp, png);
+			Files.move(temp, file(skin), StandardCopyOption.ATOMIC_MOVE);
+		} finally {
+			Files.deleteIfExists(temp);
+		}
 		index().skins.add(skin);
 		save();
 		return skin;
