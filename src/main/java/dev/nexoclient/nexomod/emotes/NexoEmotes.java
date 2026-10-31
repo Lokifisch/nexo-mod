@@ -37,8 +37,11 @@ public final class NexoEmotes {
 		public static final Pose NEUTRAL = new Pose(0F, 0F, 0F, 0F);
 	}
 
-	/** An emote: {@code id} is the stable name other players' clients look it up by. */
-	public record Emote(String id, Component name, Pose pose) {
+	/**
+	 * An emote: {@code id} is the stable name other players' clients look it up by.
+	 * {@code walkable} ones only use the arms, so they keep playing while walking.
+	 */
+	public record Emote(String id, Component name, Pose pose, boolean walkable) {
 		public Animation animation() {
 			return id.length() == 64 ? NexoEmoteAccount.animation(id) : PlayerAnimResources.getAnimation(Identifier.fromNamespaceAndPath("nexomod", id));
 		}
@@ -51,14 +54,14 @@ public final class NexoEmotes {
 	}
 
 	public static final List<Emote> STARTERS = List.of(
-			starter("wave", new Pose(-2.97F, 0.26F, 0F, 0F)),
-			starter("cheer", new Pose(-2.97F, 0.2F, -2.97F, -0.2F)),
-			starter("point", new Pose(-1.57F, 0F, 0F, 0F)),
-			starter("clap", new Pose(-1.3F, 0F, -1.3F, 0F)),
-			starter("dance", new Pose(-2.2F, 0.2F, -1.05F, -0.5F)),
-			starter("bow", new Pose(-0.44F, 0F, -0.44F, 0F)),
-			starter("facepalm", new Pose(-2.35F, 0F, 0F, 0F)),
-			starter("tpose", new Pose(0F, 1.57F, 0F, -1.57F)));
+			starter("wave", new Pose(-2.97F, 0.26F, 0F, 0F), true),
+			starter("cheer", new Pose(-2.97F, 0.2F, -2.97F, -0.2F), true),
+			starter("point", new Pose(-1.57F, 0F, 0F, 0F), true),
+			starter("clap", new Pose(-1.3F, 0F, -1.3F, 0F), true),
+			starter("dance", new Pose(-2.2F, 0.2F, -1.05F, -0.5F), false),
+			starter("bow", new Pose(-0.44F, 0F, -0.44F, 0F), false),
+			starter("facepalm", new Pose(-2.35F, 0F, 0F, 0F), true),
+			starter("tpose", new Pose(0F, 1.57F, 0F, -1.57F), true));
 
 	private static KeyMapping wheelKey;
 	private static Emote playing;
@@ -68,8 +71,8 @@ public final class NexoEmotes {
 	private NexoEmotes() {
 	}
 
-	private static Emote starter(String id, Pose pose) {
-		return new Emote(id, Component.translatable("nexomod.emote." + id), pose);
+	private static Emote starter(String id, Pose pose, boolean walkable) {
+		return new Emote(id, Component.translatable("nexomod.emote." + id), pose, walkable);
 	}
 
 	public static void setListener(Listener value) {
@@ -121,8 +124,12 @@ public final class NexoEmotes {
 
 	private static boolean wantsToStop(Minecraft mc) {
 		var options = mc.options;
-		return options.keyUp.isDown() || options.keyDown.isDown() || options.keyLeft.isDown() || options.keyRight.isDown()
-				|| options.keyJump.isDown() || options.keyAttack.isDown() || mc.player.hurtTime > 0;
+		// Always: these also end a looping emote that walking would not.
+		if (options.keyAttack.isDown() || options.keyShift.isDown() || mc.player.hurtTime > 0) {
+			return true;
+		}
+		return !playing.walkable() && (options.keyUp.isDown() || options.keyDown.isDown() || options.keyLeft.isDown()
+				|| options.keyRight.isDown() || options.keyJump.isDown());
 	}
 
 	private static PlayerAnimationController controller(Avatar avatar) {

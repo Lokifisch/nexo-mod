@@ -126,7 +126,14 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 				.thenComparingInt(AbstractWidget::getX);
 		big.sort(reading);
 		small.sort(reading);
-		essential.sort(reading);
+		// Essential's in fixed slots, decided the first time each is seen. Sorting them
+		// by position every frame would let one that Essential moved for a frame (a
+		// new one, or one it just rebuilt) reshuffle the whole row, every frame.
+		essential.sort(Comparator.comparingInt((AbstractWidget widget) -> nexomod$essentialSlots.getOrDefault(widget, Integer.MAX_VALUE))
+				.thenComparing(reading));
+		for (AbstractWidget widget : essential) {
+			nexomod$essentialSlots.computeIfAbsent(widget, seen -> nexomod$essentialSlots.size());
+		}
 		nexomod$logEssential();
 
 		int left = nexomod$left();
@@ -191,7 +198,12 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 	@Inject(method = "init", at = @At("TAIL"))
 	private void nexomod$resetFlagHosts(CallbackInfo ci) {
 		nexomod$flagHosts.clear();
+		nexomod$essentialSlots.clear();
 	}
+
+	/** Each of Essential's buttons' place in the row, for as long as this layout of the screen lasts. */
+	@Unique
+	private final java.util.Map<AbstractWidget, Integer> nexomod$essentialSlots = new java.util.IdentityHashMap<>();
 
 	/** Which of Essential's widgets each of its notice flags belongs to — see the layout above. */
 	@Unique

@@ -305,7 +305,7 @@ public final class NexoEmoteAccount {
 				JsonObject item = element.getAsJsonObject();
 				String id = item.get("id").getAsString();
 				if (id.matches("[0-9a-f]{64}")) {
-					emotes.add(new NexoEmotes.Emote(id, Component.literal(clean(item.get("name").getAsString())), NexoEmotes.Pose.NEUTRAL));
+					emotes.add(new NexoEmotes.Emote(id, Component.literal(clean(item.get("name").getAsString())), NexoEmotes.Pose.NEUTRAL, false));
 				}
 			}
 			Map<String, byte[]> signed = new ConcurrentHashMap<>();

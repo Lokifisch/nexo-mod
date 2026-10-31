@@ -82,6 +82,9 @@ public class NexoEmoteWheelScreen extends Screen {
 		mc.gui.setScreen(null);
 		if (hovered >= 0) {
 			NexoEmotes.play(emotes.get(hovered));
+		} else {
+			// Opening the wheel and letting go in the middle: the way out of a loop.
+			NexoEmotes.stop();
 		}
 	}
 
