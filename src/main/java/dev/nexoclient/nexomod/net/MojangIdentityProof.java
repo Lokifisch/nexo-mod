@@ -1,16 +1,22 @@
 package dev.nexoclient.nexomod.net;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.UUID;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+
+import dev.nexoclient.nexomod.NexoMod;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
@@ -22,12 +28,18 @@ import net.minecraft.client.User;
  *
  * <ol>
  *   <li>Ask the service for a one-shot {@code server_id}.</li>
- *   <li>POST it to Mojang's {@code session/minecraft/join} together with this
+ *   <li>POST its hash to Mojang's {@code session/minecraft/join} together with this
  *       session's access token, exactly as the game does when connecting to a
  *       server.</li>
  *   <li>Tell the service to look it up. Mojang answers with the profile that
  *       joined under that id, which is what proves ownership.</li>
  * </ol>
+ *
+ * <p>Mojang refuses a {@code serverId} that isn't shaped like a real one, so
+ * what it gets is {@link #joinId} of the challenge, and the service asks about
+ * that same value. A hacked service that wanted to use this client to log in
+ * to a real server would have to find a challenge whose hash collides with that
+ * login's, about 2^80 work on SHA-1: not impossible in theory, out of reach here.
  *
  * <p>Extracted out of the badge feature so another feature needing the same
  * proof does not reimplement the Mojang handshake a second time.
@@ -93,19 +105,18 @@ public final class MojangIdentityProof {
 	}
 
 	/**
-	 * The same call the game makes when joining a server, with our challenge in
-	 * place of the server's id. Mojang treats it as an opaque string, which is
-	 * what makes it usable as a generic proof of ownership.
+	 * The same call the game makes when joining a server, with the hash of our
+	 * challenge in place of the server's id.
 	 */
 	public boolean joinWithMojang(User user, String serverId) throws IOException, InterruptedException {
-		// Mojang signs whatever string we hand it, so only our own namespaced challenges may reach it.
+		// Only our own namespaced challenges may be hashed into a join.
 		if (serverId == null || !SERVER_ID.matcher(serverId).matches()) {
 			return false;
 		}
 		JsonObject payload = new JsonObject();
 		payload.addProperty("accessToken", user.getAccessToken());
 		payload.addProperty("selectedProfile", undashed(user.getProfileId()));
-		payload.addProperty("serverId", serverId);
+		payload.addProperty("serverId", joinId(serverId));
 
 		HttpRequest request = HttpRequest.newBuilder(URI.create(JOIN_URL))
 				.timeout(timeout)
@@ -113,8 +124,38 @@ public final class MojangIdentityProof {
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
 				.build();
-		HttpResponse<Void> response = http.send(request, HttpResponse.BodyHandlers.discarding());
-		return response.statusCode() == 204 || response.statusCode() == 200;
+		HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+		if (response.statusCode() == 204 || response.statusCode() == 200) {
+			return true;
+		}
+		NexoMod.LOGGER.warn("[nexomod] Mojang refused this session: {} {}", response.statusCode(), refusal(response.body(), user.getAccessToken()));
+		// An outage or rate limit says nothing about the session.
+		if (response.statusCode() == 429 || response.statusCode() >= 500) {
+			throw new IOException("Mojang session server: " + response.statusCode());
+		}
+		return false;
+	}
+
+	/** The challenge as a server id, in the signed-hex SHA-1 form the game itself sends. */
+	private static String joinId(String challenge) {
+		try {
+			return new BigInteger(MessageDigest.getInstance("SHA-1").digest(challenge.getBytes(StandardCharsets.UTF_8))).toString(16);
+		} catch (NoSuchAlgorithmException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	/** Only Mojang's named error fields, so nothing else in the reply can reach the log. */
+	private static String refusal(String body, String token) {
+		try {
+			JsonObject reply = JsonParser.parseString(body).getAsJsonObject();
+			String text = (reply.has("error") ? reply.get("error").getAsString() : "")
+					+ (reply.has("errorMessage") ? ": " + reply.get("errorMessage").getAsString() : "");
+			text = text.replace(token, "<token>").replaceAll("\\p{Cntrl}|\\p{Cf}", " ");
+			return text.length() > 200 ? text.substring(0, 200) : text;
+		} catch (RuntimeException e) {
+			return "";
+		}
 	}
 
 	/** Mojang's session API wants the dashless form. */

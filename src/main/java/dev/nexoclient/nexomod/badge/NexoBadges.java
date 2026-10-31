@@ -99,6 +99,14 @@ public final class NexoBadges {
 	 * spanning many servers.
 	 */
 	private static final ConcurrentHashMap<UUID, Long> lastOnDemandRefresh = new ConcurrentHashMap<>();
+	/**
+	 * Shortest gap between on-demand refreshes for anyone. Joining a full server
+	 * makes every player due at once, and that burst tripped the website's abuse
+	 * block, which then shut this player's whole IP out of the site and the emote
+	 * service. A player skipped here stays due, so they only wait a few seconds.
+	 */
+	private static final long ON_DEMAND_MIN_GAP_MS = 10_000;
+	private static volatile long lastAnyOnDemandRefresh;
 
 	private NexoBadges() {
 	}
@@ -198,7 +206,8 @@ public final class NexoBadges {
 
 	/**
 	 * Asks for an out-of-band refresh for this specific player, at most once
-	 * per {@link #ON_DEMAND_COOLDOWN_MS}.
+	 * per {@link #ON_DEMAND_COOLDOWN_MS}, and for anyone at most once per
+	 * {@link #ON_DEMAND_MIN_GAP_MS}.
 	 *
 	 * <p>Called from the render thread for every unbadged player on screen, so
 	 * the common path is a map lookup and nothing else. The refresh itself is
@@ -212,6 +221,9 @@ public final class NexoBadges {
 			return;
 		}
 		long now = System.currentTimeMillis();
+		if (now - lastAnyOnDemandRefresh < ON_DEMAND_MIN_GAP_MS) {
+			return;
+		}
 		boolean[] due = {false};
 		// compute() makes the read-then-maybe-write atomic per key, so two
 		// simultaneous misses for the same player can't both slip past the
@@ -224,6 +236,7 @@ public final class NexoBadges {
 			return now;
 		});
 		if (due[0]) {
+			lastAnyOnDemandRefresh = now;
 			current.execute(NexoBadges::refreshRoster);
 		}
 	}

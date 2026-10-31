@@ -38,6 +38,9 @@ public final class NexoEmoteFileCheck {
 			if (!ANIMATION.containsAll(animation.keySet())) {
 				return false;
 			}
+			if (animation.has("animation_length") && !lengthSafe(animation.get("animation_length"))) {
+				return false;
+			}
 			for (Map.Entry<String, JsonElement> bone : animation.getAsJsonObject("bones").entrySet()) {
 				for (Map.Entry<String, JsonElement> channel : bone.getValue().getAsJsonObject().entrySet()) {
 					Double limit = CHANNELS.get(channel.getKey());
@@ -50,6 +53,10 @@ public final class NexoEmoteFileCheck {
 		} catch (RuntimeException e) {
 			return false;
 		}
+	}
+
+	private static boolean lengthSafe(JsonElement length) {
+		return number(length, 60.0) && length.getAsDouble() > 0.0;
 	}
 
 	private static boolean channelSafe(JsonElement channel, double limit) {

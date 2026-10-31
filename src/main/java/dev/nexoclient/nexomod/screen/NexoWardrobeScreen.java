@@ -37,6 +37,7 @@ import net.minecraft.util.Util;
 
 import dev.nexoclient.nexomod.NexoMod;
 import dev.nexoclient.nexomod.emotes.NexoEmoteAccount;
+import dev.nexoclient.nexomod.emotes.NexoEmotePreview;
 import dev.nexoclient.nexomod.emotes.NexoEmotes;
 import dev.nexoclient.nexomod.title.NexoTitleExtras;
 import dev.nexoclient.nexomod.wardrobe.NexoSkinApi;
@@ -57,10 +58,15 @@ public class NexoWardrobeScreen extends Screen {
 	private static final int GAP = 6;
 	private static final int HEADING = 16;
 
-	private enum Tab { SKINS, OUTFITS, EMOTES, CAPES }
+	private enum Tab { SKINS, OUTFITS, EMOTES, CAPES, SHOP }
 
+	/** {@code top} marks a card's rarity: a colour along its top edge, {@link #RAINBOW} for the logo's ramp, 0 for none. */
 	private record Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
-			boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose) {
+			boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose, int subColor, int top, String badge) {
+		Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
+				boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose) {
+			this(heading, name, sub, skin, slim, cape, back, selected, favorite, click, pose, NexoStyle.MUTED, 0, null);
+		}
 	}
 
 	private record Placed(Item item, int y) {
@@ -77,11 +83,24 @@ public class NexoWardrobeScreen extends Screen {
 	private static final Identifier ARMOR_STAND = Identifier.withDefaultNamespace("textures/item/armor_stand.png");
 	private static final Identifier NOTE = Identifier.withDefaultNamespace("textures/item/totem_of_undying.png");
 	private static final Identifier ELYTRA = Identifier.withDefaultNamespace("textures/item/elytra.png");
+	private static final Identifier EMERALD = Identifier.withDefaultNamespace("textures/item/emerald.png");
+	private static final Identifier COIN = Identifier.withDefaultNamespace("textures/item/gold_nugget.png");
+	private static final int RAINBOW = 1;
+	private static final int RARE = 0xFF22B8FF;
+	private static final int EPIC = 0xFFFF3CAC;
+	private static final int OWNED = 0xFF2CFF7A;
+	/** What a day can pay when the service hasn't said: the plan's 120 of playtime and 20 daily. */
+	private static final int DAY_COINS = 140;
+	private static final int STRIP = 32;
+	private static final int FILTERS = 24;
 	private static final int LEATHER_TINT = 0xFFA0653F;
 	private static final Identifier WORN = Identifier.fromNamespaceAndPath("nexomod", "wardrobe/worn");
 	private static Model.Simple wide;
 	private static Model.Simple slimModel;
 	private static Model.Simple capeModel;
+	/** Re-posed every frame, unlike {@link #POSED}: only the shop's one big preview moves. */
+	private static Model.Simple liveWide;
+	private static Model.Simple liveSlim;
 	private static final Map<PoseKey, Model.Simple> POSED = new HashMap<>();
 
 	private final Screen parent;
@@ -97,6 +116,8 @@ public class NexoWardrobeScreen extends Screen {
 	private boolean deleteArmed;
 	private long deleteArmedAt;
 	private static final long DELETE_ARM_MILLIS = 5000L;
+	/** A second click this soon is a double-click, not a decision. */
+	private static final long CONFIRM_GAP_MILLIS = 400L;
 	private float rotX = 5F;
 	private float rotY = -25F;
 	private boolean draggingSlider;
@@ -119,6 +140,20 @@ public class NexoWardrobeScreen extends Screen {
 	private int searchRight;
 	/** The shop emote awaiting its second click. */
 	private String armedBuy;
+	private long armedBuyAt;
+	private boolean shopRefreshing;
+	private long shopCheckedAt;
+	private String shopSelected;
+	/** Null shows everything, otherwise a rarity or {@code "owned"}. */
+	private String shopFilter;
+	private boolean shopLoaded;
+	private Component shopError;
+	private Primary buyPrimary;
+	private Chip buyFlat;
+	private Chip retry;
+	private boolean showStrip;
+	private int stripY;
+	private int consentX, consentY, consentWidth;
 	private int gridX0, gridY0, gridX1, gridY1;
 	private int modelX0, modelY0, modelX1, modelY1;
 	private int sliderX0, sliderX1, sliderY;
@@ -144,6 +179,18 @@ public class NexoWardrobeScreen extends Screen {
 		}
 	}
 
+	/** Opens on the shop tab. */
+	public static NexoWardrobeScreen shop(Screen parent) {
+		NexoWardrobeScreen screen = new NexoWardrobeScreen(parent);
+		screen.tab = Tab.SHOP;
+		screen.refreshShopIfOn();
+		return screen;
+	}
+
+	private boolean consent() {
+		return tab == Tab.SHOP && !NexoConfig.get().emoteShopEnabled();
+	}
+
 	@Override
 	protected void init() {
 		menuChips.clear();
@@ -151,7 +198,8 @@ public class NexoWardrobeScreen extends Screen {
 		px1 = width - px0;
 		py0 = Math.max(8, (height - 500) / 2);
 		py1 = height - py0;
-		previewWidth = Mth.clamp((px1 - px0) * 36 / 100, 150, 214);
+		// The shop's grid also carries the earning strip and the filters, so it gets more of the width.
+		previewWidth = Mth.clamp((px1 - px0) * (tab == Tab.SHOP ? 30 : 36) / 100, 150, 214);
 		int railX1 = px0 + RAIL;
 		int previewX0 = px1 - previewWidth;
 		gridX0 = railX1 + 8;
@@ -164,22 +212,30 @@ public class NexoWardrobeScreen extends Screen {
 		y = addTab(Tab.SKINS, "nexomod.wardrobe.tab.skins", CHESTPLATE, LEATHER_TINT, y);
 		y = addTab(Tab.OUTFITS, "nexomod.wardrobe.tab.outfits", ARMOR_STAND, 0xFFFFFFFF, y);
 		y = addTab(Tab.EMOTES, "nexomod.wardrobe.tab.emotes", NOTE, 0xFFFFFFFF, y);
-		addTab(Tab.CAPES, "nexomod.wardrobe.tab.capes", ELYTRA, 0xFFFFFFFF, y);
+		y = addTab(Tab.CAPES, "nexomod.wardrobe.tab.capes", ELYTRA, 0xFFFFFFFF, y);
+		y = addTab(Tab.SHOP, "nexomod.emote.shop", EMERALD, 0xFFFFFFFF, y);
+		if (consent()) {
+			initConsent();
+			return;
+		}
+		if (tab == Tab.SHOP) {
+			initShopRail(y);
+			initShopGrid();
+		}
 
 		// Header: search, and on Skins the add button. Outfits get theirs from the preview.
 		int headerRight = gridX1;
 		if (tab == Tab.EMOTES) {
-			// Each one reaches out to Nexo's service, so each is the player's call; both start off.
+			// It reaches out to Nexo's service, so it is the player's call, and starts off.
 			Chip sync = new Chip(headerRight - 44, py0 + 6, 44, 18, Component.translatable("nexomod.emote.sync"),
 					() -> NexoConfig.get().emoteSyncEnabled(), () -> NexoConfig.get().setEmoteSyncEnabled(!NexoConfig.get().emoteSyncEnabled()));
 			sync.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.emote.sync.tooltip")));
 			addRenderableWidget(sync);
 			headerRight -= 50;
-			Chip shop = new Chip(headerRight - 44, py0 + 6, 44, 18, Component.translatable("nexomod.emote.shop"),
-					() -> NexoConfig.get().emoteShopEnabled(), this::toggleShop);
-			shop.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.emote.shop.tooltip")));
-			addRenderableWidget(shop);
-			headerRight -= 50;
+		}
+		if (tab == Tab.SHOP) {
+			// Room for the balance.
+			headerRight -= 76;
 		}
 		if (tab == Tab.SKINS) {
 			addRenderableWidget(new Primary(headerRight - 72, py0 + 6, 72, 18, Component.translatable("nexomod.wardrobe.add"), () -> setMenu(!menuOpen)));
@@ -206,6 +262,10 @@ public class NexoWardrobeScreen extends Screen {
 		// Preview.
 		int inX0 = previewX0 + 8;
 		int inX1 = px1 - 8;
+		if (tab == Tab.SHOP) {
+			initShopPreview(previewX0, inX0, inX1);
+			return;
+		}
 		addRenderableWidget(new Chip(previewX0 + 6, py0 + 6, 18, 18, Component.literal("<"), () -> false, () -> step(-1)));
 		addRenderableWidget(new Chip(px1 - 24, py0 + 6, 18, 18, Component.literal(">"), () -> false, () -> step(1)));
 		int bottom = py1 - 8;
@@ -218,7 +278,7 @@ public class NexoWardrobeScreen extends Screen {
 		addRenderableWidget(new Chip(inX0, row, w, 18, Component.translatable("nexomod.wardrobe.wide"), () -> selected != null && !selected.slim, () -> setSlim(false)));
 		addRenderableWidget(new Chip(inX0 + w + 4, row, w, 18, Component.translatable("nexomod.wardrobe.slim"), () -> selected != null && selected.slim, () -> setSlim(true)));
 		addRenderableWidget(new Chip(inX0 + (w + 4) * 2, row, w, 18, Component.literal("♥"), () -> selected != null && selected.favorite, this::toggleFavorite));
-		addRenderableWidget(new Chip(inX0 + (w + 4) * 3, row, w, 18, Component.translatable(tab == Tab.EMOTES ? "nexomod.emote.erase" : "nexomod.wardrobe.delete"), () -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::delete));
+		addRenderableWidget(new Chip(inX0 + (w + 4) * 3, row, w, 18, Component.translatable("nexomod.wardrobe.delete"), () -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::delete));
 		sliderX0 = inX0 + 44;
 		sliderX1 = inX1;
 		sliderY = row - 12;
@@ -244,15 +304,116 @@ public class NexoWardrobeScreen extends Screen {
 		addMenuItem(3, "nexomod.wardrobe.add.current", this::importCurrent);
 	}
 
+	private void initShopRail(int tabsEnd) {
+		int y = py1 - 6 - 18;
+		int x = px0 + 6;
+		if (NexoEmoteAccount.online() && y - 22 >= tabsEnd) {
+			addRenderableWidget(new Chip(x, y, RAIL - 12, 18, Component.translatable("nexomod.emote.erase"),
+					() -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::delete));
+			y -= 22;
+		}
+		if (y >= tabsEnd) {
+			addRenderableWidget(new Chip(x, y, RAIL - 12, 18, Component.translatable("nexomod.emote.turnOff"), () -> false, () -> {
+				NexoConfig.get().setEmoteShopEnabled(false);
+				rebuildWidgets();
+			}));
+		}
+	}
+
+	/** The earning strip and filters take the top of the grid, if the window leaves them room. */
+	private void initShopGrid() {
+		int width = gridX1 - gridX0;
+		showStrip = width >= 180;
+		stripY = py0 + HEADER + 1;
+		if (showStrip) {
+			gridY0 = stripY + STRIP + 6;
+			retry = addRenderableWidget(new Chip(gridX1 - 48, stripY + 7, 48, 18, Component.translatable("nexomod.emote.retry"), () -> false, this::refreshShop));
+			retry.visible = false;
+		}
+		if (width >= 180) {
+			String[] keys = {"nexomod.emote.filter.all", "nexomod.emote.rarity.common", "nexomod.emote.rarity.rare", "nexomod.emote.rarity.epic", "nexomod.emote.owned"};
+			String[] values = {null, "common", "rare", "epic", "owned"};
+			int w = (width - 4 * 4) / 5;
+			for (int i = 0; i < 5; i++) {
+				String value = values[i];
+				addRenderableWidget(new Chip(gridX0 + i * (w + 4), gridY0, w, 18, Component.translatable(keys[i]),
+						() -> java.util.Objects.equals(shopFilter, value), () -> {
+							shopFilter = value;
+							scroll = 0;
+						}));
+			}
+			gridY0 += FILTERS;
+		}
+	}
+
+	private void initShopPreview(int previewX0, int inX0, int inX1) {
+		int bottom = py1 - 8;
+		// Both exist, and which one shows follows what can be done with the selected emote.
+		buyPrimary = addRenderableWidget(new Primary(inX0, bottom - 20, inX1 - inX0, 20, Component.empty(), this::pressBuy));
+		buyFlat = addRenderableWidget(new Chip(inX0, bottom - 20, inX1 - inX0, 20, Component.empty(), () -> armedBuy != null, this::pressBuy));
+		sliderX0 = inX0 + 44;
+		sliderX1 = inX1;
+		sliderY = bottom - 20 - 24 - 10;
+		modelX0 = previewX0 + 1;
+		modelY0 = py0 + HEADER + 1;
+		modelX1 = px1 - 1;
+		modelY1 = sliderY - 8;
+	}
+
+	private record ConsentLine(FormattedCharSequence text, int color, int after) {
+	}
+
+	private List<ConsentLine> consentLines() {
+		List<ConsentLine> lines = new ArrayList<>();
+		addConsent(lines, Component.translatable("nexomod.emote.consent.title").withStyle(style -> style.withBold(true)), NexoStyle.TEXT_PRIMARY, 6);
+		addConsent(lines, Component.translatable("nexomod.emote.consent.body"), NexoStyle.MUTED, 10);
+		addConsent(lines, Component.translatable("nexomod.emote.consent.stores"), NexoStyle.TEXT_PRIMARY, 2);
+		for (int i = 1; i <= 3; i++) {
+			addConsent(lines, Component.literal("- ").append(Component.translatable("nexomod.emote.consent.item" + i)), NexoStyle.MUTED, i == 3 ? 8 : 1);
+		}
+		addConsent(lines, Component.translatable("nexomod.emote.consent.foot"), NexoStyle.MUTED, 10);
+		return lines;
+	}
+
+	private void addConsent(List<ConsentLine> lines, Component text, int color, int after) {
+		List<FormattedCharSequence> split = font.split(text, consentWidth);
+		for (int i = 0; i < split.size(); i++) {
+			lines.add(new ConsentLine(split.get(i), color, i == split.size() - 1 ? after : 0));
+		}
+	}
+
+	private void initConsent() {
+		int x0 = px0 + RAIL + 16;
+		int x1 = px1 - 16;
+		boolean model = x1 - x0 >= 360;
+		consentX = model ? x0 + 130 : x0;
+		consentWidth = Math.min(x1 - consentX, 300);
+		int height = 26;
+		for (ConsentLine line : consentLines()) {
+			height += 10 + line.after();
+		}
+		consentY = Math.max(py0 + 8, (py0 + py1 - height) / 2);
+		int buttons = consentY + height - 22;
+		int half = (consentWidth - 4) * 3 / 5;
+		addRenderableWidget(new Primary(consentX, buttons, half, 20, Component.translatable("nexomod.emote.consent.on"), () -> {
+			NexoConfig.get().setEmoteShopEnabled(true);
+			refreshShop();
+			rebuildWidgets();
+		}));
+		addRenderableWidget(NexoButton.builder(Component.translatable("nexomod.emote.consent.no"), () -> {
+			tab = Tab.SKINS;
+			rebuildWidgets();
+		}).pos(consentX + half + 4, buttons).size(consentWidth - half - 4, 20).build());
+	}
+
 	private int addTab(Tab target, String key, Identifier icon, int tint, int y) {
 		addRenderableWidget(new Chip(px0 + 6, y, RAIL - 12, 24, Component.translatable(key), () -> tab == target, () -> {
 			tab = target;
 			scroll = 0;
 			deleteArmed = false;
 			armedBuy = null;
-			if (target == Tab.EMOTES && NexoConfig.get().emoteShopEnabled()) {
-				refreshShop();
-			}
+			say(null, false);
+			refreshShopIfOn();
 			setMenu(false);
 			rebuildWidgets();
 		}).icon(icon, tint));
@@ -599,27 +760,75 @@ public class NexoWardrobeScreen extends Screen {
 		}
 	}
 
-	private void toggleShop() {
-		NexoConfig config = NexoConfig.get();
-		config.setEmoteShopEnabled(!config.emoteShopEnabled());
-		if (config.emoteShopEnabled()) {
+	private void refreshShopIfOn() {
+		if (tab == Tab.SHOP && NexoConfig.get().emoteShopEnabled()) {
 			refreshShop();
 		}
 	}
 
 	private void refreshShop() {
-		NexoEmoteAccount.refresh(key -> say(Component.translatable(key), true), null);
-	}
-
-	/** Two clicks, the first naming the price: coins take a long time to earn. */
-	private void buy(NexoEmoteAccount.ShopItem item) {
-		if (!NexoEmoteAccount.online()) {
-			say(Component.translatable("nexomod.wardrobe.error.signIn"), true);
+		if (shopRefreshing) {
 			return;
 		}
-		if (!item.id().equals(armedBuy)) {
-			armedBuy = item.id();
-			say(Component.translatable("nexomod.emote.confirm", item.name(), item.price()), false);
+		shopRefreshing = true;
+		NexoEmoteAccount.refresh(key -> {
+			shopRefreshing = false;
+			shopLoaded = true;
+			shopError = Component.translatable(key);
+		}, () -> {
+			shopRefreshing = false;
+			shopLoaded = true;
+			shopError = null;
+			// The sign-in decides whether the rail offers Erase.
+			if (minecraft != null && minecraft.gui.screen() == this) {
+				rebuildWidgets();
+			}
+		});
+	}
+
+	private boolean owns(String id) {
+		return NexoEmoteAccount.ownedEmotes().stream().anyMatch(emote -> emote.id().equals(id));
+	}
+
+	/** What the filter and search leave, with owned emotes the shop has since retired under Owned. */
+	private List<NexoEmoteAccount.ShopItem> shopItems() {
+		List<NexoEmoteAccount.ShopItem> items = new ArrayList<>();
+		for (NexoEmoteAccount.ShopItem item : NexoEmoteAccount.shop()) {
+			boolean fits = shopFilter == null || ("owned".equals(shopFilter) ? owns(item.id()) : shopFilter.equals(item.rarity()));
+			if (fits && matches(item.name())) {
+				items.add(item);
+			}
+		}
+		if ("owned".equals(shopFilter)) {
+			for (NexoEmotes.Emote emote : NexoEmoteAccount.ownedEmotes()) {
+				String name = emote.name().getString();
+				if (matches(name) && NexoEmoteAccount.shop().stream().noneMatch(item -> item.id().equals(emote.id()))) {
+					items.add(new NexoEmoteAccount.ShopItem(emote.id(), name, 0, "", 0, 0L));
+				}
+			}
+		}
+		return items;
+	}
+
+	/** The selected emote, or the first one showing if that was never chosen or is filtered away. */
+	private NexoEmoteAccount.ShopItem currentShopItem() {
+		List<NexoEmoteAccount.ShopItem> items = shopItems();
+		return items.stream().filter(item -> item.id().equals(shopSelected)).findFirst().orElse(items.isEmpty() ? null : items.get(0));
+	}
+
+	private void pressBuy() {
+		NexoEmoteAccount.ShopItem item = currentShopItem();
+		if (item == null || owns(item.id()) || !NexoEmoteAccount.online() || item.price() > NexoEmoteAccount.balance()) {
+			return;
+		}
+		// Two clicks: coins take a long time to earn. Armed at this price, for a moment.
+		long now = Util.getMillis();
+		if (!armKey(item).equals(armedBuy)) {
+			armedBuy = armKey(item);
+			armedBuyAt = now;
+			return;
+		}
+		if (now - armedBuyAt < CONFIRM_GAP_MILLIS) {
 			return;
 		}
 		armedBuy = null;
@@ -627,9 +836,117 @@ public class NexoWardrobeScreen extends Screen {
 				() -> say(Component.translatable("nexomod.emote.bought", item.name()), false));
 	}
 
+	/** With the price: a refresh that changes it must take the arm away, not buy at the new one. */
+	private static String armKey(NexoEmoteAccount.ShopItem item) {
+		return item.id() + "@" + item.price();
+	}
+
+	private Component buyLabel(NexoEmoteAccount.ShopItem item) {
+		if (item == null) {
+			return Component.translatable("nexomod.emote.buy.none");
+		}
+		if (owns(item.id())) {
+			return Component.translatable("nexomod.emote.owned");
+		}
+		if (!NexoEmoteAccount.online()) {
+			return Component.translatable(NexoEmoteAccount.canSignIn() ? "nexomod.emote.buy.offline" : "nexomod.emote.buy.signIn");
+		}
+		int need = item.price() - NexoEmoteAccount.balance();
+		if (need > 0) {
+			return Component.translatable("nexomod.emote.buy.need", need);
+		}
+		return Component.translatable(armKey(item).equals(armedBuy) ? "nexomod.emote.buy.again" : "nexomod.emote.buy", item.price());
+	}
+
+	private boolean canStartBuying(NexoEmoteAccount.ShopItem item) {
+		return item != null && !owns(item.id()) && NexoEmoteAccount.online() && item.price() <= NexoEmoteAccount.balance() && !armKey(item).equals(armedBuy);
+	}
+
+	private Component shopNote(NexoEmoteAccount.ShopItem item) {
+		if (item == null) {
+			return Component.translatable("nexomod.emote.note.none");
+		}
+		if (owns(item.id())) {
+			// The wheel holds the first eight, and bought ones come first.
+			boolean onWheel = NexoEmotes.owned().stream().limit(8).anyMatch(emote -> emote.id().equals(item.id()));
+			return onWheel ? Component.translatable("nexomod.emote.note.wheel", NexoEmotes.wheelKey().getTranslatedKeyMessage())
+					: Component.translatable("nexomod.emote.note.tab");
+		}
+		if (!NexoEmoteAccount.online()) {
+			return Component.empty();
+		}
+		int need = item.price() - NexoEmoteAccount.balance();
+		if (need > 0) {
+			NexoEmoteAccount.Earn earn = NexoEmoteAccount.earn();
+			int perDay = earn != null ? earn.playtimeCap() + earn.dailyCoins() : DAY_COINS;
+			return Component.translatable("nexomod.emote.note.need", Math.ceilDiv(need, Math.max(1, perDay)));
+		}
+		return Component.translatable("nexomod.emote.note.afford", item.price(), -need);
+	}
+
+	private static int percentOff(NexoEmoteAccount.ShopItem item) {
+		return Math.max(1, Math.round((1F - (float) item.price() / item.listPrice()) * 100F));
+	}
+
+	/** Days and hours, or hours and minutes: a countdown, so only the big units matter. */
+	private static String timeLeft(long millis) {
+		long minutes = Math.max(1L, millis / 60_000L);
+		if (minutes >= 24 * 60) {
+			return minutes / (24 * 60) + "d " + minutes / 60 % 24 + "h";
+		}
+		return minutes >= 60 ? minutes / 60 + "h " + minutes % 60 + "m" : minutes + "m";
+	}
+
+	/** The line above the preview for a deal or a limited sale, or null for an ordinary emote. */
+	private static Component offerLine(NexoEmoteAccount.ShopItem item) {
+		if (item == null || item.endsAt() <= 0L) {
+			return null;
+		}
+		String left = timeLeft(item.endsAt() - System.currentTimeMillis());
+		return item.listPrice() > 0 ? Component.translatable("nexomod.emote.deal", percentOff(item), left, item.listPrice())
+				: Component.translatable("nexomod.emote.limited.ends", left);
+	}
+
+	private static int rarityColor(String rarity) {
+		return switch (rarity) {
+			case "rare" -> RARE;
+			case "epic" -> EPIC;
+			default -> NexoStyle.MUTED;
+		};
+	}
+
+	private static Component rarityName(String rarity) {
+		return switch (rarity) {
+			case "common", "rare", "epic" -> Component.translatable("nexomod.emote.rarity." + rarity);
+			default -> Component.empty();
+		};
+	}
+
+	private Item shopItem(NexoEmoteAccount.ShopItem item, NexoEmoteAccount.ShopItem current, Supplier<Identifier> body, boolean slim) {
+		boolean has = owns(item.id());
+		NexoEmotePreview preview = NexoEmoteAccount.preview(item.id());
+		NexoEmotes.Pose pose = NexoEmotes.Pose.NEUTRAL;
+		if (preview != null) {
+			float[] arms = preview.thumbnail();
+			pose = new NexoEmotes.Pose(arms[0], arms[1], arms[2], arms[3]);
+		}
+		String sub = has ? Component.translatable("nexomod.emote.owned").getString() : String.valueOf(item.price());
+		int subColor = has ? OWNED : item.listPrice() > 0 ? EPIC : item.price() > NexoEmoteAccount.balance() ? NexoStyle.MUTED : NexoStyle.TEXT_PRIMARY;
+		String badge = has ? null : item.listPrice() > 0 ? "-" + percentOff(item) + "%"
+				: item.endsAt() > 0L ? Component.translatable("nexomod.emote.limited").getString() : null;
+		int top = "epic".equals(item.rarity()) ? RAINBOW : "rare".equals(item.rarity()) ? RARE : 0;
+		return new Item(null, item.name(), sub, body, slim, null, false, item.equals(current), false, () -> {
+			shopSelected = item.id();
+			armedBuy = null;
+			deleteArmed = false;
+			say(null, false);
+			rotY = -25F;
+		}, pose, subColor, top, badge);
+	}
+
 	/** Two clicks: the first arms it, the second removes the selected outfit on Outfits, the skin on Skins. */
 	private void delete() {
-		boolean emoteAccount = tab == Tab.EMOTES && NexoConfig.get().emoteShopEnabled() && NexoEmoteAccount.online();
+		boolean emoteAccount = tab == Tab.SHOP && NexoConfig.get().emoteShopEnabled() && NexoEmoteAccount.online();
 		boolean target = emoteAccount || (tab == Tab.SKINS ? selected != null : tab == Tab.OUTFITS && selectedOutfit != null);
 		if (!target) {
 			deleteArmed = false;
@@ -644,11 +961,16 @@ public class NexoWardrobeScreen extends Screen {
 			}
 			return;
 		}
+		// Losing an account takes a decision, not a double-click.
+		if (emoteAccount && Util.getMillis() - deleteArmedAt < CONFIRM_GAP_MILLIS) {
+			return;
+		}
 		deleteArmed = false;
 		if (emoteAccount) {
 			NexoEmoteAccount.deleteAccount(key -> say(Component.translatable(key), true), () -> {
 				NexoConfig.get().setEmoteShopEnabled(false);
 				say(Component.translatable("nexomod.emote.deleted"), false);
+				rebuildWidgets();
 			});
 			return;
 		}
@@ -721,15 +1043,12 @@ public class NexoWardrobeScreen extends Screen {
 					}, emote.pose()));
 				}
 			}
-			if (NexoConfig.get().emoteShopEnabled()) {
-				List<NexoEmotes.Emote> owned = NexoEmoteAccount.ownedEmotes();
-				for (NexoEmoteAccount.ShopItem item : NexoEmoteAccount.shop()) {
-					if (matches(item.name()) && owned.stream().noneMatch(emote -> emote.id().equals(item.id()))) {
-						items.add(new Item(null, item.name(), Component.translatable("nexomod.emote.price", item.price()).getString(), body, slim, null, false,
-								item.id().equals(armedBuy), false, () -> buy(item), NexoEmotes.Pose.NEUTRAL));
-					}
-				}
-			}
+		} else if (tab == Tab.SHOP) {
+			Skin worn = selected;
+			Supplier<Identifier> body = () -> worn == null ? playerSkin() : NexoSkinLibrary.texture(worn);
+			boolean slim = worn != null ? worn.slim : playerSlim();
+			NexoEmoteAccount.ShopItem current = currentShopItem();
+			shopItems().forEach(item -> items.add(shopItem(item, current, body, slim)));
 		} else if (capes != null && !capes.isEmpty()) {
 			Skin worn = selected;
 			Supplier<Identifier> body = () -> worn == null ? null : NexoSkinLibrary.texture(worn);
@@ -827,6 +1146,8 @@ public class NexoWardrobeScreen extends Screen {
 			capeModel = new Model.Simple(models.bakeLayer(ModelLayers.PLAYER_CAPE), RenderTypes::entitySolid);
 			// Hangs slightly away from the back, as it does on a standing player.
 			capeModel.root().getChild("body").getChild("cape").xRot = -0.1F;
+			liveWide = new Model.Simple(models.bakeLayer(ModelLayers.PLAYER), RenderTypes::entityTranslucent);
+			liveSlim = new Model.Simple(models.bakeLayer(ModelLayers.PLAYER_SLIM), RenderTypes::entityTranslucent);
 		}
 	}
 
@@ -897,11 +1218,21 @@ public class NexoWardrobeScreen extends Screen {
 		int previewX0 = px1 - previewWidth;
 		NexoShapes.outlined(graphics, px0, py0, px1, py1, NexoStyle.PANEL, NexoStyle.LINE, 8);
 		graphics.fill(px0 + RAIL, py0 + 1, px0 + RAIL + 1, py1 - 1, NexoStyle.LINE);
+		if (consent()) {
+			graphics.text(font, title.copy().withStyle(style -> style.withBold(true)), px0 + 28, py0 + 11, NexoStyle.TEXT_PRIMARY);
+			drawConsent(graphics);
+			super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+			return;
+		}
 		graphics.fill(previewX0, py0 + 1, previewX0 + 1, py1 - 1, NexoStyle.LINE);
 		graphics.fill(px0 + RAIL + 1, py0 + HEADER, px1 - 1, py0 + HEADER + 1, NexoStyle.LINE);
 		graphics.fill(previewX0 + 1, py0 + HEADER + 1, px1 - 1, py1 - 1, 0xFF0A0A0D);
 		graphics.text(font, title.copy().withStyle(style -> style.withBold(true)), px0 + 28, py0 + 11, NexoStyle.TEXT_PRIMARY);
 		drawGridHeader(graphics);
+		if (tab == Tab.SHOP) {
+			drawStrip(graphics);
+			updateBuyButton();
+		}
 		drawGrid(graphics, mouseX, mouseY);
 		drawPreview(graphics);
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
@@ -913,21 +1244,113 @@ public class NexoWardrobeScreen extends Screen {
 			case OUTFITS -> NexoSkinLibrary.outfits().size();
 			case EMOTES -> NexoEmotes.owned().size();
 			case CAPES -> capes == null ? 0 : capes.size();
+			case SHOP -> NexoEmoteAccount.shop().size();
 		};
 		String key = switch (tab) {
 			case SKINS -> "nexomod.wardrobe.tab.skins";
 			case OUTFITS -> "nexomod.wardrobe.tab.outfits";
 			case EMOTES -> "nexomod.wardrobe.tab.emotes";
 			case CAPES -> "nexomod.wardrobe.tab.capes";
+			case SHOP -> "nexomod.emote.shop";
 		};
 		Component heading = Component.translatable(key).withStyle(style -> style.withBold(true));
 		graphics.text(font, heading, gridX0, py0 + 11, NexoStyle.TEXT_PRIMARY);
-		String detail = tab == Tab.EMOTES && NexoEmoteAccount.online()
-				? Component.translatable("nexomod.emote.balance", NexoEmoteAccount.balance()).getString() : String.valueOf(count);
-		graphics.text(font, detail, gridX0 + font.width(heading) + 6, py0 + 11, NexoStyle.MUTED);
+		graphics.text(font, String.valueOf(count), gridX0 + font.width(heading) + 6, py0 + 11, NexoStyle.MUTED);
+		if (tab == Tab.SHOP && NexoEmoteAccount.online()) {
+			String coins = String.valueOf(NexoEmoteAccount.balance());
+			int textX = gridX1 - font.width(coins);
+			graphics.text(font, coins, textX, py0 + 11, NexoStyle.TEXT_PRIMARY);
+			drawIcon(graphics, COIN, 0xFFFFFFFF, textX - 18, py0 + 7);
+		}
 		int boxRight = searchRight;
 		if (searchShown) {
 			NexoShapes.outlined(graphics, boxRight - 92, py0 + 6, boxRight, py0 + 24, NexoStyle.FIELD, NexoStyle.CONTROL, 3);
+		}
+	}
+
+	private void updateBuyButton() {
+		long clock = System.currentTimeMillis();
+		// An offer that ran out here: ask what is true now, but not every frame if the clocks disagree.
+		if (clock - shopCheckedAt > 30_000L && NexoEmoteAccount.shop().stream().anyMatch(offer -> offer.endsAt() > 0L && offer.endsAt() <= clock)) {
+			shopCheckedAt = clock;
+			refreshShop();
+		}
+		NexoEmoteAccount.ShopItem item = currentShopItem();
+		if (armedBuy != null && (item == null || !armedBuy.equals(armKey(item)) || Util.getMillis() - armedBuyAt > DELETE_ARM_MILLIS)) {
+			armedBuy = null;
+		}
+		boolean primary = canStartBuying(item);
+		Component label = buyLabel(item);
+		buyPrimary.visible = primary;
+		buyPrimary.setMessage(label);
+		buyFlat.visible = !primary;
+		buyFlat.setMessage(label);
+	}
+
+	/** How coins are earned, or why that is not happening right now. */
+	private void drawStrip(GuiGraphicsExtractor graphics) {
+		if (!showStrip) {
+			return;
+		}
+		retry.visible = shopError != null;
+		graphics.fill(gridX0 - 8, stripY + STRIP, gridX1 + 8, stripY + STRIP + 1, NexoStyle.LINE);
+		NexoEmoteAccount.Earn earn = NexoEmoteAccount.earn();
+		if (shopError != null || !(NexoEmoteAccount.online() || NexoEmoteAccount.canSignIn())) {
+			Component message = shopError != null ? shopError : Component.translatable("nexomod.emote.earn.signIn");
+			int y = stripY + STRIP / 2 - 9;
+			for (FormattedCharSequence line : font.split(message, gridX1 - gridX0 - (shopError != null ? 56 : 0))) {
+				graphics.text(font, line, gridX0, y, shopError != null ? NexoStyle.DANGER : NexoStyle.MUTED);
+				y += 10;
+			}
+			return;
+		}
+		if (earn == null) {
+			return;
+		}
+		int width = (gridX1 - gridX0 - 16) / 3;
+		int x = gridX0;
+		drawEarn(graphics, x, width, "nexomod.emote.earn.playtime", earn.playtime() + "/" + earn.playtimeCap(),
+				Component.translatable("nexomod.emote.earn.playtime.sub"));
+		float played = earn.playtimeCap() > 0 ? Math.min(1F, (float) earn.playtime() / earn.playtimeCap()) : 0F;
+		graphics.fill(x, stripY + 13, x + width, stripY + 15, NexoStyle.CONTROL);
+		graphics.fill(x, stripY + 13, x + (int) (width * played), stripY + 15, NexoStyle.ACCENT);
+		x += width + 8;
+		drawEarn(graphics, x, width, "nexomod.emote.earn.daily", "+" + earn.dailyCoins(),
+				Component.translatable(earn.daily() ? "nexomod.emote.earn.daily.done" : "nexomod.emote.earn.daily.todo"));
+		graphics.fill(x, stripY + 13, x + width, stripY + 15, earn.daily() ? NexoStyle.ACCENT : NexoStyle.CONTROL);
+		x += width + 8;
+		drawEarn(graphics, x, width, "nexomod.emote.earn.streak", earn.streak() + "/" + earn.streakDays(),
+				Component.translatable("nexomod.emote.earn.streak.sub", earn.streakCoins(), earn.streakDays()));
+		int days = Mth.clamp(earn.streakDays(), 1, 31);
+		int day = (width + 2) / days;
+		for (int i = 0; i < days; i++) {
+			graphics.fill(x + i * day, stripY + 13, x + i * day + day - 2, stripY + 15, i < earn.streak() ? NexoStyle.ACCENT : NexoStyle.CONTROL);
+		}
+	}
+
+	private void drawEarn(GuiGraphicsExtractor graphics, int x, int width, String label, String value, Component sub) {
+		int valueWidth = font.width(value);
+		graphics.text(font, font.plainSubstrByWidth(Component.translatable(label).getString(), width - valueWidth - 2), x, stripY + 3, NexoStyle.MUTED);
+		graphics.text(font, value, x + width - valueWidth, stripY + 3, NexoStyle.TEXT_PRIMARY);
+		graphics.text(font, font.plainSubstrByWidth(sub.getString(), width), x, stripY + 19, NexoStyle.MUTED);
+	}
+
+	private void drawConsent(GuiGraphicsExtractor graphics) {
+		if (consentX > px0 + RAIL + 16) {
+			Identifier skin = selected != null ? NexoSkinLibrary.texture(selected) : playerSkin();
+			boolean slim = selected != null ? selected.slim : playerSlim();
+			int cy = (py0 + py1) / 2;
+			NexoShapes.glow(graphics, consentX - 96, cy + 62, consentX - 24, cy + 68, NexoStyle.ACCENT, 3, 0.14F);
+			drawModel(graphics, skin, slim, null, NexoEmotes.STARTERS.get(1).pose(), 5F, -25F, consentX - 124, cy - 70, consentX + 4, cy + 70);
+		}
+		int y = consentY;
+		for (ConsentLine line : consentLines()) {
+			graphics.text(font, line.text(), consentX, y, line.color());
+			y += 10 + line.after();
+		}
+		// What erasing the account leaves behind says it worked.
+		if (status != null) {
+			graphics.text(font, status, consentX, py1 - 16, statusError ? NexoStyle.DANGER : NexoStyle.MUTED);
 		}
 	}
 
@@ -940,6 +1363,9 @@ public class NexoWardrobeScreen extends Screen {
 				case OUTFITS -> Component.translatable("nexomod.wardrobe.empty.outfits");
 				case EMOTES -> Component.translatable("nexomod.wardrobe.empty.search");
 				case CAPES -> capesMessage != null ? capesMessage : Component.translatable("nexomod.wardrobe.loading");
+				case SHOP -> !NexoEmoteAccount.shop().isEmpty() || !search.isBlank() ? Component.translatable("nexomod.wardrobe.empty.search")
+						: shopError != null ? Component.translatable("nexomod.emote.emptyOffline")
+						: shopLoaded ? Component.translatable("nexomod.emote.empty") : Component.translatable("nexomod.wardrobe.loading");
 			};
 			int y = (gridY0 + gridY1) / 2 - 8;
 			for (FormattedCharSequence line : font.split(message, gridX1 - gridX0 - 24)) {
@@ -969,15 +1395,23 @@ public class NexoWardrobeScreen extends Screen {
 			}
 			int border = item.selected() ? NexoStyle.ACCENT : hot ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.5F) : NexoStyle.LINE;
 			NexoShapes.outlined(graphics, x0, y0, x1, y1, item.selected() ? NexoStyle.mix(NexoStyle.RAISED, NexoStyle.ACCENT, 0.12F) : NexoStyle.RAISED, border, 5);
+			if (item.top() == RAINBOW) {
+				NexoShapes.fillLogoRamp(graphics, x0 + 1, x1 - 1, x1 - 1, y0 + 1, y0 + 3, 0xFF);
+			} else if (item.top() != 0) {
+				graphics.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 3, item.top());
+			}
 			drawModel(graphics, item.skin().get(), item.slim(), item.cape(), item.pose(), 5F, item.back() ? 155F : -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
 			if (item.favorite()) {
 				graphics.text(font, "♥", x1 - 11, y0 + 5, 0xFFFF3CAC);
+			}
+			if (item.badge() != null) {
+				graphics.text(font, item.badge(), x1 - 5 - font.width(item.badge()), y0 + 6, EPIC);
 			}
 			graphics.fill(x0 + 1, y1 - 16, x1 - 1, y1 - 15, NexoStyle.LINE);
 			int subWidth = item.sub().isEmpty() ? 0 : font.width(item.sub()) + 4;
 			graphics.text(font, font.plainSubstrByWidth(item.name(), x1 - x0 - 10 - subWidth), x0 + 5, y1 - 12, NexoStyle.TEXT_PRIMARY);
 			if (subWidth > 0) {
-				graphics.text(font, item.sub(), x1 - 4 - font.width(item.sub()), y1 - 12, NexoStyle.MUTED);
+				graphics.text(font, item.sub(), x1 - 4 - font.width(item.sub()), y1 - 12, item.subColor());
 			}
 		});
 		graphics.disableScissor();
@@ -992,16 +1426,37 @@ public class NexoWardrobeScreen extends Screen {
 	private void drawPreview(GuiGraphicsExtractor graphics) {
 		int previewX0 = px1 - previewWidth;
 		int centre = previewX0 + previewWidth / 2;
-		String name = selected == null ? "" : font.plainSubstrByWidth(selected.name, previewWidth - 60);
-		graphics.centeredText(font, Component.literal(name).withStyle(style -> style.withBold(true)), centre, py0 + 11, NexoStyle.TEXT_PRIMARY);
+		NexoEmoteAccount.ShopItem shopItem = tab == Tab.SHOP ? currentShopItem() : null;
+		if (tab == Tab.SHOP) {
+			if (shopItem != null) {
+				Component rarity = rarityName(shopItem.rarity());
+				int rarityWidth = font.width(rarity);
+				graphics.text(font, Component.literal(font.plainSubstrByWidth(shopItem.name(), previewWidth - 24 - rarityWidth)).withStyle(style -> style.withBold(true)), previewX0 + 8, py0 + 11, NexoStyle.TEXT_PRIMARY);
+				graphics.text(font, rarity, px1 - 8 - rarityWidth, py0 + 11, rarityColor(shopItem.rarity()));
+			}
+		} else {
+			String name = selected == null ? "" : font.plainSubstrByWidth(selected.name, previewWidth - 60);
+			graphics.centeredText(font, Component.literal(name).withStyle(style -> style.withBold(true)), centre, py0 + 11, NexoStyle.TEXT_PRIMARY);
+		}
 
-		int height = modelY1 - modelY0 - 12;
+		// A tall, narrow window must not grow the model out of its column.
+		int height = Math.min(modelY1 - modelY0 - 12, previewWidth * 3 / 2);
 		int floorY = modelY1 - 12;
+		int modelTop = floorY - height;
 		NexoShapes.glow(graphics, centre - 44, floorY - 3, centre + 44, floorY + 3, NexoStyle.ACCENT, 3, 0.14F);
-		if (selected != null) {
+		if (tab == Tab.SHOP) {
+			Identifier skin = selected != null ? NexoSkinLibrary.texture(selected) : playerSkin();
+			boolean slim = selected != null ? selected.slim : playerSlim();
+			NexoEmotePreview preview = shopItem == null ? null : NexoEmoteAccount.preview(shopItem.id());
+			drawLive(graphics, skin, slim, preview, centre, modelTop, height);
+			Component offer = shopItem == null || owns(shopItem.id()) ? null : offerLine(shopItem);
+			if (offer != null) {
+				graphics.centeredText(font, offer, centre, py0 + HEADER + 5, EPIC);
+			}
+		} else if (selected != null) {
 			int w = height * 2 / 3;
 			drawModel(graphics, NexoSkinLibrary.texture(selected), selected.slim, capeTexture(previewCape), tab == Tab.EMOTES ? previewPose : null, rotX, rotY,
-					centre - w, modelY0 + 6, centre + w, modelY0 + 6 + height);
+					centre - w, modelTop, centre + w, floorY);
 		} else {
 			graphics.centeredText(font, Component.translatable("nexomod.wardrobe.empty.preview"), centre, (modelY0 + modelY1) / 2, NexoStyle.MUTED);
 		}
@@ -1014,14 +1469,36 @@ public class NexoWardrobeScreen extends Screen {
 		graphics.fill(sliderX0, sliderY, knob, sliderY + 2, NexoStyle.ACCENT);
 		NexoShapes.fillRounded(graphics, knob - 3, sliderY - 3, knob + 3, sliderY + 5, NexoStyle.TEXT_PRIMARY, 2);
 
-		if (status != null) {
+		Component message = status != null || tab != Tab.SHOP ? status : shopNote(shopItem);
+		if (message != null) {
 			int y = py1 - 8 - 20 - 24;
 			int color = statusError ? NexoStyle.DANGER : NexoStyle.MUTED;
-			for (FormattedCharSequence line : font.split(status, previewWidth - 16)) {
+			for (FormattedCharSequence line : font.split(message, previewWidth - 16)) {
 				graphics.text(font, line, previewX0 + 8, y, color);
 				y += 10;
 			}
 		}
+	}
+
+	/** The shop's preview: the selected emote playing on the player's skin. */
+	private void drawLive(GuiGraphicsExtractor graphics, Identifier skin, boolean slim, NexoEmotePreview preview, int centre, int top, int height) {
+		// Below two, the width comes out zero, which would crash the texture it is drawn into.
+		if (skin == null || height < 2) {
+			return;
+		}
+		bake();
+		Model.Simple model = slim ? liveSlim : liveWide;
+		// Modulo: a float of milliseconds since boot gets too coarse for smooth motion within days.
+		float position = preview == null ? 0F : preview.position((Util.getMillis() % 3_600_000L) / 1000F);
+		for (String part : List.of("head", "body", "right_arm", "left_arm", "right_leg", "left_leg")) {
+			float[] degrees = preview == null ? new float[3] : preview.rotation(part, position);
+			var bone = model.root().getChild(part);
+			bone.xRot = degrees[0] * Mth.DEG_TO_RAD;
+			bone.yRot = degrees[1] * Mth.DEG_TO_RAD;
+			bone.zRot = degrees[2] * Mth.DEG_TO_RAD;
+		}
+		int w = height * 2 / 3;
+		graphics.skin(model, skin, 0.97F * height / 2.125F, rotX, rotY, -1.0625F, centre - w, top, centre + w, top + height);
 	}
 
 	// --- Input ----------------------------------------------------------
@@ -1031,7 +1508,7 @@ public class NexoWardrobeScreen extends Screen {
 		if (super.mouseClicked(event, doubleClick)) {
 			return true;
 		}
-		if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
+		if (event.button() != InputConstants.MOUSE_BUTTON_LEFT || consent()) {
 			return false;
 		}
 		double x = event.x();

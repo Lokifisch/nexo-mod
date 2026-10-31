@@ -70,9 +70,7 @@ final class BadgeIdentity {
 				return false;
 			}
 			if (!proof.joinWithMojang(user, serverId)) {
-				// Almost always an offline session or a stale token. Not an
-				// error the player needs to see.
-				NexoMod.LOGGER.debug("[nexomod] Badge {}: the session server would not accept this session.", what);
+				// Almost always an offline session or a stale token. The proof logged why.
 				return false;
 			}
 			return submit(user, serverId, path, what);

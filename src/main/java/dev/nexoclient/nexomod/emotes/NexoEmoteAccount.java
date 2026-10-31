@@ -62,12 +62,18 @@ public final class NexoEmoteAccount {
 	public static final Map<Integer, PublicKey> TICKET_KEYS = NexoEmoteTicket.keys(Map.of(
 			1, "0bd89dc3ae4d1a2b2f1cf026858b23937b662d61aa931a05981be5ca976f7e90"));
 
-	public record ShopItem(String id, String name, int price, String rarity) {
+	/** {@code listPrice} is the normal price while a deal runs, else 0; {@code endsAt} is when this offer stops, else 0. */
+	public record ShopItem(String id, String name, int price, String rarity, int listPrice, long endsAt) {
+	}
+
+	/** Today's progress, as the service counts it. */
+	public record Earn(int playtime, int playtimeCap, boolean daily, int dailyCoins, int streak, int streakDays, int streakCoins) {
 	}
 
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8))
 			.followRedirects(HttpClient.Redirect.NEVER).build();
 	private static final Map<String, Animation> ANIMATIONS = new ConcurrentHashMap<>();
+	private static final Map<String, NexoEmotePreview> PREVIEWS = new ConcurrentHashMap<>();
 	private static final Map<String, Boolean> FETCHING = new ConcurrentHashMap<>();
 	/** When a failed fetch may be tried again: re-announces arrive every few seconds. */
 	private static final Map<String, Long> RETRY_AFTER = new ConcurrentHashMap<>();
@@ -76,10 +82,14 @@ public final class NexoEmoteAccount {
 	/** Tickets last 24 hours; renewed well before that, and after a failure. */
 	private static final long REFRESH_MILLIS = 6 * 3600 * 1000L;
 	private static long refreshAt;
+	/** Bumped by an erase, so a refresh already running can't sign back in or restore what it read. */
+	private static volatile int generation;
+	private static volatile boolean erasing;
 
 	private static volatile String token;
 	private static volatile UUID tokenOwner;
 	private static volatile int balance;
+	private static volatile Earn earn;
 	private static volatile List<ShopItem> shop = List.of();
 	private static volatile List<NexoEmotes.Emote> owned = List.of();
 	private static volatile Map<String, byte[]> tickets = Map.of();
@@ -102,6 +112,11 @@ public final class NexoEmoteAccount {
 
 	public static int balance() {
 		return balance;
+	}
+
+	/** Null until the service has said, or when signed out. */
+	public static Earn earn() {
+		return earn;
 	}
 
 	public static List<ShopItem> shop() {
@@ -181,11 +196,17 @@ public final class NexoEmoteAccount {
 
 	// --- Session ------------------------------------------------------------
 
-	private static String signIn(User user) throws IOException, InterruptedException {
+	private static String signIn(User user, int started) throws IOException, InterruptedException {
+		if (started != generation) {
+			throw new ShopError("nexomod.emote.error.session");
+		}
 		MojangIdentityProof proof = new MojangIdentityProof(HTTP, TIMEOUT, USER_AGENT);
 		String serverId = proof.requestChallenge(BASE_URL + "/challenge");
-		if (serverId == null || !proof.joinWithMojang(user, serverId)) {
+		if (serverId == null) {
 			throw new ShopError("nexomod.emote.error.network");
+		}
+		if (!proof.joinWithMojang(user, serverId)) {
+			throw new ShopError("nexomod.emote.error.mojang");
 		}
 		JsonObject body = new JsonObject();
 		body.addProperty("username", user.getName());
@@ -194,6 +215,9 @@ public final class NexoEmoteAccount {
 		String reply = send(request("/session").header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build());
 		String fresh = JsonParser.parseString(reply).getAsJsonObject().get("token").getAsString();
+		if (started != generation) {
+			throw new ShopError("nexomod.emote.error.session");
+		}
 		save(user.getProfileId(), fresh);
 		return fresh;
 	}
@@ -227,18 +251,19 @@ public final class NexoEmoteAccount {
 	/** Turns the shop on or refreshes it: sign in if needed, then read everything. */
 	public static void refresh(Consumer<String> failed, Runnable done) {
 		User user = MojangIdentityProof.currentUser();
-		boolean signIn = canSignIn();
+		boolean signIn = canSignIn() && !erasing;
+		int started = generation;
 		background(() -> {
 			List<ShopItem> items = readCatalog();
 			Me me = null;
 			if (signIn) {
 				loadSaved(user.getProfileId());
-				me = signedInMe(user);
+				me = signedInMe(user, started);
 			}
 			return new Fresh(items, me);
 		}, fresh -> {
 			shop = fresh.items();
-			if (fresh.me() != null) {
+			if (fresh.me() != null && started == generation) {
 				apply(fresh.me());
 				online = true;
 			}
@@ -249,10 +274,10 @@ public final class NexoEmoteAccount {
 	}
 
 	/** Reads the account, signing in first if there is no session or it has expired. */
-	private static Me signedInMe(User user) {
+	private static Me signedInMe(User user, int started) {
 		try {
 			if (token == null) {
-				token = signIn(user);
+				token = signIn(user, started);
 			}
 			try {
 				return readMe();
@@ -260,7 +285,7 @@ public final class NexoEmoteAccount {
 				if (!"nexomod.emote.error.session".equals(expired.getMessage())) {
 					throw expired;
 				}
-				token = signIn(user);
+				token = signIn(user, started);
 				return readMe();
 			}
 		} catch (IOException e) {
@@ -274,7 +299,7 @@ public final class NexoEmoteAccount {
 	private record Fresh(List<ShopItem> items, Me me) {
 	}
 
-	private record Me(int balance, List<NexoEmotes.Emote> owned, Map<String, byte[]> tickets) {
+	private record Me(int balance, Earn earn, List<NexoEmotes.Emote> owned, Map<String, byte[]> tickets) {
 	}
 
 	private static List<ShopItem> readCatalog() {
@@ -284,7 +309,9 @@ public final class NexoEmoteAccount {
 				JsonObject item = element.getAsJsonObject();
 				String id = item.get("id").getAsString();
 				if (id.matches("[0-9a-f]{64}")) {
-					items.add(new ShopItem(id, clean(item.get("name").getAsString()), item.get("price").getAsInt(), clean(item.get("rarity").getAsString())));
+					int listPrice = item.has("list_price") ? item.get("list_price").getAsInt() : 0;
+					long endsAt = item.has("ends_in") ? System.currentTimeMillis() + item.get("ends_in").getAsLong() * 1000L : 0L;
+					items.add(new ShopItem(id, clean(item.get("name").getAsString()), item.get("price").getAsInt(), clean(item.get("rarity").getAsString()), listPrice, endsAt));
 				}
 			}
 		} catch (IllegalStateException | NullPointerException | ClassCastException e) {
@@ -312,9 +339,20 @@ public final class NexoEmoteAccount {
 			for (Map.Entry<String, JsonElement> entry : body.getAsJsonObject("tickets").entrySet()) {
 				signed.put(entry.getKey(), HexFormat.of().parseHex(entry.getValue().getAsString()));
 			}
-			return new Me(body.get("balance").getAsInt(), List.copyOf(emotes), signed);
+			return new Me(body.get("balance").getAsInt(), parseEarn(body), List.copyOf(emotes), signed);
 		} catch (IllegalArgumentException | IllegalStateException | NullPointerException | ClassCastException e) {
 			throw new ShopError("nexomod.emote.error.network");
+		}
+	}
+
+	/** Only ever decorates the shop, so a reply without it must not fail the sign-in. */
+	private static Earn parseEarn(JsonObject body) {
+		try {
+			JsonObject e = body.getAsJsonObject("earn");
+			return new Earn(e.get("playtime").getAsInt(), e.get("playtime_cap").getAsInt(), e.get("daily").getAsBoolean(),
+					e.get("daily_coins").getAsInt(), e.get("streak").getAsInt(), e.get("streak_days").getAsInt(), e.get("streak_coins").getAsInt());
+		} catch (RuntimeException e) {
+			return null;
 		}
 	}
 
@@ -325,6 +363,7 @@ public final class NexoEmoteAccount {
 
 	private static void apply(Me me) {
 		balance = me.balance();
+		earn = me.earn();
 		owned = me.owned();
 		tickets = me.tickets();
 		me.owned().forEach(emote -> animation(emote.id()));
@@ -353,10 +392,15 @@ public final class NexoEmoteAccount {
 
 	/** Deletes the wallet and everything else the service holds about this account. */
 	public static void deleteAccount(Consumer<String> failed, Runnable done) {
+		erasing = true;
+		generation++;
 		background(() -> authed("/account", HttpRequest.Builder::DELETE), reply -> {
+			erasing = false;
+			generation++;
 			token = null;
 			online = false;
 			balance = 0;
+			earn = null;
 			owned = List.of();
 			tickets = Map.of();
 			try {
@@ -365,7 +409,10 @@ public final class NexoEmoteAccount {
 				NexoMod.LOGGER.warn("[nexomod] Emotes: could not delete the stored session.");
 			}
 			done.run();
-		}, failed);
+		}, key -> {
+			erasing = false;
+			failed.accept(key);
+		});
 	}
 
 	// --- Rewards ------------------------------------------------------------
@@ -381,6 +428,7 @@ public final class NexoEmoteAccount {
 		if (online && (user == null || !user.getProfileId().equals(tokenOwner))) {
 			online = false;
 			balance = 0;
+			earn = null;
 			owned = List.of();
 			tickets = Map.of();
 			refreshAt = 0L;
@@ -405,6 +453,10 @@ public final class NexoEmoteAccount {
 		background(() -> authed("/heartbeat", builder -> builder.POST(HttpRequest.BodyPublishers.noBody())), reply -> {
 			JsonObject body = JsonParser.parseString(reply).getAsJsonObject();
 			balance = body.get("balance").getAsInt();
+			Earn progress = parseEarn(body);
+			if (progress != null) {
+				earn = progress;
+			}
 			int earned = body.get("earned").getAsInt();
 			// Only for the daily and streak rewards: five coins every five minutes would nag.
 			if (earned > 5) {
@@ -421,6 +473,12 @@ public final class NexoEmoteAccount {
 	}
 
 	// --- Files --------------------------------------------------------------
+
+	/** A shop emote's menu preview if its file is here yet; asks for the file otherwise. */
+	public static NexoEmotePreview preview(String id) {
+		animation(id);
+		return PREVIEWS.get(id);
+	}
 
 	/** A shop emote's animation if it is here yet; asks for it otherwise. */
 	public static Animation animation(String id) {
@@ -484,6 +542,12 @@ public final class NexoEmoteAccount {
 			var loaded = UniversalAnimLoader.loadAnimations(new ByteArrayInputStream(data));
 			if (loaded.size() == 1) {
 				ANIMATIONS.put(id, loaded.values().iterator().next());
+				try {
+					PREVIEWS.put(id, NexoEmotePreview.parse(data));
+				} catch (RuntimeException e) {
+					// It still plays; the shop just shows it standing still.
+					NexoMod.LOGGER.debug("[nexomod] Emotes: no preview for an animation.", e);
+				}
 			}
 		} catch (IOException | RuntimeException e) {
 			NexoMod.LOGGER.debug("[nexomod] Emotes: could not fetch an animation.", e);

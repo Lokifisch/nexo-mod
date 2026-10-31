@@ -65,6 +65,17 @@ public final class NexoDevTour {
 		STEPS.add(new Step("title", TitleScreen::new));
 		STEPS.add(new Step("wardrobe", () -> new dev.nexoclient.nexomod.screen.NexoWardrobeScreen(null)));
 		STEPS.add(new Step("emote-wheel", dev.nexoclient.nexomod.screen.NexoEmoteWheelScreen::new));
+		// With NEXOMOD_EMOTE_API on a local service, for the catalog: a dev client can't sign in.
+		STEPS.add(new Step("shop-off", () -> {
+			NexoConfig.get().setEmoteShopEnabled(false);
+			return dev.nexoclient.nexomod.screen.NexoWardrobeScreen.shop(null);
+		}));
+		STEPS.add(new Step("shop-signed-out", () -> {
+			NexoConfig.get().setEmoteShopEnabled(true);
+			return dev.nexoclient.nexomod.screen.NexoWardrobeScreen.shop(null);
+		}));
+		STEPS.add(new Step("shop", NexoDevTour::signedInShop));
+		STEPS.add(new Step("shop-moved", NexoDevTour::signedInShop));
 		// NEXOMOD_DEV_TOUR=stay:<step> opens just that screen and leaves it up, to
 		// try it by hand instead of screenshotting it.
 		String mode = System.getenv("NEXOMOD_DEV_TOUR");
@@ -74,6 +85,22 @@ public final class NexoDevTour {
 		}
 		NexoMod.LOGGER.info("dev tour: {} screens queued", STEPS.size());
 		ClientTickEvents.END_CLIENT_TICK.register(NexoDevTour::tick);
+	}
+
+	/** Pretends a signed-in account by reflection, so no test path exists in the mod itself. */
+	private static Screen signedInShop() {
+		try {
+			Class<?> account = dev.nexoclient.nexomod.emotes.NexoEmoteAccount.class;
+			for (var entry : java.util.Map.of("online", (Object) true, "balance", 640, "tokenOwner", Minecraft.getInstance().getUser().getProfileId(),
+					"earn", new dev.nexoclient.nexomod.emotes.NexoEmoteAccount.Earn(64, 120, true, 20, 5, 7, 150)).entrySet()) {
+				var field = account.getDeclaredField(entry.getKey());
+				field.setAccessible(true);
+				field.set(null, entry.getValue());
+			}
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+		return dev.nexoclient.nexomod.screen.NexoWardrobeScreen.shop(null);
 	}
 
 	private static void tick(Minecraft mc) {
