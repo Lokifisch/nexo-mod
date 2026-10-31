@@ -229,7 +229,8 @@ public final class NexoEmoteRelay implements NexoEmotes.Listener {
 		Showing current = showing.get(message.player());
 		showing.put(message.player(), new Showing(message.emote(), now));
 		// A re-announce of what is already playing only proves they are still there.
-		if (current == null || !current.emote().equals(message.emote())) {
+		// Unless the player's model is new (they left range and came back): its controller is idle.
+		if (current == null || !current.emote().equals(message.emote()) || !NexoEmotes.isShowing(avatar)) {
 			NexoEmotes.show(avatar, animation, message.tick());
 		}
 	}

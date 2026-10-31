@@ -23,8 +23,8 @@ import dev.nexoclient.nexomod.screen.NexoEmoteWheelScreen;
 
 /**
  * Emote playback on player models, through Player Animation Library. The player
- * who plays an emote stops it by moving, attacking or being hit, like most
- * emote mods; the {@link Listener} is how the relay hears about both.
+ * who plays an emote stops it by sneaking, attacking or being hit, and whole-body
+ * ones also by moving; the {@link Listener} is how the relay hears about both.
  */
 public final class NexoEmotes {
 	private static final Identifier LAYER = Identifier.fromNamespaceAndPath("nexomod", "emotes");
@@ -39,7 +39,7 @@ public final class NexoEmotes {
 
 	/**
 	 * An emote: {@code id} is the stable name other players' clients look it up by.
-	 * {@code walkable} ones only use the arms, so they keep playing while walking.
+	 * {@code walkable} ones leave the legs and body alone, so they keep playing while walking.
 	 */
 	public record Emote(String id, Component name, Pose pose, boolean walkable) {
 		public Animation animation() {
@@ -67,6 +67,7 @@ public final class NexoEmotes {
 	private static Emote playing;
 	private static Listener listener;
 	private static int graceTicks;
+	private static boolean sneakWasDown;
 
 	private NexoEmotes() {
 	}
@@ -124,8 +125,12 @@ public final class NexoEmotes {
 
 	private static boolean wantsToStop(Minecraft mc) {
 		var options = mc.options;
+		// Pressing it, not holding it: toggle-crouch keeps this down all the time.
+		boolean sneakDown = options.keyShift.isDown();
+		boolean sneakPressed = sneakDown && !sneakWasDown;
+		sneakWasDown = sneakDown;
 		// Always: these also end a looping emote that walking would not.
-		if (options.keyAttack.isDown() || options.keyShift.isDown() || mc.player.hurtTime > 0) {
+		if (options.keyAttack.isDown() || sneakPressed || mc.player.hurtTime > 0) {
 			return true;
 		}
 		return !playing.walkable() && (options.keyUp.isDown() || options.keyDown.isDown() || options.keyLeft.isDown()
@@ -144,6 +149,7 @@ public final class NexoEmotes {
 		}
 		playing = emote;
 		graceTicks = 5;
+		sneakWasDown = mc.options.keyShift.isDown();
 		if (listener != null) {
 			listener.played(emote);
 		}
@@ -187,6 +193,11 @@ public final class NexoEmotes {
 		}
 		controller.triggerAnimation(animation, fromTick);
 		return true;
+	}
+
+	public static boolean isShowing(Avatar avatar) {
+		PlayerAnimationController controller = controller(avatar);
+		return controller != null && controller.isActive();
 	}
 
 	public static void hide(Avatar avatar) {

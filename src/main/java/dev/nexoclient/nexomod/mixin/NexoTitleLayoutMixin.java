@@ -127,8 +127,8 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 		big.sort(reading);
 		small.sort(reading);
 		// Essential's in fixed slots, decided the first time each is seen. Sorting them
-		// by position every frame would let one that Essential moved for a frame (a
-		// new one, or one it just rebuilt) reshuffle the whole row, every frame.
+		// by position every frame would let one that Essential moved for a frame, or
+		// one that only just became visible, reshuffle the whole row.
 		essential.sort(Comparator.comparingInt((AbstractWidget widget) -> nexomod$essentialSlots.getOrDefault(widget, Integer.MAX_VALUE))
 				.thenComparing(reading));
 		for (AbstractWidget widget : essential) {
