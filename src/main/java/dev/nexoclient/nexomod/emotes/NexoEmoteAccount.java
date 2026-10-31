@@ -56,11 +56,11 @@ public final class NexoEmoteAccount {
 	private static final long IDLE_MILLIS = 3 * 60 * 1000L;
 
 	/**
-	 * The service's public keys by id: the current one and the next, so the key can
-	 * be rotated. Empty until the service is deployed: with none here no bought
-	 * emote verifies, and other players only see starters.
+	 * The service's public keys by id. To rotate, add the next one here a release
+	 * before the service starts signing with it. {@code deploy.sh} prints the current one.
 	 */
-	public static final Map<Integer, PublicKey> TICKET_KEYS = NexoEmoteTicket.keys(Map.of());
+	public static final Map<Integer, PublicKey> TICKET_KEYS = NexoEmoteTicket.keys(Map.of(
+			1, "0bd89dc3ae4d1a2b2f1cf026858b23937b662d61aa931a05981be5ca976f7e90"));
 
 	public record ShopItem(String id, String name, int price, String rarity) {
 	}
