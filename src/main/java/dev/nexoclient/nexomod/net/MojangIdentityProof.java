@@ -69,7 +69,7 @@ public final class MojangIdentityProof {
 		return user;
 	}
 
-	private static final java.util.regex.Pattern SERVER_ID = java.util.regex.Pattern.compile("nexo-badge-[0-9a-f]{32}");
+	private static final java.util.regex.Pattern SERVER_ID = java.util.regex.Pattern.compile("nexo-(badge|emote)-[0-9a-f]{32}");
 
 	/** The one-shot {@code server_id} from `POST challengeUrl`, or null on failure. */
 	public String requestChallenge(String challengeUrl) throws IOException, InterruptedException {

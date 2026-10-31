@@ -36,6 +36,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 
 import dev.nexoclient.nexomod.NexoMod;
+import dev.nexoclient.nexomod.emotes.NexoEmoteAccount;
+import dev.nexoclient.nexomod.emotes.NexoEmotes;
 import dev.nexoclient.nexomod.title.NexoTitleExtras;
 import dev.nexoclient.nexomod.wardrobe.NexoSkinApi;
 import dev.nexoclient.nexomod.wardrobe.NexoSkinLibrary;
@@ -55,10 +57,10 @@ public class NexoWardrobeScreen extends Screen {
 	private static final int GAP = 6;
 	private static final int HEADING = 16;
 
-	private enum Tab { SKINS, OUTFITS, CAPES }
+	private enum Tab { SKINS, OUTFITS, EMOTES, CAPES }
 
 	private record Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
-			boolean back, boolean selected, boolean favorite, Runnable click) {
+			boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose) {
 	}
 
 	private record Placed(Item item, int y) {
@@ -73,23 +75,28 @@ public class NexoWardrobeScreen extends Screen {
 	 */
 	private static final Identifier CHESTPLATE = Identifier.withDefaultNamespace("textures/item/leather_chestplate.png");
 	private static final Identifier ARMOR_STAND = Identifier.withDefaultNamespace("textures/item/armor_stand.png");
+	private static final Identifier NOTE = Identifier.withDefaultNamespace("textures/item/totem_of_undying.png");
 	private static final Identifier ELYTRA = Identifier.withDefaultNamespace("textures/item/elytra.png");
 	private static final int LEATHER_TINT = 0xFFA0653F;
 	private static final Identifier WORN = Identifier.fromNamespaceAndPath("nexomod", "wardrobe/worn");
 	private static Model.Simple wide;
 	private static Model.Simple slimModel;
 	private static Model.Simple capeModel;
+	private static final Map<PoseKey, Model.Simple> POSED = new HashMap<>();
 
 	private final Screen parent;
 	private Tab tab = Tab.SKINS;
 	private Skin selected;
 	private Outfit selectedOutfit;
+	private NexoEmotes.Pose previewPose;
 	private String search = "";
 	private int scroll;
 	private int maxScroll;
 	private boolean menuOpen;
 	private final List<Chip> menuChips = new ArrayList<>();
 	private boolean deleteArmed;
+	private long deleteArmedAt;
+	private static final long DELETE_ARM_MILLIS = 5000L;
 	private float rotX = 5F;
 	private float rotY = -25F;
 	private boolean draggingSlider;
@@ -109,6 +116,9 @@ public class NexoWardrobeScreen extends Screen {
 	/** The preview column: narrower in a small window, so the grid keeps room. */
 	private int previewWidth = 214;
 	private boolean searchShown;
+	private int searchRight;
+	/** The shop emote awaiting its second click. */
+	private String armedBuy;
 	private int gridX0, gridY0, gridX1, gridY1;
 	private int modelX0, modelY0, modelX1, modelY1;
 	private int sliderX0, sliderX1, sliderY;
@@ -153,16 +163,31 @@ public class NexoWardrobeScreen extends Screen {
 		int y = py0 + HEADER + 4;
 		y = addTab(Tab.SKINS, "nexomod.wardrobe.tab.skins", CHESTPLATE, LEATHER_TINT, y);
 		y = addTab(Tab.OUTFITS, "nexomod.wardrobe.tab.outfits", ARMOR_STAND, 0xFFFFFFFF, y);
+		y = addTab(Tab.EMOTES, "nexomod.wardrobe.tab.emotes", NOTE, 0xFFFFFFFF, y);
 		addTab(Tab.CAPES, "nexomod.wardrobe.tab.capes", ELYTRA, 0xFFFFFFFF, y);
 
 		// Header: search, and on Skins the add button. Outfits get theirs from the preview.
 		int headerRight = gridX1;
+		if (tab == Tab.EMOTES) {
+			// Each one reaches out to Nexo's service, so each is the player's call; both start off.
+			Chip sync = new Chip(headerRight - 44, py0 + 6, 44, 18, Component.translatable("nexomod.emote.sync"),
+					() -> NexoConfig.get().emoteSyncEnabled(), () -> NexoConfig.get().setEmoteSyncEnabled(!NexoConfig.get().emoteSyncEnabled()));
+			sync.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.emote.sync.tooltip")));
+			addRenderableWidget(sync);
+			headerRight -= 50;
+			Chip shop = new Chip(headerRight - 44, py0 + 6, 44, 18, Component.translatable("nexomod.emote.shop"),
+					() -> NexoConfig.get().emoteShopEnabled(), this::toggleShop);
+			shop.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.emote.shop.tooltip")));
+			addRenderableWidget(shop);
+			headerRight -= 50;
+		}
 		if (tab == Tab.SKINS) {
 			addRenderableWidget(new Primary(headerRight - 72, py0 + 6, 72, 18, Component.translatable("nexomod.wardrobe.add"), () -> setMenu(!menuOpen)));
 			headerRight -= 78;
 		}
 		// Only when it fits beside the heading.
 		searchShown = headerRight - gridX0 >= 150;
+		searchRight = headerRight;
 		if (searchShown) {
 			NexoTextField box = new NexoTextField(font, headerRight - 88, py0 + 11, 84, 10);
 			box.setBordered(false);
@@ -193,7 +218,7 @@ public class NexoWardrobeScreen extends Screen {
 		addRenderableWidget(new Chip(inX0, row, w, 18, Component.translatable("nexomod.wardrobe.wide"), () -> selected != null && !selected.slim, () -> setSlim(false)));
 		addRenderableWidget(new Chip(inX0 + w + 4, row, w, 18, Component.translatable("nexomod.wardrobe.slim"), () -> selected != null && selected.slim, () -> setSlim(true)));
 		addRenderableWidget(new Chip(inX0 + (w + 4) * 2, row, w, 18, Component.literal("♥"), () -> selected != null && selected.favorite, this::toggleFavorite));
-		addRenderableWidget(new Chip(inX0 + (w + 4) * 3, row, w, 18, Component.translatable("nexomod.wardrobe.delete"), () -> deleteArmed, this::delete));
+		addRenderableWidget(new Chip(inX0 + (w + 4) * 3, row, w, 18, Component.translatable(tab == Tab.EMOTES ? "nexomod.emote.erase" : "nexomod.wardrobe.delete"), () -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::delete));
 		sliderX0 = inX0 + 44;
 		sliderX1 = inX1;
 		sliderY = row - 12;
@@ -224,6 +249,10 @@ public class NexoWardrobeScreen extends Screen {
 			tab = target;
 			scroll = 0;
 			deleteArmed = false;
+			armedBuy = null;
+			if (target == Tab.EMOTES && NexoConfig.get().emoteShopEnabled()) {
+				refreshShop();
+			}
 			setMenu(false);
 			rebuildWidgets();
 		}).icon(icon, tint));
@@ -570,18 +599,59 @@ public class NexoWardrobeScreen extends Screen {
 		}
 	}
 
+	private void toggleShop() {
+		NexoConfig config = NexoConfig.get();
+		config.setEmoteShopEnabled(!config.emoteShopEnabled());
+		if (config.emoteShopEnabled()) {
+			refreshShop();
+		}
+	}
+
+	private void refreshShop() {
+		NexoEmoteAccount.refresh(key -> say(Component.translatable(key), true), null);
+	}
+
+	/** Two clicks, the first naming the price: coins take a long time to earn. */
+	private void buy(NexoEmoteAccount.ShopItem item) {
+		if (!NexoEmoteAccount.online()) {
+			say(Component.translatable("nexomod.wardrobe.error.signIn"), true);
+			return;
+		}
+		if (!item.id().equals(armedBuy)) {
+			armedBuy = item.id();
+			say(Component.translatable("nexomod.emote.confirm", item.name(), item.price()), false);
+			return;
+		}
+		armedBuy = null;
+		NexoEmoteAccount.buy(item, key -> say(Component.translatable(key), true),
+				() -> say(Component.translatable("nexomod.emote.bought", item.name()), false));
+	}
+
 	/** Two clicks: the first arms it, the second removes the selected outfit on Outfits, the skin on Skins. */
 	private void delete() {
-		boolean target = tab == Tab.SKINS ? selected != null : tab == Tab.OUTFITS && selectedOutfit != null;
+		boolean emoteAccount = tab == Tab.EMOTES && NexoConfig.get().emoteShopEnabled() && NexoEmoteAccount.online();
+		boolean target = emoteAccount || (tab == Tab.SKINS ? selected != null : tab == Tab.OUTFITS && selectedOutfit != null);
 		if (!target) {
 			deleteArmed = false;
 			return;
 		}
-		if (!deleteArmed) {
+		// An arm left standing must not turn a much later click into a deletion.
+		if (!deleteArmed || Util.getMillis() - deleteArmedAt > DELETE_ARM_MILLIS) {
 			deleteArmed = true;
+			deleteArmedAt = Util.getMillis();
+			if (emoteAccount) {
+				say(Component.translatable("nexomod.emote.deleteAccount"), true);
+			}
 			return;
 		}
 		deleteArmed = false;
+		if (emoteAccount) {
+			NexoEmoteAccount.deleteAccount(key -> say(Component.translatable(key), true), () -> {
+				NexoConfig.get().setEmoteShopEnabled(false);
+				say(Component.translatable("nexomod.emote.deleted"), false);
+			});
+			return;
+		}
 		if (tab == Tab.OUTFITS) {
 			NexoSkinLibrary.outfits().remove(selectedOutfit);
 			NexoSkinLibrary.save();
@@ -608,7 +678,7 @@ public class NexoWardrobeScreen extends Screen {
 				() -> NexoSkinLibrary.texture(skin), skin.slim, null, false, skin == selected, skin.favorite, () -> {
 					select(skin);
 					selectedOutfit = null;
-				});
+				}, null);
 	}
 
 	private List<Item> items() {
@@ -635,21 +705,44 @@ public class NexoWardrobeScreen extends Screen {
 							selectedOutfit = outfit;
 							// No recorded cape: saved while capes were unknown, so keep what the account has.
 							previewCape = outfit.capeId != null ? outfit.capeId : activeCape;
-						}));
+						}, null));
+			}
+		} else if (tab == Tab.EMOTES) {
+			Skin worn = selected;
+			Supplier<Identifier> body = () -> worn == null ? playerSkin() : NexoSkinLibrary.texture(worn);
+			boolean slim = worn != null ? worn.slim : playerSlim();
+			for (NexoEmotes.Emote emote : NexoEmotes.owned()) {
+				if (matches(emote.name().getString())) {
+					items.add(new Item(null, emote.name().getString(), "", body, slim, null, false, emote.pose() == previewPose, false, () -> {
+						previewPose = emote.pose();
+						armedBuy = null;
+						deleteArmed = false;
+						NexoEmotes.play(emote);
+					}, emote.pose()));
+				}
+			}
+			if (NexoConfig.get().emoteShopEnabled()) {
+				List<NexoEmotes.Emote> owned = NexoEmoteAccount.ownedEmotes();
+				for (NexoEmoteAccount.ShopItem item : NexoEmoteAccount.shop()) {
+					if (matches(item.name()) && owned.stream().noneMatch(emote -> emote.id().equals(item.id()))) {
+						items.add(new Item(null, item.name(), Component.translatable("nexomod.emote.price", item.price()).getString(), body, slim, null, false,
+								item.id().equals(armedBuy), false, () -> buy(item), NexoEmotes.Pose.NEUTRAL));
+					}
+				}
 			}
 		} else if (capes != null && !capes.isEmpty()) {
 			Skin worn = selected;
 			Supplier<Identifier> body = () -> worn == null ? null : NexoSkinLibrary.texture(worn);
 			boolean slim = selected != null && selected.slim;
 			items.add(new Item(null, Component.translatable("nexomod.wardrobe.capes.off").getString(), "", body, slim, null, false,
-					previewCape.isEmpty(), false, () -> previewCape = ""));
+					previewCape.isEmpty(), false, () -> previewCape = "", null));
 			for (NexoSkinApi.Cape cape : capes) {
 				if (matches(cape.name())) {
 					items.add(new Item(null, cape.name(), cape.id().equals(activeCape) ? Component.translatable("nexomod.wardrobe.capes.on").getString() : "",
 							body, slim, capeTexture(cape.id()), true, cape.id().equals(previewCape), false, () -> {
 								previewCape = cape.id();
 								rotY = 155F;
-							}));
+							}, null));
 				}
 			}
 		}
@@ -657,7 +750,7 @@ public class NexoWardrobeScreen extends Screen {
 	}
 
 	private static Item heading(String key) {
-		return new Item(Component.translatable(key), null, null, null, false, null, false, false, false, null);
+		return new Item(Component.translatable(key), null, null, null, false, null, false, false, false, null, null);
 	}
 
 	private int columns() {
@@ -742,13 +835,51 @@ public class NexoWardrobeScreen extends Screen {
 	 * shared depth, so whichever is nearer the viewer has to go second.
 	 */
 	static void drawModel(GuiGraphicsExtractor graphics, Identifier skin, boolean slim, Identifier cape, float rotX, float rotY, int x0, int y0, int x1, int y1) {
+		drawModel(graphics, skin, slim, cape, null, rotX, rotY, x0, y0, x1, y1);
+	}
+
+	/** The signed-in player's own skin in a world, for screens with no library skin picked. */
+	private static Identifier playerSkin() {
+		var player = Minecraft.getInstance().player;
+		return player == null ? null : player.getSkin().body().texturePath();
+	}
+
+	private static boolean playerSlim() {
+		var player = Minecraft.getInstance().player;
+		return player != null && player.getSkin().model() == net.minecraft.world.entity.player.PlayerModelType.SLIM;
+	}
+
+	/** The local player's skin in a pose: the emote wheel's slots. */
+	static void drawPosed(GuiGraphicsExtractor graphics, NexoEmotes.Pose pose, float rotX, float rotY, int x0, int y0, int x1, int y1) {
+		drawModel(graphics, playerSkin(), playerSlim(), null, pose, rotX, rotY, x0, y0, x1, y1);
+	}
+
+	/** One baked model per pose: a picture renders after this frame, so a shared model cannot be re-posed between cards. */
+	private static Model.Simple posed(boolean slim, NexoEmotes.Pose pose) {
+		return POSED.computeIfAbsent(new PoseKey(slim, pose), key -> {
+			var layer = slim ? ModelLayers.PLAYER_SLIM : ModelLayers.PLAYER;
+			Model.Simple model = new Model.Simple(Minecraft.getInstance().getEntityModels().bakeLayer(layer), RenderTypes::entityTranslucent);
+			var right = model.root().getChild("right_arm");
+			right.xRot = pose.rightArmX();
+			right.zRot = pose.rightArmZ();
+			var left = model.root().getChild("left_arm");
+			left.xRot = pose.leftArmX();
+			left.zRot = pose.leftArmZ();
+			return model;
+		});
+	}
+
+	private record PoseKey(boolean slim, NexoEmotes.Pose pose) {
+	}
+
+	private static void drawModel(GuiGraphicsExtractor graphics, Identifier skin, boolean slim, Identifier cape, NexoEmotes.Pose pose, float rotX, float rotY, int x0, int y0, int x1, int y1) {
 		// A zero or negative size would crash the texture it is drawn into; a tiny window can ask for one.
 		if (x1 <= x0 || y1 <= y0) {
 			return;
 		}
 		bake();
 		float scale = 0.97F * (y1 - y0) / 2.125F;
-		Model.Simple player = slim ? slimModel : wide;
+		Model.Simple player = pose != null ? posed(slim, pose) : slim ? slimModel : wide;
 		boolean capeNear = Mth.cos(rotY * Mth.DEG_TO_RAD) < 0F;
 		if (cape != null && !capeNear) {
 			graphics.skin(capeModel, cape, scale, rotX, rotY, -1.0625F, x0, y0, x1, y1);
@@ -780,17 +911,21 @@ public class NexoWardrobeScreen extends Screen {
 		int count = switch (tab) {
 			case SKINS -> NexoSkinLibrary.skins().size();
 			case OUTFITS -> NexoSkinLibrary.outfits().size();
+			case EMOTES -> NexoEmotes.owned().size();
 			case CAPES -> capes == null ? 0 : capes.size();
 		};
 		String key = switch (tab) {
 			case SKINS -> "nexomod.wardrobe.tab.skins";
 			case OUTFITS -> "nexomod.wardrobe.tab.outfits";
+			case EMOTES -> "nexomod.wardrobe.tab.emotes";
 			case CAPES -> "nexomod.wardrobe.tab.capes";
 		};
 		Component heading = Component.translatable(key).withStyle(style -> style.withBold(true));
 		graphics.text(font, heading, gridX0, py0 + 11, NexoStyle.TEXT_PRIMARY);
-		graphics.text(font, String.valueOf(count), gridX0 + font.width(heading) + 6, py0 + 11, NexoStyle.MUTED);
-		int boxRight = tab == Tab.SKINS ? gridX1 - 78 : gridX1;
+		String detail = tab == Tab.EMOTES && NexoEmoteAccount.online()
+				? Component.translatable("nexomod.emote.balance", NexoEmoteAccount.balance()).getString() : String.valueOf(count);
+		graphics.text(font, detail, gridX0 + font.width(heading) + 6, py0 + 11, NexoStyle.MUTED);
+		int boxRight = searchRight;
 		if (searchShown) {
 			NexoShapes.outlined(graphics, boxRight - 92, py0 + 6, boxRight, py0 + 24, NexoStyle.FIELD, NexoStyle.CONTROL, 3);
 		}
@@ -803,6 +938,7 @@ public class NexoWardrobeScreen extends Screen {
 			Component message = switch (tab) {
 				case SKINS -> Component.translatable(search.isBlank() ? "nexomod.wardrobe.empty.skins" : "nexomod.wardrobe.empty.search");
 				case OUTFITS -> Component.translatable("nexomod.wardrobe.empty.outfits");
+				case EMOTES -> Component.translatable("nexomod.wardrobe.empty.search");
 				case CAPES -> capesMessage != null ? capesMessage : Component.translatable("nexomod.wardrobe.loading");
 			};
 			int y = (gridY0 + gridY1) / 2 - 8;
@@ -833,7 +969,7 @@ public class NexoWardrobeScreen extends Screen {
 			}
 			int border = item.selected() ? NexoStyle.ACCENT : hot ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.5F) : NexoStyle.LINE;
 			NexoShapes.outlined(graphics, x0, y0, x1, y1, item.selected() ? NexoStyle.mix(NexoStyle.RAISED, NexoStyle.ACCENT, 0.12F) : NexoStyle.RAISED, border, 5);
-			drawModel(graphics, item.skin().get(), item.slim(), item.cape(), 5F, item.back() ? 155F : -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
+			drawModel(graphics, item.skin().get(), item.slim(), item.cape(), item.pose(), 5F, item.back() ? 155F : -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
 			if (item.favorite()) {
 				graphics.text(font, "♥", x1 - 11, y0 + 5, 0xFFFF3CAC);
 			}
@@ -864,7 +1000,7 @@ public class NexoWardrobeScreen extends Screen {
 		NexoShapes.glow(graphics, centre - 44, floorY - 3, centre + 44, floorY + 3, NexoStyle.ACCENT, 3, 0.14F);
 		if (selected != null) {
 			int w = height * 2 / 3;
-			drawModel(graphics, NexoSkinLibrary.texture(selected), selected.slim, capeTexture(previewCape), rotX, rotY,
+			drawModel(graphics, NexoSkinLibrary.texture(selected), selected.slim, capeTexture(previewCape), tab == Tab.EMOTES ? previewPose : null, rotX, rotY,
 					centre - w, modelY0 + 6, centre + w, modelY0 + 6 + height);
 		} else {
 			graphics.centeredText(font, Component.translatable("nexomod.wardrobe.empty.preview"), centre, (modelY0 + modelY1) / 2, NexoStyle.MUTED);

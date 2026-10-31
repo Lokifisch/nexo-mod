@@ -272,6 +272,25 @@ public final class AccountStore {
 		}
 	}
 
+	private static final byte[] LOCAL_HEADER = "NXLOCAL1".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+
+	private static SecretKey localKey() throws GeneralSecurityException {
+		SecretKey key = HardwareKey.await();
+		if (key == null) {
+			throw new GeneralSecurityException("no machine key");
+		}
+		return key;
+	}
+
+	/** Other small secrets of this mod, under the same machine-derived key as the accounts. */
+	public static byte[] sealLocal(byte[] plaintext) throws GeneralSecurityException {
+		return encrypt(plaintext, localKey(), LOCAL_HEADER);
+	}
+
+	public static byte[] openLocal(byte[] stored) throws GeneralSecurityException {
+		return decrypt(stored, localKey(), LOCAL_HEADER);
+	}
+
 	private static byte[] encrypt(byte[] plaintext, SecretKey key, byte[] header) throws GeneralSecurityException {
 		byte[] iv = new byte[GCM_IV_BYTES];
 		new SecureRandom().nextBytes(iv);

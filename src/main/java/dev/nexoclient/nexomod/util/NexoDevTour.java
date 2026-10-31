@@ -64,6 +64,7 @@ public final class NexoDevTour {
 		STEPS.add(new Step("aim-assist", () -> tacticalConfig("nexomod.qol.aimAssist")));
 		STEPS.add(new Step("title", TitleScreen::new));
 		STEPS.add(new Step("wardrobe", () -> new dev.nexoclient.nexomod.screen.NexoWardrobeScreen(null)));
+		STEPS.add(new Step("emote-wheel", dev.nexoclient.nexomod.screen.NexoEmoteWheelScreen::new));
 		// NEXOMOD_DEV_TOUR=stay:<step> opens just that screen and leaves it up, to
 		// try it by hand instead of screenshotting it.
 		String mode = System.getenv("NEXOMOD_DEV_TOUR");

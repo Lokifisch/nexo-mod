@@ -321,3 +321,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## ZigyTheBird/PlayerAnimationLibrary
+
+[Player Animation Library](https://github.com/ZigyTheBird/PlayerAnimationLibrary), MIT
+licensed, is bundled unmodified inside both jars and plays emotes on player models. Its
+own licence and those of what it bundles are inside its nested jar.

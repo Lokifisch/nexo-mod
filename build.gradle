@@ -101,9 +101,23 @@ repositories {
 	maven { url 'https://maven.is-quite.gay/' }
 	// Hosts discord-game-sdk4j (see dev.nexoclient.nexomod.discord), which isn't published to Maven Central.
 	maven { url 'https://jitpack.io' }
+	// Hosts Player Animation Library (see dev.nexoclient.nexomod.emotes), MIT.
+	// Only these groups may come from it: what it serves ships inside both jars.
+	maven {
+		url 'https://repo.redlance.org/public'
+		content {
+			includeGroup 'com.zigythebird.playeranim'
+			includeGroup 'org.redlance.common-utils'
+			includeGroup 'org.redlance.mochafloats'
+		}
+	}
 }
 
 dependencies {
+	// Plays emotes on player models without fighting other mods over them.
+	include(implementation("com.zigythebird.playeranim:PlayerAnimationLibFabric:${project.pal_version}"))
+	// Its loader-independent half: a separate artifact the Fabric jar does not nest.
+	include(implementation("com.zigythebird.playeranim:PlayerAnimationLibCore:${project.pal_version}"))
 	// Ships with Minecraft 26.3; just not on the compile classpath. The wardrobe's file picker.
 	compileOnly "org.lwjgl:lwjgl-sdl:3.4.3"
 	// To change the versions see the gradle.properties file
