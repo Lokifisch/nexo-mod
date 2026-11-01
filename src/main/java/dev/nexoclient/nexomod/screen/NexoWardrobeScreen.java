@@ -226,7 +226,7 @@ public class NexoWardrobeScreen extends Screen {
 		// Header: search, and on Skins the add button. Outfits get theirs from the preview.
 		int headerRight = gridX1;
 		if (tab == Tab.EMOTES) {
-			// It reaches out to Nexo's service, so it is the player's call, and starts off.
+			// It reaches out to Nexo's service, so it stays the player's call. Starts on.
 			Chip sync = new Chip(headerRight - 44, py0 + 6, 44, 18, Component.translatable("nexomod.emote.sync"),
 					() -> NexoConfig.get().emoteSyncEnabled(), () -> NexoConfig.get().setEmoteSyncEnabled(!NexoConfig.get().emoteSyncEnabled()));
 			sync.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.emote.sync.tooltip")));

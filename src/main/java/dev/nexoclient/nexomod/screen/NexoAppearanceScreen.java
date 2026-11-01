@@ -27,6 +27,13 @@ public class NexoAppearanceScreen extends NexoOptionScreen {
 		list.addWidgetRow(CycleButton.onOffBuilder(config.smoothEdgesEnabled())
 				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.smoothEdges"),
 						(button, value) -> config.setSmoothEdgesEnabled(value)));
+		list.addWidgetRow(CycleButton.onOffBuilder(config.windowTitleServerEnabled())
+				.withTooltip(value -> net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.settings.windowTitleServer.tooltip")))
+				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.windowTitleServer"),
+						(button, value) -> {
+							config.setWindowTitleServerEnabled(value);
+							Minecraft.getInstance().updateTitle();
+						}));
 		list.addWidgetRow(CycleButton.onOffBuilder(config.titleNetworkEnabled())
 				.withTooltip(value -> net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.settings.titleNetwork.tooltip")))
 				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.titleNetwork"),

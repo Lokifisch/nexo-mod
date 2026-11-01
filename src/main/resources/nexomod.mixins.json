@@ -12,6 +12,7 @@
 		"NeonMenuBackgroundMixin",
 		"NeonButtonMixin",
 		"TitleScreenBrandingMixin",
+		"WindowTitleMixin",
 		"NexoTitleLayoutMixin",
 		"PlayerSkinWidgetAccessor",
 		"SkinTextureDownloaderInvoker",

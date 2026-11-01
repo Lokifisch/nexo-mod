@@ -18,6 +18,7 @@ import com.zigythebird.playeranimcore.animation.Animation;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Avatar;
 
 import dev.nexoclient.nexomod.NexoMod;
@@ -25,8 +26,8 @@ import dev.nexoclient.nexomod.screen.NexoConfig;
 
 /**
  * Shows emotes between Nexo players on a server that can't carry them: a vanilla
- * server drops custom packets, so these go through a relay instead. Off unless the
- * player turned it on, and connected only while on a multiplayer server.
+ * server drops custom packets, so these go through a relay instead. On by default,
+ * the player can turn it off, and it connects only while on a multiplayer server.
  *
  * <p>Other players' messages are untrusted. A bought emote needs a valid ticket for
  * the player it claims to be from. A starter needs none, and the room key comes from
@@ -88,6 +89,13 @@ public final class NexoEmoteRelay implements NexoEmotes.Listener {
 		}
 		long now = System.currentTimeMillis();
 		if (wanted != null && socket == null && address == null && now >= retryAt) {
+			// On by default, so it says so once, before the first connection.
+			if (!NexoConfig.get().emoteSyncNoticeShown()) {
+				NexoConfig.get().markEmoteSyncNoticeShown();
+				net.minecraft.client.gui.components.toasts.SystemToast.addOrUpdate(mc.gui.toastManager(),
+						net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+						Component.translatable("nexomod.emote.sync.notice.title"), Component.translatable("nexomod.emote.sync.notice"));
+			}
 			join(wanted);
 		}
 		// Keeps someone who walks up in step, with the relay holding no state.

@@ -320,10 +320,13 @@ public final class NexoConfig {
 	 * notes from GitHub. On by default; off sends neither.
 	 */
 	private boolean titleNetworkEnabled = true;
-	/** The emote shop: signs this account in to Nexo's service. Off until asked for. */
+	/** The server or world's name in the window title. */
+	private boolean windowTitleServerEnabled = true;
+	/** The emote shop: signs this account in to Nexo's service. On unless turned off. */
 	private boolean emoteShopEnabled = false;
-	/** Emote sync through the relay. Tells others in the room you run Nexo. Off until asked for. */
-	private boolean emoteSyncEnabled = false;
+	/** Emote sync through the relay. Tells others in the room you run Nexo. On unless turned off. */
+	private boolean emoteSyncEnabled = true;
+	private boolean emoteSyncNoticeShown = false;
 
 	/**
 	 * HUD cleaner. Every one of these defaults to false: they hide vanilla
@@ -937,12 +940,30 @@ public final class NexoConfig {
 		save();
 	}
 
+	public boolean emoteSyncNoticeShown() {
+		return emoteSyncNoticeShown;
+	}
+
+	public void markEmoteSyncNoticeShown() {
+		emoteSyncNoticeShown = true;
+		save();
+	}
+
 	public boolean emoteSyncEnabled() {
 		return emoteSyncEnabled;
 	}
 
 	public void setEmoteSyncEnabled(boolean enabled) {
 		this.emoteSyncEnabled = enabled;
+		save();
+	}
+
+	public boolean windowTitleServerEnabled() {
+		return windowTitleServerEnabled;
+	}
+
+	public void setWindowTitleServerEnabled(boolean enabled) {
+		this.windowTitleServerEnabled = enabled;
 		save();
 	}
 
@@ -2065,8 +2086,11 @@ public final class NexoConfig {
 		inventoryHudBackgroundEnabled = Boolean.parseBoolean(props.getProperty("inventoryHudBackgroundEnabled", "true"));
 		miniPlayerEnabled = Boolean.parseBoolean(props.getProperty("miniPlayerEnabled", "false"));
 		titleNetworkEnabled = Boolean.parseBoolean(props.getProperty("titleNetworkEnabled", "true"));
+		windowTitleServerEnabled = Boolean.parseBoolean(props.getProperty("windowTitleServerEnabled", "true"));
 		emoteShopEnabled = Boolean.parseBoolean(props.getProperty("emoteShopEnabled", "false"));
-		emoteSyncEnabled = Boolean.parseBoolean(props.getProperty("emoteSyncEnabled", "false"));
+		// A new key: 0.9.0 wrote its old default of "off" under the former one, which can't be told from a choice.
+		emoteSyncEnabled = Boolean.parseBoolean(props.getProperty("emoteSyncOn", "true"));
+		emoteSyncNoticeShown = Boolean.parseBoolean(props.getProperty("emoteSyncNoticeShown", "false"));
 		hideVanillaActionbar = Boolean.parseBoolean(props.getProperty("hideVanillaActionbar", "false"));
 		hideVanillaPotionIcons = Boolean.parseBoolean(props.getProperty("hideVanillaPotionIcons", "false"));
 		hideScoreboard = Boolean.parseBoolean(props.getProperty("hideScoreboard", "false"));
@@ -2339,8 +2363,10 @@ public final class NexoConfig {
 		props.setProperty("inventoryHudBackgroundEnabled", Boolean.toString(inventoryHudBackgroundEnabled));
 		props.setProperty("miniPlayerEnabled", Boolean.toString(miniPlayerEnabled));
 		props.setProperty("titleNetworkEnabled", Boolean.toString(titleNetworkEnabled));
+		props.setProperty("windowTitleServerEnabled", Boolean.toString(windowTitleServerEnabled));
 		props.setProperty("emoteShopEnabled", Boolean.toString(emoteShopEnabled));
-		props.setProperty("emoteSyncEnabled", Boolean.toString(emoteSyncEnabled));
+		props.setProperty("emoteSyncOn", Boolean.toString(emoteSyncEnabled));
+		props.setProperty("emoteSyncNoticeShown", Boolean.toString(emoteSyncNoticeShown));
 		props.setProperty("hideVanillaActionbar", Boolean.toString(hideVanillaActionbar));
 		props.setProperty("hideVanillaPotionIcons", Boolean.toString(hideVanillaPotionIcons));
 		props.setProperty("hideScoreboard", Boolean.toString(hideScoreboard));

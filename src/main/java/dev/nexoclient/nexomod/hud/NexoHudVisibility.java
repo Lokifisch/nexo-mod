@@ -82,6 +82,8 @@ public final class NexoHudVisibility {
 	 * screen and would be absurd as a render-loop cost.
 	 */
 	private static void rebuildOpenScreen(Minecraft client) {
+		// The title names Nexo and the server, so it follows the same switches.
+		client.updateTitle();
 		if (client.gui.screen() == null) {
 			return;
 		}
