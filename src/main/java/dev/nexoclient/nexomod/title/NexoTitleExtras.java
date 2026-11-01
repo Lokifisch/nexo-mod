@@ -39,6 +39,7 @@ import dev.nexoclient.nexomod.screen.NexoShapes;
 import dev.nexoclient.nexomod.screen.NexoStyle;
 import dev.nexoclient.nexomod.servers.NexoQuickConnect;
 import dev.nexoclient.nexomod.servers.NexoServerEntry;
+import dev.nexoclient.nexomod.servers.NexoDefaultServer;
 import dev.nexoclient.nexomod.servers.NexoServerList;
 
 /**
@@ -148,6 +149,9 @@ public final class NexoTitleExtras {
 	}
 
 	private static void build(Minecraft mc, Screen screen, int width, int height) {
+		// Outside the network check below: this only writes to the list, and the card below
+		// skips the entry, so NexoSMP is pinged only when the Multiplayer list is opened.
+		addDefaultServerOnce(mc);
 		boolean network = dev.nexoclient.nexomod.screen.NexoConfig.get().titleNetworkEnabled();
 		State state = STATES.computeIfAbsent(screen, s -> network ? listServers(mc) : new State());
 		Font font = mc.font;
@@ -221,6 +225,60 @@ public final class NexoTitleExtras {
 		});
 	}
 
+	/**
+	 * Puts NexoSMP at the end of the multiplayer list, the first time only. See
+	 * {@link NexoDefaultServer}. The flag is only set once the entry is on disk.
+	 */
+	private static void addDefaultServerOnce(Minecraft mc) {
+		dev.nexoclient.nexomod.screen.NexoConfig config = dev.nexoclient.nexomod.screen.NexoConfig.get();
+		if (config.defaultServerAdded() || !serverFileIsSafeToWrite(mc)) {
+			return;
+		}
+		ServerList list = new ServerList(mc);
+		list.load();
+		if (!listsDefaultServer(list)) {
+			list.add(new ServerData(NexoDefaultServer.NAME, NexoDefaultServer.ADDRESS, ServerData.Type.OTHER), false);
+			list.save();
+			// save() swallows every failure, so see what actually arrived.
+			ServerList saved = new ServerList(mc);
+			saved.load();
+			if (!listsDefaultServer(saved)) {
+				return;
+			}
+		}
+		config.markDefaultServerAdded();
+	}
+
+	private static boolean listsDefaultServer(ServerList list) {
+		for (int i = 0; i < list.size(); i++) {
+			if (NexoDefaultServer.isSameServer(list.get(i).ip)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * ServerList.load() hides a failed read, then save() would replace the player's whole
+	 * list with this one entry and delete the backup. So a file that doesn't read cleanly
+	 * is left alone, and this tries again next time.
+	 */
+	private static boolean serverFileIsSafeToWrite(Minecraft mc) {
+		java.nio.file.Path dir = mc.gameDirectory.toPath();
+		java.nio.file.Path file = dir.resolve("servers.dat");
+		try {
+			if (java.nio.file.Files.exists(file)) {
+				net.minecraft.nbt.CompoundTag root = net.minecraft.nbt.NbtIo.read(file);
+				return root != null && root.get("servers") instanceof net.minecraft.nbt.ListTag;
+			}
+			// Only a backup there means a replace was interrupted.
+			return !java.nio.file.Files.exists(dir.resolve("servers.dat_old"));
+		} catch (Exception e) {
+			dev.nexoclient.nexomod.NexoMod.LOGGER.warn("Leaving {} alone, it doesn't read cleanly", file, e);
+			return false;
+		}
+	}
+
 	/** Quick Servers if any are saved (they are the player's own shortlist), else the multiplayer list. */
 	private static State listServers(Minecraft mc) {
 		State state = new State();
@@ -237,7 +295,11 @@ public final class NexoTitleExtras {
 			ServerList list = new ServerList(mc);
 			list.load();
 			for (int i = 0; i < list.size() && state.servers.size() < MAX_SERVERS; i++) {
-				state.servers.add(new Server(list.get(i), null));
+				// Not pinged just for starting the game: that would tell its operator
+				// when every Nexo player launches, joining or not.
+				if (!NexoDefaultServer.isSameServer(list.get(i).ip)) {
+					state.servers.add(new Server(list.get(i), null));
+				}
 			}
 		}
 		return state;

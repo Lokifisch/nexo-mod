@@ -327,6 +327,8 @@ public final class NexoConfig {
 	/** Emote sync through the relay. Tells others in the room you run Nexo. On unless turned off. */
 	private boolean emoteSyncEnabled = true;
 	private boolean emoteSyncNoticeShown = false;
+	/** NexoSMP has been added to the server list once. Never cleared, so deleting it sticks. */
+	private boolean defaultServerAdded = false;
 
 	/**
 	 * HUD cleaner. Every one of these defaults to false: they hide vanilla
@@ -937,6 +939,15 @@ public final class NexoConfig {
 
 	public void setEmoteShopEnabled(boolean enabled) {
 		this.emoteShopEnabled = enabled;
+		save();
+	}
+
+	public boolean defaultServerAdded() {
+		return defaultServerAdded;
+	}
+
+	public void markDefaultServerAdded() {
+		defaultServerAdded = true;
 		save();
 	}
 
@@ -2029,6 +2040,9 @@ public final class NexoConfig {
 				props.load(in);
 			} catch (IOException e) {
 				LOGGER.warn("Failed to read {}, using defaults", PATH, e);
+				// Unknown now: don't bring back a server someone deleted, or write these
+				// defaults over their settings to record having done so.
+				props.setProperty("defaultServerAdded", "true");
 			}
 		}
 		boolean customMenusEnabled = Boolean.parseBoolean(props.getProperty("customMenusEnabled", "true"));
@@ -2091,6 +2105,7 @@ public final class NexoConfig {
 		// A new key: 0.9.0 wrote its old default of "off" under the former one, which can't be told from a choice.
 		emoteSyncEnabled = Boolean.parseBoolean(props.getProperty("emoteSyncOn", "true"));
 		emoteSyncNoticeShown = Boolean.parseBoolean(props.getProperty("emoteSyncNoticeShown", "false"));
+		defaultServerAdded = Boolean.parseBoolean(props.getProperty("defaultServerAdded", "false"));
 		hideVanillaActionbar = Boolean.parseBoolean(props.getProperty("hideVanillaActionbar", "false"));
 		hideVanillaPotionIcons = Boolean.parseBoolean(props.getProperty("hideVanillaPotionIcons", "false"));
 		hideScoreboard = Boolean.parseBoolean(props.getProperty("hideScoreboard", "false"));
@@ -2367,6 +2382,7 @@ public final class NexoConfig {
 		props.setProperty("emoteShopEnabled", Boolean.toString(emoteShopEnabled));
 		props.setProperty("emoteSyncOn", Boolean.toString(emoteSyncEnabled));
 		props.setProperty("emoteSyncNoticeShown", Boolean.toString(emoteSyncNoticeShown));
+		props.setProperty("defaultServerAdded", Boolean.toString(defaultServerAdded));
 		props.setProperty("hideVanillaActionbar", Boolean.toString(hideVanillaActionbar));
 		props.setProperty("hideVanillaPotionIcons", Boolean.toString(hideVanillaPotionIcons));
 		props.setProperty("hideScoreboard", Boolean.toString(hideScoreboard));
@@ -2477,9 +2493,12 @@ public final class NexoConfig {
 		props.setProperty("shieldBreakerCooldown", Integer.toString(shieldBreakerCooldown));
 		try {
 			Files.createDirectories(PATH.getParent());
-			try (OutputStream out = Files.newOutputStream(PATH)) {
+			// By way of a temporary file, so a crash mid-write can't lose every setting.
+			Path temporary = PATH.resolveSibling(PATH.getFileName() + ".tmp");
+			try (OutputStream out = Files.newOutputStream(temporary)) {
 				props.store(out, "Nexo Client appearance settings");
 			}
+			Files.move(temporary, PATH, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 		} catch (IOException e) {
 			LOGGER.warn("Failed to save {}", PATH, e);
 		}
