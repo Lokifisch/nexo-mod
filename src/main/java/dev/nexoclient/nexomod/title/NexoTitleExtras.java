@@ -17,7 +17,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.PlayerFaceExtractor;
-import net.minecraft.client.gui.components.PlayerSkinWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -205,9 +204,8 @@ public final class NexoTitleExtras {
 		int modelHeight = Math.min(240, height - 90);
 		int modelWidth = modelHeight * 2 / 3;
 		if (gapX1 - gapX0 >= modelWidth + 20 && modelHeight >= 90) {
-			PlayerSkinWidget model = new PlayerSkinWidget(modelWidth, modelHeight, mc.getEntityModels(), skin);
-			// Turned towards the menu buttons on the left; dragging still turns it freely.
-			((dev.nexoclient.nexomod.mixin.PlayerSkinWidgetAccessor) model).nexomod$setRotationY(-35F);
+			// Turned towards the menu buttons on the left, alive the way the launcher's Home figure is.
+			NexoTitlePlayer model = new NexoTitlePlayer(modelWidth, modelHeight, skin);
 			model.setPosition((gapX0 + gapX1 - modelWidth) / 2, (height - modelHeight) / 2 + 10);
 			Screens.getWidgets(screen).add(model);
 			wardrobe.setPosition((gapX0 + gapX1 - wardrobe.getWidth()) / 2, model.getBottom() + 4);
