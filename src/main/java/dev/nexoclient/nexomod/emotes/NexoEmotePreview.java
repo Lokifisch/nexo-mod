@@ -31,8 +31,14 @@ public final class NexoEmotePreview {
 	}
 
 	public static NexoEmotePreview parse(byte[] data) {
+		return parse(data, null);
+	}
+
+	/** One animation out of a file holding several, like the starters'; null or a missing name takes the first. */
+	public static NexoEmotePreview parse(byte[] data, String name) {
 		JsonObject animations = JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("animations");
-		JsonObject animation = animations.entrySet().iterator().next().getValue().getAsJsonObject();
+		JsonObject animation = name != null && animations.has(name) ? animations.getAsJsonObject(name)
+				: animations.entrySet().iterator().next().getValue().getAsJsonObject();
 		NexoEmotePreview preview = new NexoEmotePreview();
 		preview.loop = animation.has("loop") && animation.get("loop").isJsonPrimitive() && animation.get("loop").getAsJsonPrimitive().isBoolean() && animation.get("loop").getAsBoolean();
 		float last = 0F;

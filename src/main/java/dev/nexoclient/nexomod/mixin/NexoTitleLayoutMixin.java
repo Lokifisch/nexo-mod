@@ -265,7 +265,7 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 		for (int sx = 0; sx < span; sx += 4) {
 			float t = sx / (float) span;
 			int alpha = Math.round(0xD0 * (1F - t) * (1F - t));
-			graphics.fill(sx, 0, Math.min(sx + 4, span), height, (alpha << 24) | 0x06060A);
+			graphics.fill(sx, 0, Math.min(sx + 4, span), height, (alpha << 24) | (dev.nexoclient.nexomod.screen.NexoStyle.INK & 0xFFFFFF));
 		}
 	}
 

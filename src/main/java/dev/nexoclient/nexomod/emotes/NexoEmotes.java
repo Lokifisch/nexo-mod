@@ -175,10 +175,47 @@ public final class NexoEmotes {
 		if (bought.isEmpty()) {
 			return STARTERS;
 		}
-		// Bought ones first: the wheel holds eight, and these were chosen.
+		// Bought ones first: these were chosen.
 		List<Emote> all = new java.util.ArrayList<>(bought);
 		all.addAll(STARTERS);
 		return all;
+	}
+
+	/**
+	 * The wheel's eight slots as the player arranged them in the wardrobe; null where a
+	 * slot is empty or holds an emote this account no longer owns.
+	 */
+	public static Emote[] wheel() {
+		String[] ids = dev.nexoclient.nexomod.screen.NexoConfig.get().emoteWheel();
+		List<Emote> owned = owned();
+		Emote[] slots = new Emote[ids.length];
+		for (int i = 0; i < ids.length; i++) {
+			String id = ids[i];
+			slots[i] = owned.stream().filter(emote -> emote.id().equals(id)).findFirst().orElse(null);
+		}
+		return slots;
+	}
+
+	private static java.util.Map<String, NexoEmotePreview> starterPreviews;
+
+	/** The emote's animation, read for posing a menu model; null while a bought one is still downloading. */
+	public static NexoEmotePreview preview(Emote emote) {
+		if (emote.id().length() == 64) {
+			return NexoEmoteAccount.preview(emote.id());
+		}
+		if (starterPreviews == null) {
+			starterPreviews = new java.util.HashMap<>();
+			try (var in = NexoEmotes.class.getResourceAsStream("/assets/nexomod/player_animations/starter.json")) {
+				byte[] data = in.readAllBytes();
+				for (Emote starter : STARTERS) {
+					starterPreviews.put(starter.id(), NexoEmotePreview.parse(data, starter.id()));
+				}
+			} catch (Exception e) {
+				// The fixed thumbnail poses still work without it.
+				dev.nexoclient.nexomod.NexoMod.LOGGER.warn("emote previews: could not read the starters", e);
+			}
+		}
+		return starterPreviews.get(emote.id());
 	}
 
 	public static Emote playing() {

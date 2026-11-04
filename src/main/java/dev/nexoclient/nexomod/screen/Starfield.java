@@ -31,7 +31,6 @@ public final class Starfield {
 	private static final int STAR_COUNT = 160;
 	private static final long SEED = 0x4E45584F; // "NEXO"
 	private static final float PARALLAX_PIXELS = 10.0F;
-	private static final int BACKGROUND_ARGB = 0xFF04040A;
 
 	private static Starfield instance;
 
@@ -64,7 +63,8 @@ public final class Starfield {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		graphics.fill(0, 0, width, height, BACKGROUND_ARGB);
+		int ink = NexoStyle.INK;
+		graphics.fill(0, 0, width, height, ink);
 
 		double mouseX = mc.mouseHandler.getScaledXPos(mc.getWindow());
 		double mouseY = mc.mouseHandler.getScaledYPos(mc.getWindow());
@@ -81,7 +81,7 @@ public final class Starfield {
 			// White at `twinkle` opacity over the backdrop, precomposited into an
 			// opaque colour — translucent fills are what vanished, see the class doc.
 			int gray = Math.round(twinkle * 255);
-			int color = 0xFF000000 | (blend(gray, 0x04) << 16) | (blend(gray, 0x04) << 8) | blend(gray, 0x0A);
+			int color = 0xFF000000 | (blend(gray, (ink >> 16) & 0xFF) << 16) | (blend(gray, (ink >> 8) & 0xFF) << 8) | blend(gray, ink & 0xFF);
 
 			// speed[] doubles as a depth cue here: faster-drifting stars feel "nearer" and shift more.
 			int px = Math.round(x[i] * width + parallaxX * PARALLAX_PIXELS * speed[i]);

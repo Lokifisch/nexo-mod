@@ -57,15 +57,21 @@ public class NexoWardrobeScreen extends Screen {
 	private static final int CARD_HEIGHT = 112;
 	private static final int GAP = 6;
 	private static final int HEADING = 16;
+	/** The emote wheel's column on the Emotes tab, and the size of one slot in it. */
+	private static final int WHEEL_W = 176;
+	private static final int WHEEL_SLOT = 40;
+	/** How far a press must travel before it is a drag rather than a click. */
+	private static final int DRAG_START = 4;
 
 	private enum Tab { SKINS, OUTFITS, EMOTES, CAPES, SHOP }
 
 	/** {@code top} marks a card's rarity: a colour along its top edge, {@link #RAINBOW} for the logo's ramp, 0 for none. */
 	private record Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
-			boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose, int subColor, int top, String badge) {
+			boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose, int subColor, int top, String badge,
+			NexoEmotes.Emote emote) {
 		Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
 				boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose) {
-			this(heading, name, sub, skin, slim, cape, back, selected, favorite, click, pose, NexoStyle.MUTED, 0, null);
+			this(heading, name, sub, skin, slim, cape, back, selected, favorite, click, pose, NexoStyle.MUTED, 0, null, null);
 		}
 	}
 
@@ -158,6 +164,14 @@ public class NexoWardrobeScreen extends Screen {
 	private int modelX0, modelY0, modelX1, modelY1;
 	private int sliderX0, sliderX1, sliderY;
 	private int menuX0, menuY0, menuX1, menuY1;
+	private int wheelX0;
+	private boolean wheelShown;
+	/** The emote under a press on the Emotes tab, and the wheel slot it came from (-1: from the grid). */
+	private NexoEmotes.Emote dragEmote;
+	private int dragFrom = -1;
+	private Item pressedItem;
+	private double pressX, pressY;
+	private boolean dragging;
 
 	public NexoWardrobeScreen(Screen parent) {
 		super(Component.translatable("nexomod.wardrobe.title"));
@@ -200,12 +214,31 @@ public class NexoWardrobeScreen extends Screen {
 		py1 = height - py0;
 		// The shop's grid also carries the earning strip and the filters, so it gets more of the width.
 		previewWidth = Mth.clamp((px1 - px0) * (tab == Tab.SHOP ? 30 : 36) / 100, 150, 214);
+		// The Emotes tab is for arranging the wheel: when the window can't hold all three, the preview goes.
+		// Too narrow for the filter chips: Owned could not be left again, so it isn't kept.
+		if (ownedFilter() && px1 - px0 - RAIL - 16 < 180) {
+			shopFilter = null;
+		}
+		// Shop > Owned is the same, and has nothing to buy for the preview to offer.
+		if (ownedFilter() || tab == Tab.EMOTES && px1 - px0 - RAIL - previewWidth - 16 - WHEEL_W - 8 < CARD_MIN) {
+			previewWidth = 0;
+		}
+		dragEmote = null;
+		dragFrom = -1;
+		pressedItem = null;
+		dragging = false;
 		int railX1 = px0 + RAIL;
 		int previewX0 = px1 - previewWidth;
 		gridX0 = railX1 + 8;
 		gridX1 = previewX0 - 8;
 		gridY0 = py0 + HEADER + 6;
 		gridY1 = py1 - 6;
+		wheelX0 = gridX0;
+		// A window too narrow for both keeps the grid; the wheel is then only arranged in a wider one.
+		wheelShown = tab == Tab.EMOTES && gridX1 - gridX0 - WHEEL_W - 8 >= CARD_MIN;
+		if (wheelShown) {
+			gridX0 += WHEEL_W + 8;
+		}
 
 		addRenderableWidget(NexoButton.builder(Component.literal("<"), this::onClose).pos(px0 + 6, py0 + 6).size(18, 18).build());
 		int y = py0 + HEADER + 4;
@@ -221,6 +254,12 @@ public class NexoWardrobeScreen extends Screen {
 		if (tab == Tab.SHOP) {
 			initShopRail(y);
 			initShopGrid();
+			// Shop > Owned holds the wheel too, beside the grid and under the filters.
+			wheelShown = ownedFilter() && gridX1 - gridX0 - WHEEL_W - 8 >= CARD_MIN;
+			if (wheelShown) {
+				wheelX0 = gridX0;
+				gridX0 += WHEEL_W + 8;
+			}
 		}
 
 		// Header: search, and on Skins the add button. Outfits get theirs from the preview.
@@ -242,7 +281,7 @@ public class NexoWardrobeScreen extends Screen {
 			headerRight -= 78;
 		}
 		// Only when it fits beside the heading.
-		searchShown = headerRight - gridX0 >= 150;
+		searchShown = headerRight - (railX1 + 8) >= 150;
 		searchRight = headerRight;
 		if (searchShown) {
 			NexoTextField box = new NexoTextField(font, headerRight - 88, py0 + 11, 84, 10);
@@ -262,6 +301,10 @@ public class NexoWardrobeScreen extends Screen {
 		// Preview.
 		int inX0 = previewX0 + 8;
 		int inX1 = px1 - 8;
+		if (previewWidth == 0) {
+			sliderX0 = sliderX1 = sliderY = modelX0 = modelY0 = modelX1 = modelY1 = -1000;
+			return;
+		}
 		if (tab == Tab.SHOP) {
 			initShopPreview(previewX0, inX0, inX1);
 			return;
@@ -307,7 +350,8 @@ public class NexoWardrobeScreen extends Screen {
 	private void initShopRail(int tabsEnd) {
 		int y = py1 - 6 - 18;
 		int x = px0 + 6;
-		if (NexoEmoteAccount.online() && y - 22 >= tabsEnd) {
+		// Not on Owned: its warning shows in the preview, which Owned hides.
+		if (NexoEmoteAccount.online() && !ownedFilter() && y - 22 >= tabsEnd) {
 			addRenderableWidget(new Chip(x, y, RAIL - 12, 18, Component.translatable("nexomod.emote.erase"),
 					() -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::delete));
 			y -= 22;
@@ -338,8 +382,14 @@ public class NexoWardrobeScreen extends Screen {
 				String value = values[i];
 				addRenderableWidget(new Chip(gridX0 + i * (w + 4), gridY0, w, 18, Component.translatable(keys[i]),
 						() -> java.util.Objects.equals(shopFilter, value), () -> {
+							boolean relayout = "owned".equals(shopFilter) != "owned".equals(value);
 							shopFilter = value;
 							scroll = 0;
+							if (relayout) {
+								armedBuy = null;
+								deleteArmed = false;
+								rebuildWidgets();
+							}
 						}));
 			}
 			gridY0 += FILTERS;
@@ -867,8 +917,7 @@ public class NexoWardrobeScreen extends Screen {
 			return Component.translatable("nexomod.emote.note.none");
 		}
 		if (owns(item.id())) {
-			// The wheel holds the first eight, and bought ones come first.
-			boolean onWheel = NexoEmotes.owned().stream().limit(8).anyMatch(emote -> emote.id().equals(item.id()));
+			boolean onWheel = java.util.Arrays.stream(NexoEmotes.wheel()).anyMatch(emote -> emote != null && emote.id().equals(item.id()));
 			return onWheel ? Component.translatable("nexomod.emote.note.wheel", NexoEmotes.wheelKey().getTranslatedKeyMessage())
 					: Component.translatable("nexomod.emote.note.tab");
 		}
@@ -941,7 +990,7 @@ public class NexoWardrobeScreen extends Screen {
 			deleteArmed = false;
 			say(null, false);
 			rotY = -25F;
-		}, pose, subColor, top, badge);
+		}, pose, subColor, top, badge, null);
 	}
 
 	/** Two clicks: the first arms it, the second removes the selected outfit on Outfits, the skin on Skins. */
@@ -1029,7 +1078,7 @@ public class NexoWardrobeScreen extends Screen {
 							previewCape = outfit.capeId != null ? outfit.capeId : activeCape;
 						}, null));
 			}
-		} else if (tab == Tab.EMOTES) {
+		} else if (tab == Tab.EMOTES || ownedFilter()) {
 			Skin worn = selected;
 			Supplier<Identifier> body = () -> worn == null ? playerSkin() : NexoSkinLibrary.texture(worn);
 			boolean slim = worn != null ? worn.slim : playerSlim();
@@ -1040,7 +1089,7 @@ public class NexoWardrobeScreen extends Screen {
 						armedBuy = null;
 						deleteArmed = false;
 						NexoEmotes.play(emote);
-					}, emote.pose()));
+					}, emote.pose(), NexoStyle.MUTED, 0, null, emote));
 				}
 			}
 		} else if (tab == Tab.SHOP) {
@@ -1224,18 +1273,159 @@ public class NexoWardrobeScreen extends Screen {
 			super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 			return;
 		}
-		graphics.fill(previewX0, py0 + 1, previewX0 + 1, py1 - 1, NexoStyle.LINE);
+		if (previewWidth > 0) {
+			graphics.fill(previewX0, py0 + 1, previewX0 + 1, py1 - 1, NexoStyle.LINE);
+			graphics.fill(previewX0 + 1, py0 + HEADER + 1, px1 - 1, py1 - 1, 0xFF0A0A0D);
+		}
 		graphics.fill(px0 + RAIL + 1, py0 + HEADER, px1 - 1, py0 + HEADER + 1, NexoStyle.LINE);
-		graphics.fill(previewX0 + 1, py0 + HEADER + 1, px1 - 1, py1 - 1, 0xFF0A0A0D);
 		graphics.text(font, title.copy().withStyle(style -> style.withBold(true)), px0 + 28, py0 + 11, NexoStyle.TEXT_PRIMARY);
 		drawGridHeader(graphics);
 		if (tab == Tab.SHOP) {
 			drawStrip(graphics);
-			updateBuyButton();
+			if (previewWidth > 0) {
+				updateBuyButton();
+			}
 		}
 		drawGrid(graphics, mouseX, mouseY);
-		drawPreview(graphics);
+		if (wheelShown) {
+			drawWheel(graphics, mouseX, mouseY);
+		}
+		if (previewWidth > 0) {
+			drawPreview(graphics);
+		}
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+		if (dragging && dragEmote != null) {
+			graphics.nextStratum();
+			int h = WHEEL_SLOT / 2;
+			NexoShapes.outlined(graphics, mouseX - h, mouseY - h, mouseX + h, mouseY + h, NexoStyle.RAISED, NexoStyle.ACCENT, 6);
+			drawEmote(graphics, wornSkin(), wornSlim(), dragEmote, 5F, -24F, mouseX - h + 4, mouseY - h + 2, mouseX + h - 4, mouseY + h - 2);
+		}
+	}
+
+	// --- Emote wheel ----------------------------------------------------
+
+	private boolean ownedFilter() {
+		return tab == Tab.SHOP && "owned".equals(shopFilter);
+	}
+
+
+	private Identifier wornSkin() {
+		return selected == null ? playerSkin() : NexoSkinLibrary.texture(selected);
+	}
+
+	private boolean wornSlim() {
+		return selected != null ? selected.slim : playerSlim();
+	}
+
+	private int wheelCx() {
+		return wheelX0 + WHEEL_W / 2;
+	}
+
+	private List<FormattedCharSequence> wheelHint() {
+		// A short grid (the shop's, under its strip and filters) needs the room for the wheel.
+		if (gridY1 - gridY0 < 200) {
+			return List.of();
+		}
+		return font.split(Component.translatable("nexomod.emote.wheel.drag"), WHEEL_W - 8);
+	}
+
+	/** The wheel's bottom edge: above the hint. */
+	private int wheelBottom() {
+		return gridY1 - wheelHint().size() * 10 - 4;
+	}
+
+	private int wheelCy() {
+		return (gridY0 + wheelBottom()) / 2;
+	}
+
+	private int wheelRadius() {
+		return Math.max(wheelSlot(), Math.min(WHEEL_W / 2 - wheelSlot() / 2 - 2, (wheelBottom() - gridY0) / 2 - wheelSlot() / 2 - 2));
+	}
+
+	/**
+	 * Smaller slots when the wheel is short on height: eight round a circle of radius r sit
+	 * 0.765r apart, so the whole wheel is about 3.6 slots tall before they touch.
+	 */
+	private int wheelSlot() {
+		return Mth.clamp((wheelBottom() - gridY0 - 14) * 10 / 36, 20, WHEEL_SLOT);
+	}
+
+	/** Slot 0 straight up, clockwise, the same layout as the in-game wheel. */
+	private int slotX(int i) {
+		return wheelCx() + (int) (Math.cos(Math.toRadians(i * 45D - 90D)) * wheelRadius());
+	}
+
+	private int slotY(int i) {
+		return wheelCy() + (int) (Math.sin(Math.toRadians(i * 45D - 90D)) * wheelRadius());
+	}
+
+	private int slotAt(double x, double y) {
+		if (!wheelShown) {
+			return -1;
+		}
+		int h = wheelSlot() / 2;
+		for (int i = 0; i < 8; i++) {
+			if (Math.abs(x - slotX(i)) <= h && Math.abs(y - slotY(i)) <= h) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private void drawWheel(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		graphics.fill(gridX0 - 5, gridY0, gridX0 - 4, gridY1, NexoStyle.LINE);
+		NexoEmotes.Emote[] slots = NexoEmotes.wheel();
+		int hovered = menuOpen ? -1 : slotAt(mouseX, mouseY);
+		int h = wheelSlot() / 2;
+		for (int i = 0; i < 8; i++) {
+			int x = slotX(i);
+			int y = slotY(i);
+			boolean hot = i == hovered;
+			if (hot && dragging) {
+				NexoShapes.glow(graphics, x - h, y - h, x + h, y + h, NexoStyle.ACCENT, 6, 0.3F);
+			}
+			NexoShapes.outlined(graphics, x - h, y - h, x + h, y + h, hot ? NexoStyle.mix(NexoStyle.RAISED, NexoStyle.ACCENT, 0.2F) : NexoStyle.RAISED,
+					hot ? NexoStyle.ACCENT : NexoStyle.LINE, 6);
+			// The one being dragged out leaves its slot looking empty.
+			if (slots[i] != null && !(dragging && dragFrom == i)) {
+				drawEmote(graphics, wornSkin(), wornSlim(), slots[i], 5F, -24F, x - h + 4, y - h + 2, x + h - 4, y + h - 2);
+			}
+		}
+		Component centre = hovered >= 0 && slots[hovered] != null && !dragging ? slots[hovered].name() : Component.translatable("nexomod.emote.wheel");
+		int cy = wheelCy();
+		graphics.centeredText(font, font.substrByWidth(centre, wheelRadius() * 2 - wheelSlot() - 4).getString(), wheelCx(), cy - 4, NexoStyle.TEXT_PRIMARY);
+		int y = wheelBottom() + 4;
+		for (FormattedCharSequence line : wheelHint()) {
+			graphics.centeredText(font, line, wheelCx(), y, NexoStyle.MUTED);
+			y += 10;
+		}
+	}
+
+	/** Puts the dragged emote into {@code slot} (-1 takes it off the wheel). A slot it lands on swaps back to where it came from. */
+	private void drop(int slot) {
+		String[] ids = NexoConfig.get().emoteWheel();
+		String id = dragEmote.id();
+		if (slot < 0) {
+			if (dragFrom >= 0) {
+				ids[dragFrom] = "";
+			}
+		} else if (slot != dragFrom) {
+			String displaced = ids[slot];
+			if (dragFrom >= 0) {
+				ids[dragFrom] = displaced;
+			} else {
+				// From the grid: one emote, one slot.
+				for (int i = 0; i < ids.length; i++) {
+					if (ids[i].equals(id)) {
+						ids[i] = "";
+					}
+				}
+			}
+			ids[slot] = id;
+		}
+		if (!java.util.Arrays.equals(ids, NexoConfig.get().emoteWheel())) {
+			NexoConfig.get().setEmoteWheel(ids);
+		}
 	}
 
 	private void drawGridHeader(GuiGraphicsExtractor graphics) {
@@ -1244,7 +1434,7 @@ public class NexoWardrobeScreen extends Screen {
 			case OUTFITS -> NexoSkinLibrary.outfits().size();
 			case EMOTES -> NexoEmotes.owned().size();
 			case CAPES -> capes == null ? 0 : capes.size();
-			case SHOP -> NexoEmoteAccount.shop().size();
+			case SHOP -> ownedFilter() ? NexoEmotes.owned().size() : NexoEmoteAccount.shop().size();
 		};
 		String key = switch (tab) {
 			case SKINS -> "nexomod.wardrobe.tab.skins";
@@ -1254,8 +1444,8 @@ public class NexoWardrobeScreen extends Screen {
 			case SHOP -> "nexomod.emote.shop";
 		};
 		Component heading = Component.translatable(key).withStyle(style -> style.withBold(true));
-		graphics.text(font, heading, gridX0, py0 + 11, NexoStyle.TEXT_PRIMARY);
-		graphics.text(font, String.valueOf(count), gridX0 + font.width(heading) + 6, py0 + 11, NexoStyle.MUTED);
+		graphics.text(font, heading, px0 + RAIL + 8, py0 + 11, NexoStyle.TEXT_PRIMARY);
+		graphics.text(font, String.valueOf(count), px0 + RAIL + 8 + font.width(heading) + 6, py0 + 11, NexoStyle.MUTED);
 		if (tab == Tab.SHOP && NexoEmoteAccount.online()) {
 			String coins = String.valueOf(NexoEmoteAccount.balance());
 			int textX = gridX1 - font.width(coins);
@@ -1289,17 +1479,18 @@ public class NexoWardrobeScreen extends Screen {
 
 	/** How coins are earned, or why that is not happening right now. */
 	private void drawStrip(GuiGraphicsExtractor graphics) {
+		int stripX0 = px0 + RAIL + 8;
 		if (!showStrip) {
 			return;
 		}
 		retry.visible = shopError != null;
-		graphics.fill(gridX0 - 8, stripY + STRIP, gridX1 + 8, stripY + STRIP + 1, NexoStyle.LINE);
+		graphics.fill(stripX0 - 8, stripY + STRIP, gridX1 + 8, stripY + STRIP + 1, NexoStyle.LINE);
 		NexoEmoteAccount.Earn earn = NexoEmoteAccount.earn();
 		if (shopError != null || !(NexoEmoteAccount.online() || NexoEmoteAccount.canSignIn())) {
 			Component message = shopError != null ? shopError : Component.translatable("nexomod.emote.earn.signIn");
 			int y = stripY + STRIP / 2 - 9;
-			for (FormattedCharSequence line : font.split(message, gridX1 - gridX0 - (shopError != null ? 56 : 0))) {
-				graphics.text(font, line, gridX0, y, shopError != null ? NexoStyle.DANGER : NexoStyle.MUTED);
+			for (FormattedCharSequence line : font.split(message, gridX1 - stripX0 - (shopError != null ? 56 : 0))) {
+				graphics.text(font, line, stripX0, y, shopError != null ? NexoStyle.DANGER : NexoStyle.MUTED);
 				y += 10;
 			}
 			return;
@@ -1307,8 +1498,8 @@ public class NexoWardrobeScreen extends Screen {
 		if (earn == null) {
 			return;
 		}
-		int width = (gridX1 - gridX0 - 16) / 3;
-		int x = gridX0;
+		int width = (gridX1 - stripX0 - 16) / 3;
+		int x = stripX0;
 		drawEarn(graphics, x, width, "nexomod.emote.earn.playtime", earn.playtime() + "/" + earn.playtimeCap(),
 				Component.translatable("nexomod.emote.earn.playtime.sub"));
 		float played = earn.playtimeCap() > 0 ? Math.min(1F, (float) earn.playtime() / earn.playtimeCap()) : 0F;
@@ -1400,7 +1591,11 @@ public class NexoWardrobeScreen extends Screen {
 			} else if (item.top() != 0) {
 				graphics.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 3, item.top());
 			}
-			drawModel(graphics, item.skin().get(), item.slim(), item.cape(), item.pose(), 5F, item.back() ? 155F : -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
+			if (item.emote() != null) {
+				drawEmote(graphics, item.skin().get(), item.slim(), item.emote(), 5F, -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
+			} else {
+				drawModel(graphics, item.skin().get(), item.slim(), item.cape(), item.pose(), 5F, item.back() ? 155F : -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
+			}
 			if (item.favorite()) {
 				graphics.text(font, "♥", x1 - 11, y0 + 5, 0xFFFF3CAC);
 			}
@@ -1480,14 +1675,8 @@ public class NexoWardrobeScreen extends Screen {
 		}
 	}
 
-	/** The shop's preview: the selected emote playing on the player's skin. */
-	private void drawLive(GuiGraphicsExtractor graphics, Identifier skin, boolean slim, NexoEmotePreview preview, int centre, int top, int height) {
-		// Below two, the width comes out zero, which would crash the texture it is drawn into.
-		if (skin == null || height < 2) {
-			return;
-		}
-		bake();
-		Model.Simple model = slim ? liveSlim : liveWide;
+	/** Poses a model where {@code preview} is right now; null stands it still. */
+	private static void animate(Model.Simple model, NexoEmotePreview preview) {
 		// Modulo: a float of milliseconds since boot gets too coarse for smooth motion within days.
 		float position = preview == null ? 0F : preview.position((Util.getMillis() % 3_600_000L) / 1000F);
 		for (String part : List.of("head", "body", "right_arm", "left_arm", "right_leg", "left_leg")) {
@@ -1497,6 +1686,36 @@ public class NexoWardrobeScreen extends Screen {
 			bone.yRot = degrees[1] * Mth.DEG_TO_RAD;
 			bone.zRot = degrees[2] * Mth.DEG_TO_RAD;
 		}
+	}
+
+	/** One model per emote: a picture renders after this frame, so models can only be shared where the pose is the same. */
+	private static final Map<String, Model.Simple> PLAYING = new HashMap<>();
+
+	/** An emote playing on a small model: cards, wheel slots, the one being dragged. The fixed pose until its file is here. */
+	private static void drawEmote(GuiGraphicsExtractor graphics, Identifier skin, boolean slim, NexoEmotes.Emote emote, float rotX, float rotY, int x0, int y0, int x1, int y1) {
+		NexoEmotePreview preview = NexoEmotes.preview(emote);
+		if (preview == null) {
+			drawModel(graphics, skin, slim, null, emote.pose(), rotX, rotY, x0, y0, x1, y1);
+			return;
+		}
+		if (skin == null || x1 <= x0 || y1 <= y0) {
+			return;
+		}
+		Model.Simple model = PLAYING.computeIfAbsent(emote.id() + (slim ? ":slim" : ":wide"), key -> new Model.Simple(
+				Minecraft.getInstance().getEntityModels().bakeLayer(slim ? ModelLayers.PLAYER_SLIM : ModelLayers.PLAYER), RenderTypes::entityTranslucent));
+		animate(model, preview);
+		graphics.skin(model, skin, 0.97F * (y1 - y0) / 2.125F, rotX, rotY, -1.0625F, x0, y0, x1, y1);
+	}
+
+	/** The shop's preview: the selected emote playing on the player's skin. */
+	private void drawLive(GuiGraphicsExtractor graphics, Identifier skin, boolean slim, NexoEmotePreview preview, int centre, int top, int height) {
+		// Below two, the width comes out zero, which would crash the texture it is drawn into.
+		if (skin == null || height < 2) {
+			return;
+		}
+		bake();
+		Model.Simple model = slim ? liveSlim : liveWide;
+		animate(model, preview);
 		int w = height * 2 / 3;
 		graphics.skin(model, skin, 0.97F * height / 2.125F, rotX, rotY, -1.0625F, centre - w, top, centre + w, top + height);
 	}
@@ -1526,6 +1745,29 @@ public class NexoWardrobeScreen extends Screen {
 			draggingModel = true;
 			return true;
 		}
+		if (wheelShown) {
+			int slot = slotAt(x, y);
+			if (slot >= 0) {
+				dragEmote = NexoEmotes.wheel()[slot];
+				dragFrom = slot;
+				pressX = x;
+				pressY = y;
+				return dragEmote != null;
+			}
+		}
+		if (wheelShown && x >= gridX0 && x < gridX1 && y >= gridY0 && y < gridY1) {
+			// Cards here act on release, so a press can become a drag onto the wheel instead.
+			eachCard(place(items()), (item, x0, y0, x1, y1) -> {
+				if (pressedItem == null && x >= x0 && x < x1 && y >= y0 && y < y1) {
+					dragEmote = item.emote();
+					dragFrom = -1;
+					pressedItem = item;
+					pressX = x;
+					pressY = y;
+				}
+			});
+			return pressedItem != null;
+		}
 		if (x >= gridX0 && x < gridX1 && y >= gridY0 && y < gridY1) {
 			boolean[] hit = {false};
 			eachCard(place(items()), (item, x0, y0, x1, y1) -> {
@@ -1546,6 +1788,12 @@ public class NexoWardrobeScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+		if (dragEmote != null || pressedItem != null) {
+			if (dragEmote != null && !dragging && Math.abs(event.x() - pressX) + Math.abs(event.y() - pressY) > DRAG_START) {
+				dragging = true;
+			}
+			return true;
+		}
 		if (draggingSlider) {
 			moveSlider(event.x());
 			return true;
@@ -1562,6 +1810,19 @@ public class NexoWardrobeScreen extends Screen {
 	public boolean mouseReleased(MouseButtonEvent event) {
 		draggingSlider = false;
 		draggingModel = false;
+		if ((dragEmote != null || pressedItem != null) && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+			if (dragging) {
+				drop(slotAt(event.x(), event.y()));
+			} else if (pressedItem != null) {
+				minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1F));
+				pressedItem.click().run();
+			}
+			dragEmote = null;
+			dragFrom = -1;
+			pressedItem = null;
+			dragging = false;
+			return true;
+		}
 		return super.mouseReleased(event);
 	}
 

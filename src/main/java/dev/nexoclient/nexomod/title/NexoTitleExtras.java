@@ -339,7 +339,7 @@ public final class NexoTitleExtras {
 			int w = Math.round(font.width(text) * SMALL) + 16;
 			int x1 = screen.width - MARGIN;
 			int y0 = MARGIN + 26;
-			NexoShapes.outlined(graphics, x1 - w, y0, x1, y0 + 12, 0xCC101015, NexoStyle.CONTROL, 6);
+			NexoShapes.outlined(graphics, x1 - w, y0, x1, y0 + 12, NexoStyle.fade(NexoStyle.FIELD, 0.8F), NexoStyle.CONTROL, 6);
 			NexoShapes.fillRounded(graphics, x1 - w + 5, y0 + 4, x1 - w + 9, y0 + 8, 0xFF2CFF7A, 2);
 			small(graphics, font, Component.literal(text), x1 - w + 12, y0 + 3, NexoStyle.TEXT_SECONDARY);
 		}
@@ -400,7 +400,7 @@ public final class NexoTitleExtras {
 	}
 
 	private static void card(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1) {
-		NexoShapes.outlined(graphics, x0, y0, x1, y1, 0xE00C0C10, 0xFF1F1F28, 6);
+		NexoShapes.outlined(graphics, x0, y0, x1, y1, NexoStyle.fade(NexoStyle.PANEL, 0.88F), NexoStyle.LINE, 6);
 	}
 
 	private static void heading(GuiGraphicsExtractor graphics, Font font, Component text, int x, int y) {
@@ -442,7 +442,7 @@ public final class NexoTitleExtras {
 			int x1 = x0 + getWidth();
 			int y1 = y0 + getHeight();
 			boolean hot = isHoveredOrFocused();
-			NexoShapes.outlined(graphics, x0, y0, x1, y1, 0xCC101015,
+			NexoShapes.outlined(graphics, x0, y0, x1, y1, NexoStyle.fade(NexoStyle.FIELD, 0.8F),
 					hot ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.7F) : NexoStyle.CONTROL, 5);
 			PlayerFaceExtractor.extractRenderState(graphics, skin.get(), x0 + 3, y0 + 3, 16);
 			graphics.text(mc.font, getMessage(), x0 + 24, y0 + 7, NexoStyle.TEXT_PRIMARY);
@@ -474,7 +474,7 @@ public final class NexoTitleExtras {
 
 		@Override
 		protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-			NexoShapes.outlined(graphics, getX(), getY(), getRight(), getBottom(), 0xCC101015,
+			NexoShapes.outlined(graphics, getX(), getY(), getRight(), getBottom(), NexoStyle.fade(NexoStyle.FIELD, 0.8F),
 					isHoveredOrFocused() ? NexoStyle.mix(NexoStyle.CONTROL, NexoStyle.ACCENT, 0.7F) : NexoStyle.CONTROL, 5);
 			dev.nexoclient.nexomod.screen.NexoWardrobeScreen.drawChestplate(graphics, getX() + 4, getY() + 2);
 			graphics.text(mc.font, getMessage(), getX() + 24, getY() + 6, NexoStyle.TEXT_PRIMARY);
@@ -520,7 +520,7 @@ public final class NexoTitleExtras {
 			int x1 = x0 + getWidth();
 			int y1 = y0 + getHeight();
 			if (isHoveredOrFocused()) {
-				NexoShapes.outlined(graphics, x0, y0, x1, y1, NexoStyle.mix(0xFF0C0C10, NexoStyle.ACCENT, 0.12F), NexoStyle.ACCENT, 4);
+				NexoShapes.outlined(graphics, x0, y0, x1, y1, NexoStyle.mix(NexoStyle.PANEL, NexoStyle.ACCENT, 0.12F), NexoStyle.ACCENT, 4);
 			}
 			ServerData data = server.data();
 			String status;

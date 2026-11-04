@@ -1,7 +1,5 @@
 package dev.nexoclient.nexomod.screen;
 
-import java.util.List;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,13 +10,14 @@ import net.minecraft.util.Mth;
 
 import dev.nexoclient.nexomod.emotes.NexoEmotes;
 
-/** Hold the key, move the mouse to a slot, release to play. Eight slots, the first eight emotes. */
+/** Hold the key, move the mouse to a slot, release to play. Eight slots, filled by the player in the wardrobe. */
 public class NexoEmoteWheelScreen extends Screen {
 	private static final int SLOTS = 8;
 	private static final int SLOT_SIZE = 62;
 	private static final float DEAD_ZONE = 34F;
 
-	private final List<NexoEmotes.Emote> emotes = NexoEmotes.owned().stream().limit(SLOTS).toList();
+	private final NexoEmotes.Emote[] emotes = NexoEmotes.wheel();
+	private final boolean empty = java.util.Arrays.stream(emotes).allMatch(java.util.Objects::isNull);
 	private int hovered = -1;
 
 	public NexoEmoteWheelScreen() {
@@ -43,7 +42,7 @@ public class NexoEmoteWheelScreen extends Screen {
 		// Slot 0 straight up, clockwise.
 		float angle = (float) Math.toDegrees(Math.atan2(dx, -dy));
 		int slot = Mth.positiveModulo(Math.round(angle / (360F / SLOTS)), SLOTS);
-		return slot < emotes.size() ? slot : -1;
+		return emotes[slot] != null ? slot : -1;
 	}
 
 	@Override
@@ -67,21 +66,24 @@ public class NexoEmoteWheelScreen extends Screen {
 			}
 			NexoShapes.outlined(graphics, x0, y0, x1, y1, hot ? NexoStyle.mix(NexoStyle.RAISED, NexoStyle.ACCENT, 0.2F) : NexoStyle.RAISED,
 					hot ? NexoStyle.ACCENT : NexoStyle.CONTROL, 8);
-			if (i < emotes.size()) {
-				NexoEmotes.Emote emote = emotes.get(i);
+			if (emotes[i] != null) {
+				NexoEmotes.Emote emote = emotes[i];
 				NexoWardrobeScreen.drawPosed(graphics, emote.pose(), 5F, -24F, x - 18, y0 + 3, x + 18, y1 - 13);
 				graphics.centeredText(font, font.substrByWidth(emote.name(), SLOT_SIZE - 6).getString(), x, y1 - 11, hot ? NexoStyle.TEXT_PRIMARY : NexoStyle.MUTED);
 			}
 		}
-		Component label = hovered >= 0 ? emotes.get(hovered).name() : title;
+		Component label = hovered >= 0 ? emotes[hovered].name() : title;
 		graphics.centeredText(font, label, cx, cy - 4, NexoStyle.TEXT_PRIMARY);
+		if (empty) {
+			graphics.centeredText(font, Component.translatable("nexomod.emote.wheel.empty"), cx, cy + 6, NexoStyle.MUTED);
+		}
 	}
 
 	private void playHovered() {
 		Minecraft mc = Minecraft.getInstance();
 		mc.gui.setScreen(null);
 		if (hovered >= 0) {
-			NexoEmotes.play(emotes.get(hovered));
+			NexoEmotes.play(emotes[hovered]);
 		} else {
 			// Opening the wheel and letting go in the middle: the way out of a loop.
 			NexoEmotes.stop();

@@ -38,10 +38,30 @@ public class NexoAppearanceScreen extends NexoOptionScreen {
 				.withTooltip(value -> net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.settings.titleNetwork.tooltip")))
 				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.titleNetwork"),
 						(button, value) -> config.setTitleNetworkEnabled(value)));
-		list.addWidgetRow(CycleButton.<NexoConfig.BackgroundStyle>builder(NexoAppearanceScreen::backgroundLabel, config.backgroundStyle())
+		CycleButton<NexoStyle.Theme> themeButton = CycleButton.<NexoStyle.Theme>builder(theme -> Component.literal(theme.label), config.theme())
+				.withValues(NexoStyle.Theme.values())
+				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.theme"),
+						(button, value) -> config.setTheme(value));
+		CycleButton<NexoConfig.BackgroundStyle> backgroundButton = CycleButton.<NexoConfig.BackgroundStyle>builder(NexoAppearanceScreen::backgroundLabel, config.backgroundStyle())
 				.withValues(NexoConfig.BackgroundStyle.values())
 				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.background"),
-						(button, value) -> config.setBackgroundStyle(value)));
+						(button, value) -> config.setBackgroundStyle(value));
+		// Greyed out while the launcher's look is in use: pressing them would change nothing.
+		Runnable syncState = () -> {
+			boolean synced = NexoLauncherAppearance.current() != null;
+			themeButton.active = !synced;
+			backgroundButton.active = !synced;
+		};
+		list.addWidgetRow(CycleButton.onOffBuilder(config.launcherSyncEnabled())
+				.withTooltip(value -> net.minecraft.client.gui.components.Tooltip.create(Component.translatable("nexomod.settings.launcherSync.tooltip")))
+				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.launcherSync"),
+						(button, value) -> {
+							config.setLauncherSyncEnabled(value);
+							syncState.run();
+						}));
+		syncState.run();
+		list.addWidgetRow(themeButton);
+		list.addWidgetRow(backgroundButton);
 		list.addWidgetRow(CycleButton.<NexoConfig.MatrixColor>builder(NexoAppearanceScreen::matrixColorLabel, config.matrixColor())
 				.withValues(NexoConfig.MatrixColor.values())
 				.create(list.rowX(), 0, list.rowWidth(), list.rowHeight(), Component.translatable("nexomod.settings.matrixColor"),
@@ -56,6 +76,7 @@ public class NexoAppearanceScreen extends NexoOptionScreen {
 		String key = switch (style) {
 			case STARFIELD -> "nexomod.settings.background.starfield";
 			case MATRIX_RAIN -> "nexomod.settings.background.matrix";
+			default -> "nexomod.settings.background." + style.name().toLowerCase(java.util.Locale.ROOT);
 		};
 		return Component.translatable(key);
 	}

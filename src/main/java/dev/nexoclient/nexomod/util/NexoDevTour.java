@@ -64,6 +64,7 @@ public final class NexoDevTour {
 		STEPS.add(new Step("aim-assist", () -> tacticalConfig("nexomod.qol.aimAssist")));
 		STEPS.add(new Step("title", TitleScreen::new));
 		STEPS.add(new Step("wardrobe", () -> new dev.nexoclient.nexomod.screen.NexoWardrobeScreen(null)));
+		STEPS.add(new Step("wardrobe-emotes", NexoDevTour::emotesTab));
 		STEPS.add(new Step("emote-wheel", dev.nexoclient.nexomod.screen.NexoEmoteWheelScreen::new));
 		// With NEXOMOD_EMOTE_API on a local service, for the catalog: a dev client can't sign in.
 		STEPS.add(new Step("shop-off", () -> {
@@ -76,15 +77,67 @@ public final class NexoDevTour {
 		}));
 		STEPS.add(new Step("shop", NexoDevTour::signedInShop));
 		STEPS.add(new Step("shop-moved", NexoDevTour::signedInShop));
+		STEPS.add(new Step("shop-owned", () -> {
+			Screen screen = signedInShop();
+			try {
+				var field = screen.getClass().getDeclaredField("shopFilter");
+				field.setAccessible(true);
+				field.set(screen, "owned");
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException(e);
+			}
+			return screen;
+		}));
 		// NEXOMOD_DEV_TOUR=stay:<step> opens just that screen and leaves it up, to
 		// try it by hand instead of screenshotting it.
 		String mode = System.getenv("NEXOMOD_DEV_TOUR");
+		// NEXOMOD_DEV_TOUR=themes: the title screen once per theme, with its own background.
+		if ("themes".equals(mode)) {
+			STEPS.clear();
+			var config = dev.nexoclient.nexomod.screen.NexoConfig.get();
+			for (var theme : dev.nexoclient.nexomod.screen.NexoStyle.Theme.values()) {
+				STEPS.add(new Step("title-" + theme.name().toLowerCase(java.util.Locale.ROOT), () -> {
+					config.setTheme(theme);
+					config.setBackgroundStyle(dev.nexoclient.nexomod.screen.NexoConfig.BackgroundStyle.THEME);
+					return new TitleScreen();
+				}));
+			}
+			STEPS.add(new Step("title-starfield", () -> {
+				config.setTheme(dev.nexoclient.nexomod.screen.NexoStyle.Theme.NEXO);
+				config.setBackgroundStyle(dev.nexoclient.nexomod.screen.NexoConfig.BackgroundStyle.STARFIELD);
+				return new TitleScreen();
+			}));
+			// A launcher custom theme's colours, as sync would apply them.
+			STEPS.add(new Step("title-custom-voxels", () -> {
+				config.setBackgroundStyle(dev.nexoclient.nexomod.screen.NexoConfig.BackgroundStyle.NEBULA_VOXELS);
+				dev.nexoclient.nexomod.screen.NexoStyle.applyCustom(new int[] {0x0a0a0d, 0xf2f2f5, 0xff8800, 0xff3c3c, 0xffae2b, 0x22b8ff, 0x3cffb0});
+				return new TitleScreen();
+			}));
+		}
 		if (mode.startsWith("stay:")) {
 			stay = true;
 			STEPS.removeIf(step -> !step.name().equals(mode.substring(5)));
 		}
 		NexoMod.LOGGER.info("dev tour: {} screens queued", STEPS.size());
 		ClientTickEvents.END_CLIENT_TICK.register(NexoDevTour::tick);
+	}
+
+	/** The Emotes tab with a few slots filled, the same reflection approach as the shop steps. */
+	private static Screen emotesTab() {
+		dev.nexoclient.nexomod.screen.NexoConfig.get().setEmoteWheel(new String[] {"wave", "", "cheer", "", "dance", "", "", "bow"});
+		var screen = new dev.nexoclient.nexomod.screen.NexoWardrobeScreen(null);
+		try {
+			var field = screen.getClass().getDeclaredField("tab");
+			field.setAccessible(true);
+			for (Object constant : field.getType().getEnumConstants()) {
+				if (constant.toString().equals("EMOTES")) {
+					field.set(screen, constant);
+				}
+			}
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+		return screen;
 	}
 
 	/** Pretends a signed-in account by reflection, so no test path exists in the mod itself. */

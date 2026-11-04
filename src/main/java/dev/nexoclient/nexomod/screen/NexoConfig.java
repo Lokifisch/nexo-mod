@@ -140,9 +140,32 @@ public final class NexoConfig {
 		return mask;
 	}
 
+	/**
+	 * {@code THEME} draws the selected theme's own effect, the launcher's pairing;
+	 * the rest pick one. Starfield and matrix rain are the mod's older two.
+	 */
 	public enum BackgroundStyle {
-		STARFIELD,
-		MATRIX_RAIN;
+		THEME(null),
+		STARFIELD(null),
+		MATRIX_RAIN(null),
+		ENCHANT(NexoBackdrop.Effect.ENCHANT),
+		RUNE_RAIN(NexoBackdrop.Effect.RAIN),
+		EMBERS(NexoBackdrop.Effect.EMBERS),
+		PORTAL(NexoBackdrop.Effect.PORTAL),
+		SNOW(NexoBackdrop.Effect.SNOW),
+		PETALS(NexoBackdrop.Effect.PETALS),
+		NEBULA_VOXELS(NexoBackdrop.Effect.VOXELS),
+		NEBULA_LIGHTNING(NexoBackdrop.Effect.LIGHTNING),
+		NEBULA_GRID(NexoBackdrop.Effect.GRID),
+		LIQUID_CHROME(NexoBackdrop.Effect.CHROME),
+		OFF(NexoBackdrop.Effect.OFF);
+
+		/** Null for the three that aren't one of the launcher's effects. */
+		public final NexoBackdrop.Effect effect;
+
+		BackgroundStyle(NexoBackdrop.Effect effect) {
+			this.effect = effect;
+		}
 
 		public BackgroundStyle next() {
 			BackgroundStyle[] values = values();
@@ -275,6 +298,8 @@ public final class NexoConfig {
 	private boolean customFontEnabled;
 	private boolean smoothEdgesEnabled = true;
 	private BackgroundStyle backgroundStyle;
+	private NexoStyle.Theme theme = NexoStyle.Theme.NEXO;
+	private boolean launcherSyncEnabled = true;
 	private MatrixColor matrixColor;
 	private MatrixDensity matrixDensity;
 	private boolean discordRpcEnabled;
@@ -327,6 +352,8 @@ public final class NexoConfig {
 	/** Emote sync through the relay. Tells others in the room you run Nexo. On unless turned off. */
 	private boolean emoteSyncEnabled = true;
 	private boolean emoteSyncNoticeShown = false;
+	/** The emote wheel's eight slots, as emote ids; empty is an empty slot. Filled by the player in the wardrobe. */
+	private final String[] emoteWheel = {"", "", "", "", "", "", "", ""};
 	/** NexoSMP has been added to the server list once. Never cleared, so deleting it sticks. */
 	private boolean defaultServerAdded = false;
 
@@ -564,6 +591,29 @@ public final class NexoConfig {
 
 	public void setBackgroundStyle(BackgroundStyle style) {
 		this.backgroundStyle = style;
+		save();
+	}
+
+	public NexoStyle.Theme theme() {
+		return theme;
+	}
+
+	public void setTheme(NexoStyle.Theme theme) {
+		this.theme = theme;
+		// NexoLauncherAppearance decides the colours, sync or not; the next menu frame applies them.
+		NexoLauncherAppearance.invalidate();
+		NexoLauncherAppearance.applyColors();
+		save();
+	}
+
+	/** Follow the Nexo launcher's theme and background, when it started the game. */
+	public boolean launcherSyncEnabled() {
+		return launcherSyncEnabled;
+	}
+
+	public void setLauncherSyncEnabled(boolean enabled) {
+		this.launcherSyncEnabled = enabled;
+		NexoLauncherAppearance.invalidate();
 		save();
 	}
 
@@ -957,6 +1007,17 @@ public final class NexoConfig {
 
 	public void markEmoteSyncNoticeShown() {
 		emoteSyncNoticeShown = true;
+		save();
+	}
+
+	public String[] emoteWheel() {
+		return emoteWheel.clone();
+	}
+
+	public void setEmoteWheel(String[] slots) {
+		for (int i = 0; i < emoteWheel.length; i++) {
+			emoteWheel[i] = i < slots.length && slots[i] != null ? slots[i] : "";
+		}
 		save();
 	}
 
@@ -2047,7 +2108,7 @@ public final class NexoConfig {
 		}
 		boolean customMenusEnabled = Boolean.parseBoolean(props.getProperty("customMenusEnabled", "true"));
 		boolean customFontEnabled = Boolean.parseBoolean(props.getProperty("customFontEnabled", "true"));
-		BackgroundStyle backgroundStyle = enumOrDefault(BackgroundStyle.class, props.getProperty("backgroundStyle"), BackgroundStyle.STARFIELD);
+		BackgroundStyle backgroundStyle = enumOrDefault(BackgroundStyle.class, props.getProperty("backgroundStyle"), BackgroundStyle.THEME);
 		MatrixColor matrixColor = enumOrDefault(MatrixColor.class, props.getProperty("matrixColor"), MatrixColor.GREEN);
 		MatrixDensity matrixDensity = enumOrDefault(MatrixDensity.class, props.getProperty("matrixDensity"), MatrixDensity.NORMAL);
 		boolean discordRpcEnabled = Boolean.parseBoolean(props.getProperty("discordRpcEnabled", "true"));
@@ -2063,7 +2124,15 @@ public final class NexoConfig {
 				.withBadgeSettings(props)
 				.withQolOverlaySettings(props)
 				.withArmorHudSettings(props)
-				.withFullFeatureSettings(props);
+				.withFullFeatureSettings(props)
+				.withTheme(props);
+	}
+
+	private NexoConfig withTheme(Properties props) {
+		theme = enumOrDefault(NexoStyle.Theme.class, props.getProperty("theme"), NexoStyle.Theme.NEXO);
+		launcherSyncEnabled = Boolean.parseBoolean(props.getProperty("launcherSyncEnabled", "true"));
+		NexoStyle.apply(theme);
+		return this;
 	}
 
 	/** @see #withBedrockHoleSettings for why these are applied after construction. */
@@ -2105,6 +2174,14 @@ public final class NexoConfig {
 		// A new key: 0.9.0 wrote its old default of "off" under the former one, which can't be told from a choice.
 		emoteSyncEnabled = Boolean.parseBoolean(props.getProperty("emoteSyncOn", "true"));
 		emoteSyncNoticeShown = Boolean.parseBoolean(props.getProperty("emoteSyncNoticeShown", "false"));
+		// No key yet (a fresh install, or 0.9.x, whose wheel showed the first owned
+		// emotes): start with the starters, so nobody's wheel comes up empty.
+		String saved = props.getProperty("emoteWheel");
+		String[] wheel = saved != null ? saved.split(",", -1)
+				: dev.nexoclient.nexomod.emotes.NexoEmotes.STARTERS.stream().map(emote -> emote.id()).toArray(String[]::new);
+		for (int i = 0; i < emoteWheel.length; i++) {
+			emoteWheel[i] = i < wheel.length ? wheel[i].trim() : "";
+		}
 		defaultServerAdded = Boolean.parseBoolean(props.getProperty("defaultServerAdded", "false"));
 		hideVanillaActionbar = Boolean.parseBoolean(props.getProperty("hideVanillaActionbar", "false"));
 		hideVanillaPotionIcons = Boolean.parseBoolean(props.getProperty("hideVanillaPotionIcons", "false"));
@@ -2342,6 +2419,8 @@ public final class NexoConfig {
 		props.setProperty("customFontEnabled", Boolean.toString(customFontEnabled));
 		props.setProperty("smoothEdgesEnabled", Boolean.toString(smoothEdgesEnabled));
 		props.setProperty("backgroundStyle", backgroundStyle.name());
+		props.setProperty("theme", theme.name());
+		props.setProperty("launcherSyncEnabled", Boolean.toString(launcherSyncEnabled));
 		props.setProperty("matrixColor", matrixColor.name());
 		props.setProperty("matrixDensity", matrixDensity.name());
 		props.setProperty("discordRpcEnabled", Boolean.toString(discordRpcEnabled));
@@ -2382,6 +2461,7 @@ public final class NexoConfig {
 		props.setProperty("emoteShopEnabled", Boolean.toString(emoteShopEnabled));
 		props.setProperty("emoteSyncOn", Boolean.toString(emoteSyncEnabled));
 		props.setProperty("emoteSyncNoticeShown", Boolean.toString(emoteSyncNoticeShown));
+		props.setProperty("emoteWheel", String.join(",", emoteWheel));
 		props.setProperty("defaultServerAdded", Boolean.toString(defaultServerAdded));
 		props.setProperty("hideVanillaActionbar", Boolean.toString(hideVanillaActionbar));
 		props.setProperty("hideVanillaPotionIcons", Boolean.toString(hideVanillaPotionIcons));
