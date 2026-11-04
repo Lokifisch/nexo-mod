@@ -146,7 +146,12 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 		if (y > fit) {
 			pitch = BUTTON_HEIGHT + 1;
 		}
+		nexomod$realms = null;
 		for (AbstractWidget widget : big) {
+			if (widget.getMessage().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents key
+					&& "menu.online".equals(key.getKey())) {
+				nexomod$realms = widget;
+			}
 			widget.setPosition(left, y);
 			widget.setWidth(BUTTON_WIDTH);
 			y += pitch;
@@ -298,6 +303,39 @@ public abstract class NexoTitleLayoutMixin extends Screen {
 		pose.translate(left, underlineTop + 8);
 		pose.scale(0.75F, 0.75F);
 		graphics.text(font, VERSION_LINE, 0, 0, NexoStyle.fade(NexoStyle.MUTED, alpha));
+		pose.popMatrix();
+	}
+
+	/** The Realms button as this frame's layout placed it, for its notification icons. */
+	@Unique
+	private AbstractWidget nexomod$realms;
+
+	/**
+	 * Realms' news / invite / notification icons are drawn by a screen of their
+	 * own at a fixed spot: inside the right end of the Realms button where vanilla
+	 * puts it (x = width / 2 + 100, y = height / 4 + 96). They are shifted by
+	 * however far this layout moved the button, so they stay on it.
+	 */
+	@WrapOperation(method = "extractRenderState", at = @At(value = "INVOKE",
+			target = "Lcom/mojang/realmsclient/gui/screens/RealmsNotificationsScreen;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V"))
+	private void nexomod$realmsIcons(com.mojang.realmsclient.gui.screens.RealmsNotificationsScreen icons, GuiGraphicsExtractor graphics,
+			int mouseX, int mouseY, float partialTick, Operation<Void> original) {
+		if (!NexoHudVisibility.nexoSkinActive()) {
+			original.call(icons, graphics, mouseX, mouseY, partialTick);
+			return;
+		}
+		AbstractWidget realms = nexomod$realms;
+		if (realms == null) {
+			// No Realms button in the column (hidden or renamed by another mod): its
+			// icons would float where vanilla's button used to be, on nothing.
+			return;
+		}
+		int dx = realms.getX() + realms.getWidth() - (width / 2 + 100);
+		int dy = realms.getY() - (height / 4 + 96);
+		Matrix3x2fStack pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate(dx, dy);
+		original.call(icons, graphics, mouseX - dx, mouseY - dy, partialTick);
 		pose.popMatrix();
 	}
 
