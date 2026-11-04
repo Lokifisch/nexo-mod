@@ -24,4 +24,28 @@ public final class NexoBackground {
 			default -> NexoBackdrop.draw(graphics, width, height, config.backgroundStyle().effect);
 		}
 	}
+
+	/**
+	 * The same style over the running game (pause menu): translucent, so the world
+	 * shows through. The legacy matrix rain maps to the rune rain.
+	 */
+	public static void drawSeeThrough(GuiGraphicsExtractor graphics, int width, int height) {
+		NexoLauncherAppearance.applyColors();
+		NexoLauncherAppearance.Look launcher = NexoLauncherAppearance.current();
+		if (launcher != null) {
+			NexoBackdrop.drawSeeThrough(graphics, width, height, NexoLauncherAppearance.effect(launcher), launcher.amount(), launcher.speed());
+			return;
+		}
+		NexoConfig config = NexoConfig.get();
+		if (config.backgroundStyle() == NexoConfig.BackgroundStyle.STARFIELD) {
+			NexoBackdrop.drawStarfieldSeeThrough(graphics, width, height);
+			return;
+		}
+		NexoBackdrop.Effect effect = switch (config.backgroundStyle()) {
+			case MATRIX_RAIN -> NexoBackdrop.Effect.RAIN;
+			case THEME -> config.theme().effect;
+			default -> config.backgroundStyle().effect;
+		};
+		NexoBackdrop.drawSeeThrough(graphics, width, height, effect, 100, 100);
+	}
 }

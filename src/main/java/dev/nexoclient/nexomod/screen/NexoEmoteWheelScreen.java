@@ -25,6 +25,12 @@ public class NexoEmoteWheelScreen extends Screen {
 	}
 
 	@Override
+	public boolean isInGameUi() {
+		// Vanilla's transparent background: the emote plays on your character, which must stay sharp.
+		return true;
+	}
+
+	@Override
 	public boolean isPauseScreen() {
 		return false;
 	}

@@ -11,6 +11,10 @@
 //                Mode 4: R = cursor height (0-255), GB = time in 1/100 s (wrapped at 600 s)
 //   texCoord0    u = u0 + x / height, v = y / height across the screen; u0 is
 //                -(aspect - 1) / 2 for modes 0-3 and the cursor's x offset for mode 4
+//              A >= 128: see-through (over the running game); mode is then (A & 7) - 1
+//              and (A >> 3) & 15 how far it has faded in, 0-15;
+//              and the alpha out is how far the colour is from ink, so the world
+//              shows where the sky is empty (chrome, which fills it all, is capped lower).
 // mode: 0 nebula (Nebula Lightning; the bolts are drawn on top by the CPU),
 // 1 liquid chrome, 2 nebula grid, 3 nebula voxels, 4 starfield.
 
@@ -265,7 +269,8 @@ vec3 starfield(vec2 pixel, vec2 cursor, float width, float height) {
 
 void main() {
     ivec4 code = ivec4(round(vertexColor * 255.0));
-    int mode = code.a - 1;
+    bool seeThrough = code.a >= 128;
+    int mode = (seeThrough ? code.a & 7 : code.a) - 1;
     amount = round(texelFetch(Sampler0, ivec2(8, 0), 0).r * 255.0) / 100.0;
 
     float width = ScreenSize.x;
@@ -301,5 +306,11 @@ void main() {
             }
         }
     }
-    fragColor = vec4(color, 1.0);
+    if (seeThrough) {
+        vec3 d = abs(color - pal(0));
+        float fade = float((code.a >> 3) & 15) / 15.0;
+        fragColor = vec4(color, clamp(max(d.r, max(d.g, d.b)) * 4.0, 0.0, mode == 1 ? 0.45 : 0.8) * fade);
+    } else {
+        fragColor = vec4(color, 1.0);
+    }
 }

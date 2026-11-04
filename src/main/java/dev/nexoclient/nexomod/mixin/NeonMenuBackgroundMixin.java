@@ -5,6 +5,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.GenericMessageScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -46,11 +47,25 @@ public abstract class NeonMenuBackgroundMixin {
 	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
 	private void nexomod$neonBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		if (!NexoHudVisibility.nexoSkinActive() || nexomod$keepsVanillaBackground(self)) {
+		if (!NexoHudVisibility.nexoSkinActive() || nexomod$keepsVanillaBackground(self)
+				|| Minecraft.getInstance().level != null) {
 			return;
 		}
 		NexoBackground.draw(graphics, self.width, self.height);
 		ci.cancel();
+	}
+
+	/**
+	 * In a world, vanilla's blurred game stays and the effect goes over it
+	 * translucently, as on the pause menu (e.g. the server list from Switch Server).
+	 */
+	@Inject(method = "extractBackground", at = @At("TAIL"))
+	private void nexomod$seeThroughBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		Screen self = (Screen) (Object) this;
+		if (NexoHudVisibility.nexoSkinActive() && Minecraft.getInstance().level != null
+				&& !self.isInGameUi() && !nexomod$keepsVanillaBackground(self)) {
+			NexoBackground.drawSeeThrough(graphics, self.width, self.height);
+		}
 	}
 
 	@Inject(method = "extractPanorama", at = @At("HEAD"), cancellable = true)

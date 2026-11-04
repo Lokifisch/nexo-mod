@@ -77,6 +77,9 @@ public final class NexoBackdrop {
 	private static float paletteAmount = -1F;
 	private static RenderPipeline skyPipeline;
 	private static boolean skyPipelineTried;
+	/** The same shader blended over the game, for {@link #drawSeeThrough}. */
+	private static RenderPipeline seeThroughPipeline;
+	private static boolean seeThroughPipelineTried;
 	/** Set once the shader failed to compile (a driver, or a resource pack replacing it). */
 	private static boolean skyBroken;
 
@@ -104,6 +107,58 @@ public final class NexoBackdrop {
 	private static int ink;
 	/** The launcher's particle amount, 0.25-2. */
 	private static float amount = 1F;
+	/** Drawing over the game (pause menu): a translucent tint, no opaque sky. */
+	private static boolean seeThrough;
+	/** The see-through backdrop fades in when a menu opens over the game; buttons don't wait for it. */
+	private static final double FADE_IN_SECONDS = 1.0;
+	private static long seeThroughStart;
+	private static long seeThroughLast;
+	private static boolean seeThroughStarted;
+	/** 0-1, how far the current see-through backdrop has faded in. */
+	private static float fade = 1F;
+
+	/**
+	 * Starts the fade when no see-through frame was drawn just before, so going from
+	 * the pause menu to the server list carries on instead of starting over.
+	 */
+	private static void beginSeeThrough() {
+		long now = System.nanoTime();
+		if (!seeThroughStarted || now - seeThroughLast > 250_000_000L) {
+			seeThroughStarted = true;
+			seeThroughStart = now;
+		}
+		seeThroughLast = now;
+		float t = (float) Mth.clamp((now - seeThroughStart) / 1e9 / FADE_IN_SECONDS, 0.0, 1.0);
+		fade = 1F - (1F - t) * (1F - t) * (1F - t);
+		seeThrough = true;
+	}
+
+	/** As {@link #draw}, but the world stays visible behind it: a tint, then the effect with its empty sky transparent. */
+	public static void drawSeeThrough(GuiGraphicsExtractor graphics, int guiWidth, int guiHeight, Effect effect, int amountPercent, int speedPercent) {
+		beginSeeThrough();
+		try {
+			tint(graphics, guiWidth, guiHeight);
+			draw(graphics, guiWidth, guiHeight, effect, amountPercent, speedPercent);
+		} finally {
+			seeThrough = false;
+		}
+	}
+
+	/** The starfield over the running game; nothing but the tint if the shader can't be used. */
+	public static void drawStarfieldSeeThrough(GuiGraphicsExtractor graphics, int guiWidth, int guiHeight) {
+		beginSeeThrough();
+		try {
+			tint(graphics, guiWidth, guiHeight);
+			drawStarfield(graphics, guiWidth, guiHeight);
+		} finally {
+			seeThrough = false;
+		}
+	}
+
+	/** Darkens the game a little under a see-through backdrop, in the theme's ink. */
+	private static void tint(GuiGraphicsExtractor graphics, int guiWidth, int guiHeight) {
+		graphics.fill(0, 0, guiWidth, guiHeight, (Math.round(0x66 * fade) << 24) | (NexoStyle.INK & 0xFFFFFF));
+	}
 
 	/** At the launcher's default amount and speed. */
 	public static void draw(GuiGraphicsExtractor graphics, int guiWidth, int guiHeight, Effect effect) {
@@ -135,7 +190,7 @@ public final class NexoBackdrop {
 		pose.pushMatrix();
 		try {
 			pose.scale(1F / s, 1F / s);
-			if (!hasSky) {
+			if (!hasSky && !seeThrough) {
 				graphics.fill(0, 0, w, h, ink);
 			}
 			switch (effect) {
@@ -209,10 +264,13 @@ public final class NexoBackdrop {
 	}
 
 	private static void rect(int x, int y, int w, int h, int color, float opacity) {
+		if (seeThrough) {
+			opacity *= fade;
+		}
 		if (opacity <= 0.004F || w <= 0 || h <= 0) {
 			return;
 		}
-		g.fill(x, y, x + w, y + h, hasSky
+		g.fill(x, y, x + w, y + h, hasSky || seeThrough
 				? (Math.round(Mth.clamp(opacity, 0F, 1F) * 255F) << 24) | (color & 0xFFFFFF)
 				: over(ink, color, opacity));
 	}
@@ -422,7 +480,7 @@ public final class NexoBackdrop {
 	 * shader's header for what each mode reads out of them.
 	 */
 	private static boolean drawSky(GuiGraphicsExtractor graphics, int guiWidth, int guiHeight, int mode, int info, float u0) {
-		RenderPipeline pipeline = skyPipeline();
+		RenderPipeline pipeline = seeThrough ? seeThroughPipeline() : skyPipeline();
 		if (pipeline == null || skyBroken) {
 			return false;
 		}
@@ -435,7 +493,10 @@ public final class NexoBackdrop {
 			return false;
 		}
 		updatePalette();
-		int color = ((1 + mode) << 24) | (info & 0xFFFFFF);
+		// See-through: the flag, and the fade in 16 steps in the spare alpha bits, so the
+		// fade never re-uploads the palette (per-frame uploads are what Essential breaks).
+		int alpha = seeThrough ? 128 | (Math.round(fade * 15F) << 3) | (1 + mode) : 1 + mode;
+		int color = (alpha << 24) | (info & 0xFFFFFF);
 		graphics.blit(pipeline, PALETTE_TEXTURE, 0, 0, u0 * guiHeight, 0F, guiWidth, guiHeight, guiHeight, guiHeight, color);
 		return true;
 	}
@@ -479,7 +540,7 @@ public final class NexoBackdrop {
 		int centiseconds = advanceClock(100) % 60_000;
 		int mouseByte = Math.round((Mth.clamp(mouseY, -0.5F, 0.5F) + 0.5F) * 255F);
 		// Mode 4: R = cursor height, GB = time; u starts at the cursor's x offset.
-		if (!drawSky(graphics, guiWidth, guiHeight, 4, (mouseByte << 16) | centiseconds, Mth.clamp(mouseX, -0.5F, 0.5F))) {
+		if (!drawSky(graphics, guiWidth, guiHeight, 4, (mouseByte << 16) | centiseconds, Mth.clamp(mouseX, -0.5F, 0.5F)) && !seeThrough) {
 			Starfield.get().draw(graphics, guiWidth, guiHeight);
 		}
 	}
@@ -492,14 +553,36 @@ public final class NexoBackdrop {
 	 * rather than restated, so its vertex format and bindings follow updates.
 	 */
 	private static RenderPipeline skyPipeline() {
-		if (skyPipelineTried) {
-			return skyPipeline;
+		if (!skyPipelineTried) {
+			skyPipelineTried = true;
+			skyPipeline = buildSkyPipeline("pipeline/nexo_sky", RenderPipelines.GUI_OPAQUE_TEXTURED_BACKGROUND);
 		}
-		skyPipelineTried = true;
-		RenderPipeline base = RenderPipelines.GUI_OPAQUE_TEXTURED_BACKGROUND;
+		return skyPipeline;
+	}
+
+	/** As {@link #skyPipeline}, but with GUI_TEXTURED's blending, so the shader's alpha lets the world through. */
+	private static RenderPipeline seeThroughPipeline() {
+		if (!seeThroughPipelineTried) {
+			seeThroughPipelineTried = true;
+			RenderPipeline sky = buildSkyPipeline("pipeline/nexo_sky_see_through", RenderPipelines.GUI_OPAQUE_TEXTURED_BACKGROUND,
+					RenderPipelines.GUI_TEXTURED);
+			if (sky != null && RenderSystem.getCompiledPipelineNullable(sky) == null) {
+				sky = null;
+			}
+			seeThroughPipeline = sky;
+		}
+		return seeThroughPipeline;
+	}
+
+	private static RenderPipeline buildSkyPipeline(String location, RenderPipeline base) {
+		return buildSkyPipeline(location, base, base);
+	}
+
+	/** {@code base}'s vertex side, the sky fragment shader, and {@code colorTargets}' colour targets (blending). */
+	private static RenderPipeline buildSkyPipeline(String location, RenderPipeline base, RenderPipeline colorTargets) {
 		try {
 			RenderPipeline.Builder builder = RenderPipeline.builder()
-					.withLocation(Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, "pipeline/nexo_sky"))
+					.withLocation(Identifier.fromNamespaceAndPath(NexoMod.MOD_ID, location))
 					.withVertexShader(base.getShaders().get(ShaderType.VERTEX))
 					.withFragmentShader(SKY_SHADER)
 					.withPrimitiveTopology(base.getPrimitiveTopology())
@@ -517,13 +600,13 @@ public final class NexoBackdrop {
 			for (BindGroupLayout layout : base.getBindGroupLayouts()) {
 				builder.withBindGroupLayout(layout);
 			}
-			for (int i = 0; i < base.getColorTargetStates().size(); i++) {
-				builder.withColorTargetState(i, base.getColorTargetStates().get(i));
+			for (int i = 0; i < colorTargets.getColorTargetStates().size(); i++) {
+				builder.withColorTargetState(i, colorTargets.getColorTargetStates().get(i));
 			}
-			skyPipeline = builder.build();
+			return builder.build();
 		} catch (RuntimeException e) {
-			NexoMod.LOGGER.warn("[nexomod] Could not build the sky shader pipeline; nebula backgrounds fall back to plain.", e);
+			NexoMod.LOGGER.warn("[nexomod] Could not build the sky shader pipeline {}; it falls back to plain.", location, e);
+			return null;
 		}
-		return skyPipeline;
 	}
 }

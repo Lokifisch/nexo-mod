@@ -114,6 +114,24 @@ public final class NexoDevTour {
 				return new TitleScreen();
 			}));
 		}
+		// NEXOMOD_DEV_TOUR=pause: the pause menu and the server list over the world, see-through.
+		if ("pause".equals(mode)) {
+			STEPS.clear();
+			var config = dev.nexoclient.nexomod.screen.NexoConfig.get();
+			for (var style : new dev.nexoclient.nexomod.screen.NexoConfig.BackgroundStyle[] {
+					dev.nexoclient.nexomod.screen.NexoConfig.BackgroundStyle.NEBULA_LIGHTNING,
+					dev.nexoclient.nexomod.screen.NexoConfig.BackgroundStyle.STARFIELD,
+					dev.nexoclient.nexomod.screen.NexoConfig.BackgroundStyle.EMBERS}) {
+				String name = style.name().toLowerCase(java.util.Locale.ROOT);
+				STEPS.add(new Step("pause-" + name, () -> {
+					config.setTheme(dev.nexoclient.nexomod.screen.NexoStyle.Theme.NEBULA_LIGHTNING);
+					config.setBackgroundStyle(style);
+					return new net.minecraft.client.gui.screens.PauseScreen(true);
+				}));
+				STEPS.add(new Step("servers-" + name, () -> new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(
+						new net.minecraft.client.gui.screens.PauseScreen(true))));
+			}
+		}
 		if (mode.startsWith("stay:")) {
 			stay = true;
 			STEPS.removeIf(step -> !step.name().equals(mode.substring(5)));

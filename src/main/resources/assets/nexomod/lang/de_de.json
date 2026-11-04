@@ -8,6 +8,7 @@
   "nexomod.login.waiting": "Warte darauf, dass du dich im Browser anmeldest …",
   "nexomod.login.failedTitle": "Anmeldung fehlgeschlagen",
   "nexomod.login.signIn": "Anmelden",
+  "nexomod.pause.switchServer": "Server wechseln",
   "nexomod.login.offline.title": "Offline spielen",
   "nexomod.login.offline.username": "Benutzername",
   "nexomod.login.offline.play": "Spielen",
