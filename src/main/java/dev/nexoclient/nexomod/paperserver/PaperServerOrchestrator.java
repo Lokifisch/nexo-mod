@@ -197,7 +197,7 @@ public final class PaperServerOrchestrator {
 	}
 
 	/**
-	 * Tunnels the server's game port through the existing e4mc relay
+	 * Tunnels the server's game port through the existing Nexo relay
 	 * ({@code lantunnel/}), the same way vanilla's own "Open to LAN" is
 	 * shared — see {@code LocalPortForward}. Never tunnels RCON.
 	 */

@@ -13,7 +13,7 @@ The Fabric mod half of [Nexo Client](https://github.com/Lokifisch/nexo-client) �
 
 ## Features
 
-- **LAN-over-internet tunneling** — share a singleplayer world with friends over the internet without port forwarding, via a QUIC relay. Uses [e4mc](https://github.com/vgskye/e4mc-minecraft-architectury)'s public relay by default; swappable via config. Cross-platform (Linux/Windows/macOS) native codec bundled into the jar.
+- **LAN-over-internet tunneling** — share a singleplayer world with friends over the internet without port forwarding, via a QUIC relay. Uses Nexo's own [QUIClime](https://github.com/vgskye/e4mc-quiclime) relay at `relay.nexomc.dev` by default (protocol from [e4mc](https://github.com/vgskye/e4mc-minecraft-architectury)); swappable via config. Cross-platform (Linux/Windows/macOS) native codec bundled into the jar.
 - **Microsoft account sign-in** — browser-based OAuth device flow, no separate launcher account juggling. Multi-account storage with instant switching, offline-account support, and protection against logging out of whichever account actually launched the game. The store is AES-256-GCM encrypted under a key **derived from this machine's hardware** (CPU, mainboard, and GPU identity) rather than one written to disk — so a config folder copied into a shared modpack can't be decrypted anywhere but the machine it came from.
 - **Position obscuring** — a set of anti-doxxing measures for streaming and public servers, under Nexo Settings → Position Obscuring. Presets are None / Full / Custom:
   - *Obscure F3 Coordinates* — shifts the X/Z shown on the debug screen by a random 3,000–700,000 blocks, re-rolled every time you join a world or server.

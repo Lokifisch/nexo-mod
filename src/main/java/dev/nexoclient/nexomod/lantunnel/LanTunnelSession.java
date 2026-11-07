@@ -136,7 +136,15 @@ public class LanTunnelSession {
 					.build();
 			ChannelHandler codec = new QuicClientCodecBuilder()
 					.sslContext(context)
-					.sslEngineProvider(it -> context.newEngine(it.alloc(), relayInfo.host, relayInfo.port))
+					.sslEngineProvider(it -> {
+						// The JDK trust manager only checks the certificate's name when
+						// this is set; without it any public cert for any host passes.
+						var engine = context.newEngine(it.alloc(), relayInfo.host, relayInfo.port);
+						var params = engine.getSSLParameters();
+						params.setEndpointIdentificationAlgorithm("HTTPS");
+						engine.setSSLParameters(params);
+						return engine;
+					})
 					.initialMaxStreamsBidirectional(512)
 					.maxIdleTimeout(10, TimeUnit.SECONDS)
 					.initialMaxData(4611686018427387903L)

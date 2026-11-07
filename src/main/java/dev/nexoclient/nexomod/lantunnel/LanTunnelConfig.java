@@ -20,12 +20,19 @@ import net.fabricmc.loader.api.FabricLoader;
  * your own QUIClime-compatible relay (see
  * https://github.com/vgskye/e4mc-quiclime).
  *
- * <p>Defaults to e4mc's own public relay/broker, same as installing the
- * real e4mc mod would use.
+ * <p>Defaults to Nexo's own relay, {@code relay.nexomc.dev:25570} (QUIClime,
+ * no broker). Players join {@code <words>.relay.nexomc.dev} with no port: a
+ * wildcard SRV record points them at 25570.
+ *
+ * <p>Files written before that still hold e4mc's defaults, because the first
+ * run stores every default. Those exact values are moved to the new ones on
+ * load; anything else in the file is the player's own choice and is kept.
  */
 public final class LanTunnelConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger("nexomod/lantunnel");
 	private static final String FILE_NAME = "nexomod-lantunnel.properties";
+
+	private static final String OLD_BROKER_URL = "https://broker.e4mc.link/getBestRelay";
 
 	public static final LanTunnelConfig INSTANCE = load();
 
@@ -47,10 +54,10 @@ public final class LanTunnelConfig {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
 		Properties defaults = new Properties();
 		defaults.setProperty("hostEnabled", "true");
-		defaults.setProperty("useBroker", "true");
-		defaults.setProperty("brokerUrl", "https://broker.e4mc.link/getBestRelay");
-		defaults.setProperty("relayHost", "test.e4mc.link");
-		defaults.setProperty("relayPort", "25575");
+		defaults.setProperty("useBroker", "false");
+		defaults.setProperty("brokerUrl", OLD_BROKER_URL);
+		defaults.setProperty("relayHost", "relay.nexomc.dev");
+		defaults.setProperty("relayPort", "25570");
 
 		Properties props = new Properties(defaults);
 		if (Files.exists(path)) {
@@ -58,6 +65,17 @@ public final class LanTunnelConfig {
 				props.load(in);
 			} catch (IOException e) {
 				LOGGER.warn("Failed to read {}, using defaults", path, e);
+			}
+			if (isOldE4mcDefault(props)) {
+				for (String key : new String[] {"useBroker", "relayHost", "relayPort"}) {
+					props.setProperty(key, defaults.getProperty(key));
+				}
+				try (OutputStream out = Files.newOutputStream(path)) {
+					props.store(out, "Nexo Mod LAN tunnel relay config. See LanTunnelConfig.java for what these mean.");
+					LOGGER.info("Moved {} from e4mc's relay to relay.nexomc.dev", path);
+				} catch (IOException e) {
+					LOGGER.warn("Failed to rewrite {}; using the new relay anyway", path, e);
+				}
 			}
 		} else {
 			try (OutputStream out = Files.newOutputStream(path)) {
@@ -73,5 +91,13 @@ public final class LanTunnelConfig {
 				props.getProperty("brokerUrl"),
 				props.getProperty("relayHost"),
 				Integer.parseInt(props.getProperty("relayPort")));
+	}
+
+	/** The exact values every pre-relay.nexomc.dev install wrote on first run. */
+	static boolean isOldE4mcDefault(Properties p) {
+		return "true".equals(p.getProperty("useBroker"))
+				&& OLD_BROKER_URL.equals(p.getProperty("brokerUrl"))
+				&& "test.e4mc.link".equals(p.getProperty("relayHost"))
+				&& "25575".equals(p.getProperty("relayPort"));
 	}
 }

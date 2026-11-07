@@ -91,8 +91,8 @@ The `dev.nexoclient.nexomod.lantunnel` package and
 the LAN-over-internet relay tunnel from
 [e4mc](https://github.com/vgskye/e4mc-minecraft-architectury) (`rererewrite`
 branch), used under the MIT License. By default this tunnel connects to
-e4mc's own public relay/broker infrastructure (`e4mc.link`) — see
-`LanTunnelConfig.java` to point it at a different relay instead.
+Nexo's own relay (`relay.nexomc.dev`, running e4mc's QUIClime server), not
+e4mc's infrastructure — see `LanTunnelConfig.java` to point it elsewhere.
 
 Ported: the relay-tunnel host path only (`QuiclimeSession` ->
 `LanTunnelSession`, `ServerConnectionListenerMixin` ->
