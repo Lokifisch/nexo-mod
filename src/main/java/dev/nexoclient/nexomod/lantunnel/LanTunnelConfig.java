@@ -20,9 +20,10 @@ import net.fabricmc.loader.api.FabricLoader;
  * your own QUIClime-compatible relay (see
  * https://github.com/vgskye/e4mc-quiclime).
  *
- * <p>Defaults to Nexo's own relay, {@code relay.nexomc.dev:25570} (QUIClime,
- * no broker). Players join {@code <words>.relay.nexomc.dev} with no port: a
- * wildcard SRV record points them at 25570.
+ * <p>Defaults to Nexo's own relay, {@code relay.nexomc.dev:25570} (QUIClime
+ * over UDP, no broker). Players join {@code <words>.relay.nexomc.dev} on the
+ * default TCP port 25565. Not through SRV: the client sends the SRV target as
+ * the handshake hostname when joining, which loses the tunnel's name.
  *
  * <p>Files written before that still hold e4mc's defaults, because the first
  * run stores every default. Those exact values are moved to the new ones on
