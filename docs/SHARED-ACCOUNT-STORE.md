@@ -92,6 +92,21 @@ Confirm the on-disk field order against `AccountStore.java` before writing
 the Rust side; this table is from reading the constants, and the write path
 should be re-read to be certain.
 
+## Keyring copy (`accounts.kc.dat`)
+
+Both sides also write the same payload to `accounts.kc.dat` next to
+`accounts.dat`, same layout with header version byte `0x03`, encrypted under a
+random 32-byte key held in the OS keyring (service `nexomod`, account
+`accounts-key`, stored Base64). Either side creates the key on first use and
+then reads it back, which narrows (doesn't close) the race of both minting at
+once. Neither side writes only the copy while an `accounts.dat` exists that it
+can't key, or that stale primary would win the next load. Both
+go through the same tools (`secret-tool`, `/usr/bin/security`, PowerShell
+`PasswordVault`; `KeychainKey.java` and `nexo-core/src/keychain.rs`) so they
+share one keyring item and, on macOS, its access list. The copy is read only
+when `accounts.dat` can't be decrypted (hardware changed); the recovering side
+backs the old file up to `accounts.dat.bak` first.
+
 ## Plaintext payload
 
 Gson-serialised, so field names are exactly the Java record component names:

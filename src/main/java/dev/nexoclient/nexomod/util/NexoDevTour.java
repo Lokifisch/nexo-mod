@@ -132,6 +132,24 @@ public final class NexoDevTour {
 						new net.minecraft.client.gui.screens.PauseScreen(true))));
 			}
 		}
+		// NEXOMOD_DEV_TOUR=titlecape: the title screen's figure wearing the cape template as a Nexo cape.
+		if ("titlecape".equals(mode)) {
+			STEPS.clear();
+			STEPS.add(new Step("title-cape", () -> {
+				try {
+					dev.nexoclient.nexomod.capes.NexoCapes.devWear(Minecraft.getInstance().getUser().getProfileId(),
+							java.nio.file.Files.readAllBytes(java.nio.file.Path.of("../../EmoteService/src/nexo_emotes/assets/cape_template.png")));
+				} catch (java.io.IOException e) {
+					NexoMod.LOGGER.error("dev tour: no cape template", e);
+				}
+				return new TitleScreen();
+			}));
+		}
+		// NEXOMOD_DEV_TOUR=capetab: the wardrobe's Capes tab; point NEXOMOD_EMOTE_API at a local service with capes in it.
+		if ("capetab".equals(mode)) {
+			STEPS.clear();
+			STEPS.add(new Step("capetab", () -> dev.nexoclient.nexomod.screen.NexoWardrobeScreen.capes(null)));
+		}
 		if (mode.startsWith("stay:")) {
 			stay = true;
 			STEPS.removeIf(step -> !step.name().equals(mode.substring(5)));
@@ -223,6 +241,10 @@ public final class NexoDevTour {
 			if (++wait < WORLD_SETTLE_TICKS) {
 				return;
 			}
+			if ("capes".equals(System.getenv("NEXOMOD_DEV_TOUR"))) {
+				capesTick(mc, wait - WORLD_SETTLE_TICKS);
+				return;
+			}
 			advance(mc);
 			return;
 		}
@@ -233,6 +255,57 @@ public final class NexoDevTour {
 		Screenshot.grab(mc.gameDirectory, file, mc.gameRenderer.mainRenderTarget(), 1,
 				message -> NexoMod.LOGGER.info("dev tour: {}", message.getString()));
 		advance(mc);
+	}
+
+	/**
+	 * NEXOMOD_DEV_TOUR=capes: the template cape on the player, seen from behind standing,
+	 * running, running with wavy capes off, and on an elytra.
+	 */
+	private static void capesTick(Minecraft mc, int t) {
+		String shot = null;
+		if (t > 151 && t < 191) {
+			// Keys don't reach an unfocused window, so the run is a push every tick.
+			var look = mc.player.getLookAngle();
+			mc.player.setSprinting(true);
+			mc.player.setDeltaMovement(look.x * 0.45, mc.player.getDeltaMovement().y, look.z * 0.45);
+		}
+		switch (t) {
+			case 0 -> {
+				try {
+					dev.nexoclient.nexomod.capes.NexoCapes.devWear(mc.player.getUUID(),
+							java.nio.file.Files.readAllBytes(java.nio.file.Path.of("../../EmoteService/src/nexo_emotes/assets/cape_template.png")));
+				} catch (java.io.IOException e) {
+					NexoMod.LOGGER.error("dev tour: no cape template", e);
+				}
+				mc.player.connection.sendCommand("item replace entity @s armor.chest with air");
+				mc.player.connection.sendCommand("time set day");
+				mc.player.connection.sendCommand("gamemode creative");
+				mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+				NexoConfig.get().setWavyCapesEnabled(true);
+			}
+			case 100 -> shot = "cape-idle";
+			case 101 -> {
+				mc.player.getAbilities().flying = false;
+				mc.player.connection.sendCommand("tp @s ~ ~40 ~ 200 0");
+			}
+			// About a second and a half of falling: fast enough to have flipped.
+			case 132 -> shot = "cape-falling";
+			case 186 -> shot = "cape-running";
+			case 187 -> NexoConfig.get().setWavyCapesEnabled(false);
+			case 190 -> shot = "cape-stiff";
+			case 191 -> {
+				NexoConfig.get().setWavyCapesEnabled(true);
+				mc.player.connection.sendCommand("item replace entity @s armor.chest with elytra");
+			}
+			case 230 -> shot = "cape-elytra";
+			case 240 -> mc.stop();
+			default -> {
+			}
+		}
+		if (shot != null) {
+			Screenshot.grab(mc.gameDirectory, "tour-" + shot + ".png", mc.gameRenderer.mainRenderTarget(), 1,
+					message -> NexoMod.LOGGER.info("dev tour: {}", message.getString()));
+		}
 	}
 
 	private static void coldTick(Minecraft mc) {

@@ -224,7 +224,10 @@ public final class NexoEmoteAccount {
 
 	private static void save(UUID owner, String value) {
 		try {
-			Files.write(SESSION, AccountStore.sealLocal((owner + "\n" + value).getBytes(StandardCharsets.UTF_8)));
+			// Whole or not at all: two sign-ins finishing together must not leave half a file.
+			Path tmp = SESSION.resolveSibling(SESSION.getFileName() + ".tmp");
+			Files.write(tmp, AccountStore.sealLocal((owner + "\n" + value).getBytes(StandardCharsets.UTF_8)));
+			Files.move(tmp, SESSION, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
 		} catch (Exception e) {
 			NexoMod.LOGGER.warn("[nexomod] Emotes: could not store the session.");
 		}
@@ -246,6 +249,40 @@ public final class NexoEmoteAccount {
 		} catch (Exception e) {
 			NexoMod.LOGGER.debug("[nexomod] Emotes: ignoring an unreadable session.");
 		}
+	}
+
+	/**
+	 * A session token for another feature on this service (cape review), signing in
+	 * first if there is none. Blocking; throws with a translation key on failure.
+	 */
+	/**
+	 * @param failed a token the service just refused, or null: a newer one is returned, signing
+	 *               in only if no other request has already done so.
+	 */
+	public static synchronized String session(String failed) {
+		User user = MojangIdentityProof.currentUser();
+		if (!canSignIn() || erasing) {
+			throw new ShopError("nexomod.emote.error.session");
+		}
+		loadSaved(user.getProfileId());
+		if (token != null && !token.equals(failed)) {
+			return token;
+		}
+		// One at a time (synchronized): requests that all met an expired session would
+		// otherwise each sign in, each spending a Mojang join from the hourly budget.
+		try {
+			token = signIn(user, generation);
+			return token;
+		} catch (IOException e) {
+			throw new ShopError("nexomod.emote.error.network");
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new ShopError("nexomod.emote.error.network");
+		}
+	}
+
+	public static String baseUrl() {
+		return BASE_URL;
 	}
 
 	/** Turns the shop on or refreshes it: sign in if needed, then read everything. */

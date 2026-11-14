@@ -70,6 +70,19 @@ public class NexoSettingsScreen extends Screen {
 				.withTooltip(value -> Tooltip.create(Component.translatable("nexomod.settings.badgeSync.tooltip")))
 				.create(0, 0, 150, 20, Component.translatable("nexomod.settings.badgeSync"),
 						(button, value) -> NexoConfig.get().setBadgeSyncEnabled(value)));
+		helper.addChild(CycleButton.onOffBuilder(NexoConfig.get().nexoCapesEnabled())
+				.withTooltip(value -> Tooltip.create(Component.literal("Show the custom capes other Nexo players chose in the launcher. While you are in a world, this downloads the public list of who wears what every few minutes (and once at launch if the launcher hasn't told the game which cape is yours). It never says whom you are playing with, but the service can see that your address asked.")))
+				.create(0, 0, 150, 20, Component.literal("Nexo capes"), (button, value) -> NexoConfig.get().setNexoCapesEnabled(value)));
+		helper.addChild(CycleButton.<Integer>builder(level -> Component.literal(NexoConfig.CAPE_PHYSICS[level]), NexoConfig.get().capePhysics())
+				.withValues(0, 1, 2)
+				.withTooltip(value -> Tooltip.create(Component.literal("Capes move with real momentum: they lift when you run and flip upside down in a fast fall. Calm is gentle; Lively swings and flutters more; Off is vanilla's stiff cape.")))
+				.create(0, 0, 150, 20, Component.literal("Cape physics"), (button, value) -> NexoConfig.get().setCapePhysics(value)));
+		if (dev.nexoclient.nexomod.capes.NexoCapes.isReviewer()) {
+			helper.addChild(openScreenButton(Component.literal("Review capes"), () -> new dev.nexoclient.nexomod.capes.NexoCapeReviewScreen(this)));
+		}
+		helper.addChild(CycleButton.booleanBuilder(Component.literal("Chat"), Component.literal("Menu"), NexoConfig.get().whoisChatDefault())
+				.withTooltip(value -> Tooltip.create(Component.literal("What /whois does when you give it no mode. /whois <name> chat or gui overrides it.")))
+				.create(0, 0, 150, 20, Component.literal("/whois opens in"), (button, value) -> NexoConfig.get().setWhoisChatDefault(value)));
 		// Measured before wrapping, or ScrollableLayout derives a negative scroll
 		// range from a zero-height content layout and hides every row until
 		// something forces a second pass. Same trap as NexoQolOverlayScreen.init().

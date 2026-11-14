@@ -188,7 +188,7 @@ public final class NexoServerProfiles {
 	}
 
 	/** Lowercase and trimmed, so "MC.Example.com " and "mc.example.com" are one profile. */
-	private static String normalize(String host) {
+	public static String normalize(String host) {
 		String h = host.trim().toLowerCase(Locale.ROOT);
 		// "mc.x.com", "mc.x.com." and "mc.x.com:25565" are the same server.
 		if (h.endsWith(":25565")) {

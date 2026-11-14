@@ -101,7 +101,7 @@ public final class NexoTitleExtras {
 	}
 
 	/** The signed-in account's id the skin below belongs to, so an account switch fetches again. */
-	private static java.util.UUID skinOwner;
+	private static volatile java.util.UUID skinOwner;
 	private static volatile Supplier<PlayerSkin> fullSkin;
 
 	/**
@@ -117,13 +117,7 @@ public final class NexoTitleExtras {
 		if (!user.getProfileId().equals(skinOwner)) {
 			skinOwner = user.getProfileId();
 			fullSkin = null;
-			java.util.concurrent.CompletableFuture.supplyAsync(mc::getGameProfile, net.minecraft.util.Util.nonCriticalIoPool())
-					.thenAccept(profile -> {
-						// Not over a skin worn while this was on its way: this profile predates it.
-						if (profile.id().equals(skinOwner) && fullSkin == null) {
-							fullSkin = mc.getSkinManager().createLookup(profile, false);
-						}
-					});
+			fetchFullSkin(mc, skinOwner, 0);
 		}
 		return () -> {
 			Supplier<PlayerSkin> full = fullSkin;
@@ -131,12 +125,41 @@ public final class NexoTitleExtras {
 		};
 	}
 
+	/**
+	 * Asks Mojang for the profile and retries when it has no skin data: at launch the session server
+	 * often answers 429 (other mods ask for the same profile), and one failed try used to leave the
+	 * default skin up for the whole session. Asks the session service itself, since
+	 * mc.getGameProfile() keeps the bare profile it got the first time.
+	 */
+	private static void fetchFullSkin(Minecraft mc, java.util.UUID owner, int attempt) {
+		java.util.concurrent.CompletableFuture.supplyAsync(() -> mc.services().sessionService().fetchProfile(owner, false),
+				net.minecraft.util.Util.nonCriticalIoPool()).handle((result, error) -> {
+			var profile = result == null ? null : result.profile();
+			if (profile != null && profile.properties().containsKey("textures")) {
+				// Not over a skin worn while this was on its way: this profile predates it.
+				synchronized (NexoTitleExtras.class) {
+					if (owner.equals(skinOwner) && fullSkin == null) {
+						fullSkin = mc.getSkinManager().createLookup(profile, false);
+					}
+				}
+			} else if (attempt < 5 && owner.equals(skinOwner) && fullSkin == null) {
+				java.util.concurrent.CompletableFuture.delayedExecutor(5L << attempt, java.util.concurrent.TimeUnit.SECONDS)
+						.execute(() -> fetchFullSkin(mc, owner, attempt + 1));
+			} else if (fullSkin == null) {
+				org.slf4j.LoggerFactory.getLogger("nexomod").warn("Skin lookup gave up after {} tries", attempt + 1, error);
+			}
+			return null;
+		});
+	}
+
 	/** Mojang's profile is cached for the session, so the title screen is told about a skin just worn. */
 	public static void showWornSkin(java.util.UUID owner, net.minecraft.resources.Identifier texture, boolean slim) {
 		PlayerSkin worn = PlayerSkin.insecure(new net.minecraft.core.ClientAsset.ResourceTexture(texture, texture), null, null,
 				slim ? net.minecraft.world.entity.player.PlayerModelType.SLIM : net.minecraft.world.entity.player.PlayerModelType.WIDE);
-		skinOwner = owner;
-		fullSkin = () -> worn;
+		synchronized (NexoTitleExtras.class) {
+			skinOwner = owner;
+			fullSkin = () -> worn;
+		}
 	}
 
 	public static void register() {

@@ -36,6 +36,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 
 import dev.nexoclient.nexomod.NexoMod;
+import dev.nexoclient.nexomod.capes.NexoCapeAccount;
+import dev.nexoclient.nexomod.capes.NexoCapes;
 import dev.nexoclient.nexomod.emotes.NexoEmoteAccount;
 import dev.nexoclient.nexomod.emotes.NexoEmotePreview;
 import dev.nexoclient.nexomod.emotes.NexoEmotes;
@@ -66,12 +68,19 @@ public class NexoWardrobeScreen extends Screen {
 	private enum Tab { SKINS, OUTFITS, EMOTES, CAPES, SHOP }
 
 	/** {@code top} marks a card's rarity: a colour along its top edge, {@link #RAINBOW} for the logo's ramp, 0 for none. */
+	/** {@code lazyCape}, when set, is asked for the cape only while the card is drawn: a long list fetches only what is seen. */
 	private record Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
 			boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose, int subColor, int top, String badge,
-			NexoEmotes.Emote emote) {
+			NexoEmotes.Emote emote, Supplier<Identifier> lazyCape) {
 		Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
 				boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose) {
-			this(heading, name, sub, skin, slim, cape, back, selected, favorite, click, pose, NexoStyle.MUTED, 0, null, null);
+			this(heading, name, sub, skin, slim, cape, back, selected, favorite, click, pose, NexoStyle.MUTED, 0, null, null, null);
+		}
+
+		Item(Component heading, String name, String sub, Supplier<Identifier> skin, boolean slim, Identifier cape,
+				boolean back, boolean selected, boolean favorite, Runnable click, NexoEmotes.Pose pose, int subColor, int top, String badge,
+				NexoEmotes.Emote emote) {
+			this(heading, name, sub, skin, slim, cape, back, selected, favorite, click, pose, subColor, top, badge, emote, null);
 		}
 	}
 
@@ -139,6 +148,24 @@ public class NexoWardrobeScreen extends Screen {
 	private String previewCape = "";
 	private Component capesMessage;
 
+	/** The bar on the Capes tab, as in the launcher. Vanilla is the account's own Mojang capes. */
+	private enum CapeView { VANILLA, CUSTOM, MINE, FAVORITES, REVIEW }
+	private static final String NEXO = "nexo:";
+	private static final String[] SORTS = {"favorites", "new", "worn"};
+	private CapeView capeView = CapeView.CUSTOM;
+	private int capeSort;
+	private List<NexoCapeAccount.Cape> nexoCatalog;
+	private NexoCapeAccount.Mine nexoMine;
+	private NexoCapeAccount.Review nexoReview;
+	private boolean nexoLoading;
+	/** The Nexo cape picked in the grid: an id, "" for "no custom cape", or null for nothing picked. */
+	private String nexoSelected;
+	private String capeCode = "";
+	private boolean reportArmed;
+	private long reportArmedAt;
+	/** What the grid says when a Nexo view is empty. */
+	private Component nexoMessage;
+
 	private int px0, py0, px1, py1;
 	/** The preview column: narrower in a small window, so the grid keeps room. */
 	private int previewWidth = 214;
@@ -191,6 +218,13 @@ public class NexoWardrobeScreen extends Screen {
 			capes = List.of();
 			capesMessage = Component.translatable("nexomod.wardrobe.capes.signIn");
 		}
+	}
+
+	/** Opens on the capes tab: the dev tour's look at it. */
+	public static NexoWardrobeScreen capes(Screen parent) {
+		NexoWardrobeScreen screen = new NexoWardrobeScreen(parent);
+		screen.tab = Tab.CAPES;
+		return screen;
 	}
 
 	/** Opens on the shop tab. */
@@ -251,6 +285,15 @@ public class NexoWardrobeScreen extends Screen {
 			initConsent();
 			return;
 		}
+		if (!nexoView() && previewCape.startsWith(NEXO)) {
+			previewCape = activeCape;
+		}
+		if (tab == Tab.CAPES) {
+			initCapeBar();
+			if (nexoView() && nexoCatalog == null && !nexoLoading) {
+				loadNexo();
+			}
+		}
 		if (tab == Tab.SHOP) {
 			initShopRail(y);
 			initShopGrid();
@@ -275,6 +318,18 @@ public class NexoWardrobeScreen extends Screen {
 		if (tab == Tab.SHOP) {
 			// Room for the balance.
 			headerRight -= 76;
+		}
+		if (tab == Tab.CAPES) {
+			// Off, Calm, Lively: the same setting as in Nexo's settings.
+			int level = NexoConfig.get().capePhysics();
+			Chip physics = new Chip(headerRight - 84, py0 + 6, 84, 18, Component.literal("Physics: " + NexoConfig.CAPE_PHYSICS[level]),
+					() -> level != 0, () -> {
+						NexoConfig.get().setCapePhysics(level + 1);
+						rebuildWidgets();
+					});
+			physics.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("How capes move in the world: Off is vanilla's stiff cape, Calm is gentle, Lively swings more.")));
+			addRenderableWidget(physics);
+			headerRight -= 90;
 		}
 		if (tab == Tab.SKINS) {
 			addRenderableWidget(new Primary(headerRight - 72, py0 + 6, 72, 18, Component.translatable("nexomod.wardrobe.add"), () -> setMenu(!menuOpen)));
@@ -312,16 +367,20 @@ public class NexoWardrobeScreen extends Screen {
 		addRenderableWidget(new Chip(previewX0 + 6, py0 + 6, 18, 18, Component.literal("<"), () -> false, () -> step(-1)));
 		addRenderableWidget(new Chip(px1 - 24, py0 + 6, 18, 18, Component.literal(">"), () -> false, () -> step(1)));
 		int bottom = py1 - 8;
-		Primary wear = new Primary(inX0 + (inX1 - inX0) / 2 + 2, bottom - 20, (inX1 - inX0) / 2 - 2, 20, Component.translatable("nexomod.wardrobe.wear"), this::wear);
-		addRenderableWidget(wear);
-		addRenderableWidget(NexoButton.builder(Component.translatable("nexomod.wardrobe.saveOutfit"), this::saveOutfit)
-				.pos(inX0, bottom - 20).size((inX1 - inX0) / 2 - 2, 20).build());
 		int row = bottom - 20 - 26 - 20;
-		int w = (inX1 - inX0 - 12) / 4;
-		addRenderableWidget(new Chip(inX0, row, w, 18, Component.translatable("nexomod.wardrobe.wide"), () -> selected != null && !selected.slim, () -> setSlim(false)));
-		addRenderableWidget(new Chip(inX0 + w + 4, row, w, 18, Component.translatable("nexomod.wardrobe.slim"), () -> selected != null && selected.slim, () -> setSlim(true)));
-		addRenderableWidget(new Chip(inX0 + (w + 4) * 2, row, w, 18, Component.literal("♥"), () -> selected != null && selected.favorite, this::toggleFavorite));
-		addRenderableWidget(new Chip(inX0 + (w + 4) * 3, row, w, 18, Component.translatable("nexomod.wardrobe.delete"), () -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::delete));
+		if (nexoView()) {
+			initNexoPreview(inX0, inX1, bottom, row);
+		} else {
+			Primary wear = new Primary(inX0 + (inX1 - inX0) / 2 + 2, bottom - 20, (inX1 - inX0) / 2 - 2, 20, Component.translatable("nexomod.wardrobe.wear"), this::wear);
+			addRenderableWidget(wear);
+			addRenderableWidget(NexoButton.builder(Component.translatable("nexomod.wardrobe.saveOutfit"), this::saveOutfit)
+					.pos(inX0, bottom - 20).size((inX1 - inX0) / 2 - 2, 20).build());
+			int w = (inX1 - inX0 - 12) / 4;
+			addRenderableWidget(new Chip(inX0, row, w, 18, Component.translatable("nexomod.wardrobe.wide"), () -> selected != null && !selected.slim, () -> setSlim(false)));
+			addRenderableWidget(new Chip(inX0 + w + 4, row, w, 18, Component.translatable("nexomod.wardrobe.slim"), () -> selected != null && selected.slim, () -> setSlim(true)));
+			addRenderableWidget(new Chip(inX0 + (w + 4) * 2, row, w, 18, Component.literal("♥"), () -> selected != null && selected.favorite, this::toggleFavorite));
+			addRenderableWidget(new Chip(inX0 + (w + 4) * 3, row, w, 18, Component.translatable("nexomod.wardrobe.delete"), () -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::delete));
+		}
 		sliderX0 = inX0 + 44;
 		sliderX1 = inX1;
 		sliderY = row - 12;
@@ -1041,7 +1100,342 @@ public class NexoWardrobeScreen extends Screen {
 	}
 
 	private Identifier capeTexture(String id) {
+		if (id != null && id.startsWith(NEXO)) {
+			String cape = id.substring(NEXO.length());
+			return cape.isEmpty() ? null : NexoCapes.texture(cape, !nexoApproved(cape));
+		}
 		return id == null || id.isEmpty() ? null : CAPE_TEXTURES.get(id);
+	}
+
+	// --- Nexo capes ---------------------------------------------------------------
+
+	private boolean nexoView() {
+		return tab == Tab.CAPES && capeView != CapeView.VANILLA;
+	}
+
+	/** Unreviewed capes need the owner's or a reviewer's session to download. */
+	private boolean nexoApproved(String cape) {
+		if (nexoMine != null) {
+			for (NexoCapeAccount.Cape own : nexoMine.mine()) {
+				if (own.id().equals(cape)) {
+					return own.approved();
+				}
+			}
+		}
+		return nexoReview == null || nexoReview.pending().stream().noneMatch(c -> c.id().equals(cape));
+	}
+
+	/** Vanilla, Custom, Your capes, Favorites and, for reviewers, Review; on Custom also the order. */
+	private void initCapeBar() {
+		int width = gridX1 - gridX0;
+		List<CapeView> views = new ArrayList<>(List.of(CapeView.VANILLA, CapeView.CUSTOM, CapeView.MINE, CapeView.FAVORITES));
+		if (nexoMine != null && nexoMine.admin() || NexoCapes.isReviewer()) {
+			views.add(CapeView.REVIEW);
+		}
+		boolean sortChip = capeView == CapeView.CUSTOM;
+		int count = views.size() + (sortChip ? 1 : 0);
+		int w = (width - 4 * (count - 1)) / count;
+		for (int i = 0; i < views.size(); i++) {
+			CapeView view = views.get(i);
+			String label = switch (view) {
+				case VANILLA -> "Vanilla";
+				case CUSTOM -> "Custom";
+				case MINE -> "Yours";
+				case FAVORITES -> "♥";
+				case REVIEW -> nexoReview != null && !nexoReview.pending().isEmpty() ? "Review " + nexoReview.pending().size() : "Review";
+			};
+			addRenderableWidget(new Chip(gridX0 + i * (w + 4), gridY0, w, 18, Component.literal(label), () -> capeView == view, () -> {
+				capeView = view;
+				scroll = 0;
+				reportArmed = false;
+				nexoSelected = null;
+				previewCape = view == CapeView.VANILLA ? activeCape : NEXO;
+				rebuildWidgets();
+			}));
+		}
+		if (sortChip) {
+			String[] names = {"Top ♥", "Newest", "Most worn"};
+			addRenderableWidget(new Chip(gridX0 + views.size() * (w + 4), gridY0, width - views.size() * (w + 4), 18, Component.literal(names[capeSort]),
+					() -> false, () -> {
+						capeSort = (capeSort + 1) % SORTS.length;
+						loadNexo();
+						rebuildWidgets();
+					}));
+		}
+		gridY0 += FILTERS;
+	}
+
+	/** Wear and heart at the foot; a friend's code above; then copy, report, and delete or review. */
+	private void initNexoPreview(int inX0, int inX1, int bottom, int row) {
+		int half = (inX1 - inX0) / 2;
+		addRenderableWidget(new Primary(inX0, bottom - 20, half + 30, 20, Component.literal("Wear"), this::wearNexo));
+		addRenderableWidget(new Chip(inX0 + half + 34, bottom - 19, inX1 - inX0 - half - 34, 18, Component.literal("♥"),
+				() -> nexoSelected != null && nexoMine != null && nexoMine.favorites().contains(nexoSelected), this::favoriteNexo));
+		int codeY = bottom - 20 - 23;
+		NexoTextField code = new NexoTextField(font, inX0 + 4, codeY + 5, inX1 - inX0 - 70, 10);
+		code.setBordered(false);
+		code.setMaxLength(9);
+		code.setValue(capeCode);
+		code.setHint(Component.literal("Friend's code"));
+		code.setResponder(text -> capeCode = text);
+		addRenderableWidget(code);
+		addRenderableWidget(new Chip(inX1 - 62, codeY + 1, 62, 18, Component.literal("Wear code"), () -> false, this::wearCode));
+		int count = capeView == CapeView.REVIEW ? 4 : capeView == CapeView.MINE ? 3 : 2;
+		int w = (inX1 - inX0 - 4 * (count - 1)) / count;
+		addRenderableWidget(new Chip(inX0, row, w, 18, Component.literal("Copy code"), () -> false, this::copyCode));
+		if (capeView == CapeView.MINE) {
+			addRenderableWidget(new Chip(inX0 + (w + 4) * 2, row, w, 18, Component.translatable("nexomod.wardrobe.delete"),
+					() -> deleteArmed && Util.getMillis() - deleteArmedAt <= DELETE_ARM_MILLIS, this::deleteNexo));
+		} else if (capeView == CapeView.REVIEW) {
+			addRenderableWidget(new Chip(inX0 + (w + 4) * 2, row, w, 18, Component.literal("Approve"), () -> false, () -> reviewNexo(true)));
+			addRenderableWidget(new Chip(inX0 + (w + 4) * 3, row, w, 18, Component.literal("Reject"), () -> false, () -> reviewNexo(false)));
+		}
+		addRenderableWidget(new Chip(inX0 + w + 4, row, w, 18, Component.literal("Report"),
+				() -> reportArmed && Util.getMillis() - reportArmedAt <= DELETE_ARM_MILLIS, this::reportNexo));
+	}
+
+	private NexoCapeAccount.Cape nexoCape(String id) {
+		if (id == null || id.isEmpty()) {
+			return null;
+		}
+		List<List<NexoCapeAccount.Cape>> lists = new ArrayList<>();
+		if (nexoCatalog != null) {
+			lists.add(nexoCatalog);
+		}
+		if (nexoMine != null) {
+			lists.add(nexoMine.mine());
+		}
+		if (nexoReview != null) {
+			lists.add(nexoReview.pending());
+			lists.add(nexoReview.reported());
+		}
+		for (List<NexoCapeAccount.Cape> list : lists) {
+			for (NexoCapeAccount.Cape cape : list) {
+				if (cape.id().equals(id)) {
+					return cape;
+				}
+			}
+		}
+		return null;
+	}
+
+	private boolean matchesCape(NexoCapeAccount.Cape cape) {
+		String query = search.strip().toLowerCase(Locale.ROOT);
+		String code = cape.code() == null ? "" : cape.code().replace("-", "").toLowerCase(Locale.ROOT);
+		return query.isEmpty() || cape.name().toLowerCase(Locale.ROOT).contains(query)
+				|| cape.uploader() != null && cape.uploader().toLowerCase(Locale.ROOT).contains(query)
+				|| query.length() >= 4 && code.startsWith(query.replace("-", ""));
+	}
+
+	private void nexoItems(List<Item> items) {
+		Skin worn = selected;
+		Supplier<Identifier> body = () -> worn == null ? playerSkin() : NexoSkinLibrary.texture(worn);
+		boolean slim = worn != null ? worn.slim : playerSlim();
+		String wearing = nexoMine == null ? null : nexoMine.worn();
+		List<NexoCapeAccount.Cape> list = switch (capeView) {
+			case CUSTOM -> nexoCatalog == null ? List.of() : nexoCatalog;
+			case FAVORITES -> nexoCatalog == null || nexoMine == null ? List.of() : nexoCatalog.stream().filter(c -> nexoMine.favorites().contains(c.id())).toList();
+			case MINE -> nexoMine == null ? List.of() : nexoMine.mine();
+			case REVIEW -> {
+				if (nexoReview == null) {
+					yield List.of();
+				}
+				List<NexoCapeAccount.Cape> all = new ArrayList<>(nexoReview.pending());
+				all.addAll(nexoReview.reported());
+				yield all;
+			}
+			default -> List.of();
+		};
+		if (capeView == CapeView.CUSTOM && search.isBlank()) {
+			items.add(new Item(null, "No custom cape", wearing == null ? "Vanilla shows" : "", body, slim, null, true, "".equals(nexoSelected), false, () -> {
+				nexoSelected = "";
+				previewCape = NEXO;
+				rotY = 155F;
+			}, null));
+		}
+		for (NexoCapeAccount.Cape cape : list) {
+			if (!matchesCape(cape)) {
+				continue;
+			}
+			String sub = switch (capeView) {
+				case MINE -> "pending".equals(cape.status()) ? "Waiting for review" : "rejected".equals(cape.status())
+						? "Rejected" + (cape.reason() != null ? ": " + cape.reason() : "") : cape.code() + " · ♥ " + cape.favorites();
+				case REVIEW -> (cape.reports() > 0 ? cape.reports() + " reports · " : "") + (cape.uploader() != null ? cape.uploader() : "");
+				default -> "♥ " + cape.favorites() + (cape.uploader() != null ? " · " + cape.uploader() : "");
+			};
+			if (cape.id().equals(wearing)) {
+				sub = "✔ " + sub;
+			}
+			boolean liked = nexoMine != null && nexoMine.favorites().contains(cape.id());
+			items.add(new Item(null, cape.name(), sub, body, slim, null, true, cape.id().equals(nexoSelected), liked, () -> {
+				nexoSelected = cape.id();
+				previewCape = NEXO + cape.id();
+				reportArmed = false;
+				deleteArmed = false;
+				rotY = 155F;
+			}, null, NexoStyle.MUTED, 0, null, null, () -> NexoCapes.texture(cape.id(), !cape.approved())));
+		}
+		if (items.isEmpty()) {
+			// Shown where the grid would be, by the existing empty-state text.
+			nexoMessage = Component.literal(nexoLoading ? "Loading capes…" : switch (capeView) {
+				case FAVORITES -> "No favorites yet: pick a cape in Custom and press ♥.";
+				case MINE -> NexoEmoteAccount.canSignIn() ? "You have not uploaded a cape yet. Upload one in the Nexo launcher." : "Sign in with a Microsoft account to see your capes.";
+				case REVIEW -> "Nothing waiting.";
+				default -> "No custom capes yet.";
+			});
+		}
+	}
+
+	/** Runs {@code work} off the game thread, then {@code done} on it; failures are said in the status line. */
+	private <T> void nexoCall(java.util.concurrent.Callable<T> work, java.util.function.Consumer<T> done) {
+		CompletableFuture.supplyAsync(() -> {
+			try {
+				return work.call();
+			} catch (Exception e) {
+				throw new java.util.concurrent.CompletionException(e);
+			}
+		}, Util.nonCriticalIoPool()).whenComplete((result, error) -> minecraft.execute(() -> {
+			if (error == null) {
+				done.accept(result);
+				return;
+			}
+			Throwable cause = error.getCause() != null ? error.getCause() : error;
+			String message = cause instanceof java.io.IOException && cause.getMessage() != null ? cause.getMessage() : "Could not reach the cape service.";
+			if (cause.getClass().getSimpleName().equals("ShopError")) {
+				message = "Sign in with a Microsoft account to use Nexo capes.";
+			}
+			nexoLoading = false;
+			say(Component.literal(message), true);
+		}));
+	}
+
+	private void loadNexo() {
+		nexoLoading = true;
+		int asked = capeSort;
+		String sort = SORTS[asked];
+		nexoCall(() -> NexoCapeAccount.catalog(sort), list -> {
+			// A slow reply for an order no longer chosen.
+			if (asked == capeSort) {
+				nexoCatalog = list;
+				nexoLoading = false;
+			}
+		});
+		if (NexoEmoteAccount.canSignIn()) {
+			nexoCall(NexoCapeAccount::me, mine -> {
+				boolean reviewer = mine.admin() && (nexoMine == null || !nexoMine.admin());
+				nexoMine = mine;
+				if (mine.admin()) {
+					nexoCall(NexoCapeAccount::review, review -> nexoReview = review);
+				}
+				if (reviewer) {
+					rebuildWidgets();
+				}
+			});
+		}
+	}
+
+	private void wearNexo() {
+		if (nexoSelected == null) {
+			say(Component.literal("Pick a cape first."), true);
+			return;
+		}
+		NexoCapeAccount.Cape cape = nexoCape(nexoSelected);
+		if (cape != null && !cape.approved()) {
+			say(Component.literal("Only approved capes can be worn."), true);
+			return;
+		}
+		String id = nexoSelected.isEmpty() ? null : nexoSelected;
+		nexoCall(() -> NexoCapeAccount.wear(id), mine -> {
+			nexoMine = mine;
+			say(Component.literal(id == null ? "Custom cape off: your vanilla cape shows." : "Wearing \"" + (cape != null ? cape.name() : "cape") + "\"."), false);
+			loadNexo();
+		});
+	}
+
+	private void wearCode() {
+		String code = capeCode;
+		nexoCall(() -> {
+			NexoCapeAccount.Cape cape = NexoCapeAccount.byCode(code);
+			return java.util.Map.entry(cape, NexoCapeAccount.wear(cape.id()));
+		}, result -> {
+			nexoMine = result.getValue();
+			nexoSelected = result.getKey().id();
+			previewCape = NEXO + result.getKey().id();
+			capeCode = "";
+			say(Component.literal("Wearing \"" + result.getKey().name() + "\"" + (result.getKey().uploader() != null ? " by " + result.getKey().uploader() : "") + "."), false);
+			loadNexo();
+			rebuildWidgets();
+		});
+	}
+
+	private void favoriteNexo() {
+		if (nexoSelected == null || nexoSelected.isEmpty() || nexoMine == null) {
+			return;
+		}
+		String id = nexoSelected;
+		boolean on = !nexoMine.favorites().contains(id);
+		nexoCall(() -> NexoCapeAccount.favorite(id, on), mine -> nexoMine = mine);
+	}
+
+	private void copyCode() {
+		NexoCapeAccount.Cape cape = nexoCape(nexoSelected);
+		if (cape == null || cape.code() == null) {
+			return;
+		}
+		minecraft.keyboardHandler.setClipboard(cape.code());
+		say(Component.literal("Copied " + cape.code() + ". A friend can type it into Friend's code."), false);
+	}
+
+	private void reportNexo() {
+		NexoCapeAccount.Cape cape = nexoCape(nexoSelected);
+		if (cape == null || !cape.approved()) {
+			return;
+		}
+		// Twice, like Delete: a report is a judgement about someone's work.
+		if (!reportArmed || Util.getMillis() - reportArmedAt > DELETE_ARM_MILLIS) {
+			reportArmed = true;
+			reportArmedAt = Util.getMillis();
+			say(Component.literal("Press Report again to send it to the reviewers."), false);
+			return;
+		}
+		reportArmed = false;
+		nexoCall(() -> {
+			NexoCapeAccount.report(cape.id());
+			return true;
+		}, ok -> say(Component.literal("Reported. A reviewer will look at it."), false));
+	}
+
+	private void deleteNexo() {
+		NexoCapeAccount.Cape cape = nexoCape(nexoSelected);
+		if (cape == null || nexoMine == null || nexoMine.mine().stream().noneMatch(c -> c.id().equals(cape.id()))) {
+			return;
+		}
+		if (!deleteArmed || Util.getMillis() - deleteArmedAt > DELETE_ARM_MILLIS) {
+			deleteArmed = true;
+			deleteArmedAt = Util.getMillis();
+			say(Component.literal("Press Delete again: it is removed for everyone wearing it."), false);
+			return;
+		}
+		deleteArmed = false;
+		nexoCall(() -> NexoCapeAccount.delete(cape.id()), mine -> {
+			nexoMine = mine;
+			nexoSelected = null;
+			previewCape = NEXO;
+			loadNexo();
+		});
+	}
+
+	private void reviewNexo(boolean approve) {
+		NexoCapeAccount.Cape cape = nexoCape(nexoSelected);
+		if (cape == null) {
+			return;
+		}
+		nexoCall(() -> NexoCapeAccount.review(cape.id(), approve), review -> {
+			nexoReview = review;
+			say(Component.literal((approve ? "Approved \"" : cape.approved() ? "Taken down \"" : "Rejected \"") + cape.name() + "\"."), false);
+			loadNexo();
+			rebuildWidgets();
+		});
 	}
 
 	private Item skinItem(Skin skin) {
@@ -1098,6 +1492,8 @@ public class NexoWardrobeScreen extends Screen {
 			boolean slim = worn != null ? worn.slim : playerSlim();
 			NexoEmoteAccount.ShopItem current = currentShopItem();
 			shopItems().forEach(item -> items.add(shopItem(item, current, body, slim)));
+		} else if (nexoView()) {
+			nexoItems(items);
 		} else if (capes != null && !capes.isEmpty()) {
 			Skin worn = selected;
 			Supplier<Identifier> body = () -> worn == null ? null : NexoSkinLibrary.texture(worn);
@@ -1433,7 +1829,7 @@ public class NexoWardrobeScreen extends Screen {
 			case SKINS -> NexoSkinLibrary.skins().size();
 			case OUTFITS -> NexoSkinLibrary.outfits().size();
 			case EMOTES -> NexoEmotes.owned().size();
-			case CAPES -> capes == null ? 0 : capes.size();
+			case CAPES -> nexoView() ? (int) items().stream().filter(item -> item.heading() == null && !"No custom cape".equals(item.name())).count() : capes == null ? 0 : capes.size();
 			case SHOP -> ownedFilter() ? NexoEmotes.owned().size() : NexoEmoteAccount.shop().size();
 		};
 		String key = switch (tab) {
@@ -1553,7 +1949,8 @@ public class NexoWardrobeScreen extends Screen {
 				case SKINS -> Component.translatable(search.isBlank() ? "nexomod.wardrobe.empty.skins" : "nexomod.wardrobe.empty.search");
 				case OUTFITS -> Component.translatable("nexomod.wardrobe.empty.outfits");
 				case EMOTES -> Component.translatable("nexomod.wardrobe.empty.search");
-				case CAPES -> capesMessage != null ? capesMessage : Component.translatable("nexomod.wardrobe.loading");
+				case CAPES -> nexoView() ? (nexoMessage != null ? nexoMessage : Component.literal("Loading capes…"))
+						: capesMessage != null ? capesMessage : Component.translatable("nexomod.wardrobe.loading");
 				case SHOP -> !NexoEmoteAccount.shop().isEmpty() || !search.isBlank() ? Component.translatable("nexomod.wardrobe.empty.search")
 						: shopError != null ? Component.translatable("nexomod.emote.emptyOffline")
 						: shopLoaded ? Component.translatable("nexomod.emote.empty") : Component.translatable("nexomod.wardrobe.loading");
@@ -1594,7 +1991,8 @@ public class NexoWardrobeScreen extends Screen {
 			if (item.emote() != null) {
 				drawEmote(graphics, item.skin().get(), item.slim(), item.emote(), 5F, -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
 			} else {
-				drawModel(graphics, item.skin().get(), item.slim(), item.cape(), item.pose(), 5F, item.back() ? 155F : -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
+				Identifier cape = item.lazyCape() != null ? item.lazyCape().get() : item.cape();
+				drawModel(graphics, item.skin().get(), item.slim(), cape, item.pose(), 5F, item.back() ? 155F : -25F, x0 + 6, y0 + 4, x1 - 6, y1 - 18);
 			}
 			if (item.favorite()) {
 				graphics.text(font, "♥", x1 - 11, y0 + 5, 0xFFFF3CAC);
@@ -1603,10 +2001,17 @@ public class NexoWardrobeScreen extends Screen {
 				graphics.text(font, item.badge(), x1 - 5 - font.width(item.badge()), y0 + 6, EPIC);
 			}
 			graphics.fill(x0 + 1, y1 - 16, x1 - 1, y1 - 15, NexoStyle.LINE);
-			int subWidth = item.sub().isEmpty() ? 0 : font.width(item.sub()) + 4;
+			// The line beside the name gets at most three fifths of the card, cut short with an ellipsis:
+			// drawn whole and right-aligned, a long one ran out of the card's left edge into the next.
+			String sub = item.sub();
+			int subMax = (x1 - x0 - 10) * 3 / 5;
+			if (font.width(sub) > subMax) {
+				sub = font.plainSubstrByWidth(sub, subMax - font.width("…")) + "…";
+			}
+			int subWidth = sub.isEmpty() ? 0 : font.width(sub) + 4;
 			graphics.text(font, font.plainSubstrByWidth(item.name(), x1 - x0 - 10 - subWidth), x0 + 5, y1 - 12, NexoStyle.TEXT_PRIMARY);
 			if (subWidth > 0) {
-				graphics.text(font, item.sub(), x1 - 4 - font.width(item.sub()), y1 - 12, item.subColor());
+				graphics.text(font, sub, x1 - 4 - font.width(sub), y1 - 12, item.subColor());
 			}
 		});
 		graphics.disableScissor();
@@ -1648,9 +2053,9 @@ public class NexoWardrobeScreen extends Screen {
 			if (offer != null) {
 				graphics.centeredText(font, offer, centre, py0 + HEADER + 5, EPIC);
 			}
-		} else if (selected != null) {
+		} else if (selected != null || tab == Tab.CAPES) {
 			int w = height * 2 / 3;
-			drawModel(graphics, NexoSkinLibrary.texture(selected), selected.slim, capeTexture(previewCape), tab == Tab.EMOTES ? previewPose : null, rotX, rotY,
+			drawModel(graphics, selected != null ? NexoSkinLibrary.texture(selected) : playerSkin(), selected != null ? selected.slim : playerSlim(), capeTexture(previewCape), tab == Tab.EMOTES ? previewPose : null, rotX, rotY,
 					centre - w, modelTop, centre + w, floorY);
 		} else {
 			graphics.centeredText(font, Component.translatable("nexomod.wardrobe.empty.preview"), centre, (modelY0 + modelY1) / 2, NexoStyle.MUTED);

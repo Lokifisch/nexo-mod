@@ -26,6 +26,10 @@ public class AccountRowWidget extends AbstractButton {
 	 */
 	private static final Map<UUID, PlayerSkin> SKIN_CACHE = new ConcurrentHashMap<>();
 
+	/** Accounts with a lookup running, so each screen rebuild doesn't start another chain. */
+	private static final java.util.Set<UUID> IN_FLIGHT = ConcurrentHashMap.newKeySet();
+
+	private final UUID uuid;
 	private final boolean isCurrent;
 	private final boolean isLauncherAccount;
 	private final boolean isOffline;
@@ -35,6 +39,7 @@ public class AccountRowWidget extends AbstractButton {
 	public AccountRowWidget(int x, int y, int width, int height, UUID uuid, String name, boolean isCurrent,
 			boolean isLauncherAccount, boolean isOffline, Runnable onSelect) {
 		super(x, y, width, height, Component.literal(name));
+		this.uuid = uuid;
 		this.isCurrent = isCurrent;
 		this.isLauncherAccount = isLauncherAccount;
 		this.isOffline = isOffline;
@@ -55,13 +60,29 @@ public class AccountRowWidget extends AbstractButton {
 		// only reads a property that's already on the profile — it doesn't resolve
 		// one itself. Fetching the real profile first is what actually gets the
 		// account's skin instead of silently falling back to default Steve/Alex.
-		Minecraft mc = Minecraft.getInstance();
+		if (IN_FLIGHT.add(uuid)) {
+			fetchSkin(Minecraft.getInstance(), uuid, 0);
+		}
+	}
+
+	/** Retries while Mojang answers without skin data (429 at launch), 5s, 10s... up to 5 times. */
+	private void fetchSkin(Minecraft mc, UUID uuid, int attempt) {
 		CompletableFuture.supplyAsync(() -> mc.services().sessionService().fetchProfile(uuid, false), Util.nonCriticalIoPool())
-				.thenCompose(profileResult -> mc.getSkinManager().get(profileResult.profile()))
-				.thenAccept(result -> result.ifPresent(s -> {
-					SKIN_CACHE.put(uuid, s);
-					this.skin = s;
-				}));
+				.thenCompose(result -> result != null && result.profile().properties().containsKey("textures")
+						? mc.getSkinManager().get(result.profile()) : CompletableFuture.completedFuture(java.util.Optional.<PlayerSkin>empty()))
+				.whenComplete((result, error) -> {
+					if (result != null && result.isPresent()) {
+						SKIN_CACHE.put(uuid, result.get());
+						this.skin = result.get();
+						IN_FLIGHT.remove(uuid);
+					} else if (attempt < 5) {
+						CompletableFuture.delayedExecutor(5L << attempt, java.util.concurrent.TimeUnit.SECONDS)
+								.execute(() -> fetchSkin(mc, uuid, attempt + 1));
+					} else {
+						IN_FLIGHT.remove(uuid);
+						org.slf4j.LoggerFactory.getLogger("nexomod").warn("Skin lookup for an account gave up", error);
+					}
+				});
 	}
 
 	@Override
@@ -86,8 +107,9 @@ public class AccountRowWidget extends AbstractButton {
 
 		int iconX = getX() + 4;
 		int iconY = getY() + (getHeight() - ICON_SIZE) / 2;
-		if (skin != null) {
-			PlayerFaceExtractor.extractRenderState(graphics, skin, iconX, iconY, ICON_SIZE);
+		PlayerSkin shown = skin != null ? skin : SKIN_CACHE.get(uuid);
+		if (shown != null) {
+			PlayerFaceExtractor.extractRenderState(graphics, shown, iconX, iconY, ICON_SIZE);
 		}
 
 		boolean hasBottomTag = isLauncherAccount || isOffline;

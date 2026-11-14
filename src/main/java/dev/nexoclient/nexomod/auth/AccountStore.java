@@ -41,9 +41,9 @@ import dev.nexoclient.nexomod.util.NexoPaths;
  *
  * <p><b>Migration release:</b> every save also writes a second copy encrypted
  * under a key held in the OS keychain (see {@link KeychainKey}), which is
- * loaded only when the hardware-keyed file can't be read. The release after
- * this one makes the keychain copy the sole store and removes
- * {@link HardwareKey}, the format spec, and the launcher's matching reader.
+ * loaded only when the hardware-keyed file can't be read. Nexo Client writes
+ * and falls back to the same copy under the same keychain entry. A later
+ * release makes the keychain copy the sole store and removes {@link HardwareKey}.
  *
  * <p>The flip side, deliberately accepted: swapping the GPU/board (or a
  * platform change that alters what identifiers are readable) wipes the
@@ -212,8 +212,10 @@ public final class AccountStore {
 	private void save() {
 		SecretKey hardwareKey = HardwareKey.await();
 		SecretKey keychainKey = KeychainKey.get();
-		if (hardwareKey == null && keychainKey == null) {
-			LOGGER.error("No key available — keeping accounts in memory only for this session");
+		// Without the hardware key an existing accounts.dat can't be updated, and writing only the
+		// copy would let that stale primary win the next load, bringing back signed-out accounts.
+		if (hardwareKey == null && (keychainKey == null || Files.exists(DATA_FILE))) {
+			LOGGER.error("No usable key — keeping accounts in memory only for this session");
 			return;
 		}
 		try {

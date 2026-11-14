@@ -18,6 +18,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerSkin;
 
 /**
@@ -47,6 +48,7 @@ final class NexoTitlePlayer extends AbstractWidget {
 	private final Supplier<PlayerSkin> skin;
 	private Model.Simple wide;
 	private Model.Simple slim;
+	private Model.Simple cape;
 
 	private float yaw = REST_YAW;
 	private float pitch = REST_PITCH;
@@ -111,9 +113,44 @@ final class NexoTitlePlayer extends AbstractWidget {
 		root.y = -bob;
 		// 0.92 of the height rather than vanilla's 0.97: headroom for the bob's peak
 		// and a raised glance, which would otherwise clip the top of the hat.
-		graphics.skin(model, current.body().texturePath(), 0.92F * getHeight() / 2.125F,
-				// Minecraft tips the top towards the viewer for a negative rotationX; the launcher's pitch is the other way.
-				-pitch * Mth.RAD_TO_DEG, yaw * Mth.RAD_TO_DEG, -1.0625F, getX(), getY(), getRight(), getBottom());
+		float scale = 0.92F * getHeight() / 2.125F;
+		// Minecraft tips the top towards the viewer for a negative rotationX; the launcher's pitch is the other way.
+		float rotX = -pitch * Mth.RAD_TO_DEG;
+		float rotY = yaw * Mth.RAD_TO_DEG;
+		Identifier capeTexture = capeTexture(current);
+		// Drawn on the side it is on: behind the body when the figure faces out, in front when turned round.
+		boolean capeNear = Mth.cos(yaw) < 0F;
+		if (capeTexture != null && !capeNear) {
+			drawCape(graphics, capeTexture, scale, rotX, rotY, bob, t);
+		}
+		graphics.skin(model, current.body().texturePath(), scale, rotX, rotY, -1.0625F, getX(), getY(), getRight(), getBottom());
+		if (capeTexture != null && capeNear) {
+			drawCape(graphics, capeTexture, scale, rotX, rotY, bob, t);
+		}
+	}
+
+	/** The player's Nexo cape if they wear one (known from the launcher before any world loads), else their Mojang cape. */
+	private static Identifier capeTexture(PlayerSkin current) {
+		// The player's own "Cape" switch in Skin Customization.
+		if (!Minecraft.getInstance().options.isModelPartEnabled(net.minecraft.world.entity.player.PlayerModelPart.CAPE)) {
+			return null;
+		}
+		var user = Minecraft.getInstance().getUser();
+		Identifier nexo = user == null ? null : dev.nexoclient.nexomod.capes.NexoCapes.capeFor(user.getProfileId());
+		if (nexo != null) {
+			return nexo;
+		}
+		return current.cape() != null ? current.cape().texturePath() : null;
+	}
+
+	private void drawCape(GuiGraphicsExtractor graphics, Identifier texture, float scale, float rotX, float rotY, float bob, float t) {
+		if (cape == null) {
+			cape = new Model.Simple(Minecraft.getInstance().getEntityModels().bakeLayer(ModelLayers.PLAYER_CAPE), RenderTypes::entityCutout);
+		}
+		cape.root().y = -bob;
+		// A gentle sway with the breathing, out behind the back.
+		cape.root().getChild("body").getChild("cape").xRot = -0.12F - 0.05F * (1F + Mth.sin(t * 1.8F));
+		graphics.skin(cape, texture, scale, rotX, rotY, -1.0625F, getX(), getY(), getRight(), getBottom());
 	}
 
 	private void update(long now, float t, float dt, int cursorX, int cursorY) {

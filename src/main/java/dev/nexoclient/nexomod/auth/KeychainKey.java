@@ -29,7 +29,10 @@ import org.slf4j.LoggerFactory;
  * <p>Shells out rather than going through the native core, because that
  * library is only built for Linux today. Everything fails soft: no tool, no
  * running keyring daemon, a locked keychain — all yield {@code null} and the
- * caller keeps using the hardware key. Only the Linux path has been run;
+ * caller keeps using the hardware key. Nexo Client reads and writes the same
+ * entry with the same tools ({@code keychain.rs}), so on macOS the item's
+ * access list, which trusts {@code /usr/bin/security}, covers both programs.
+ * Only the Linux path has been run;
  * macOS and Windows are written to each tool's documented behaviour.
  */
 final class KeychainKey {
@@ -88,7 +91,10 @@ final class KeychainKey {
 				return null;
 			}
 			LOGGER.info("Created account key in the OS keychain");
-			return new SecretKeySpec(raw, "AES");
+			// Nexo Client may have minted one at the same moment; use whichever write landed.
+			String landed = lookup();
+			return landed != null && Base64.getDecoder().decode(landed).length == 32
+					? new SecretKeySpec(Base64.getDecoder().decode(landed), "AES") : null;
 		} catch (Exception e) {
 			LOGGER.warn("OS keychain unavailable ({}); using the hardware key only", e.toString());
 			return null;

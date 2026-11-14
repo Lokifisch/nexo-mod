@@ -351,7 +351,13 @@ public final class NexoConfig {
 	private boolean emoteShopEnabled = false;
 	/** Emote sync through the relay. Tells others in the room you run Nexo. On unless turned off. */
 	private boolean emoteSyncEnabled = true;
+	/** Other Nexo players' custom capes, from the public worn list. */
+	private boolean nexoCapesEnabled = true;
+	/** Cape physics: 0 off (vanilla's stiff cape), 1 calm, 2 lively. */
+	private int capePhysics = 1;
 	private boolean emoteSyncNoticeShown = false;
+	/** /whois prints to chat instead of opening the menu. */
+	private boolean whoisChatDefault = false;
 	/** The emote wheel's eight slots, as emote ids; empty is an empty slot. Filled by the player in the wardrobe. */
 	private final String[] emoteWheel = {"", "", "", "", "", "", "", ""};
 	/** NexoSMP has been added to the server list once. Never cleared, so deleting it sticks. */
@@ -1018,6 +1024,44 @@ public final class NexoConfig {
 		for (int i = 0; i < emoteWheel.length; i++) {
 			emoteWheel[i] = i < slots.length && slots[i] != null ? slots[i] : "";
 		}
+		save();
+	}
+
+	public boolean whoisChatDefault() {
+		return whoisChatDefault;
+	}
+
+	public void setWhoisChatDefault(boolean chat) {
+		this.whoisChatDefault = chat;
+		save();
+	}
+
+	public boolean nexoCapesEnabled() {
+		return nexoCapesEnabled;
+	}
+
+	public void setNexoCapesEnabled(boolean enabled) {
+		this.nexoCapesEnabled = enabled;
+		save();
+	}
+
+	public static final String[] CAPE_PHYSICS = {"Off", "Calm", "Lively"};
+
+	public int capePhysics() {
+		return capePhysics;
+	}
+
+	public void setCapePhysics(int level) {
+		this.capePhysics = Math.floorMod(level, CAPE_PHYSICS.length);
+		save();
+	}
+
+	public boolean wavyCapesEnabled() {
+		return capePhysics != 0;
+	}
+
+	public void setWavyCapesEnabled(boolean enabled) {
+		this.capePhysics = enabled ? Math.max(1, capePhysics) : 0;
 		save();
 	}
 
@@ -2173,7 +2217,13 @@ public final class NexoConfig {
 		emoteShopEnabled = Boolean.parseBoolean(props.getProperty("emoteShopEnabled", "false"));
 		// A new key: 0.9.0 wrote its old default of "off" under the former one, which can't be told from a choice.
 		emoteSyncEnabled = Boolean.parseBoolean(props.getProperty("emoteSyncOn", "true"));
+		nexoCapesEnabled = Boolean.parseBoolean(props.getProperty("nexoCapesOn", "true"));
+		// Before the three levels it was on or off, and on meant what is now Lively; Calm is the gentler default.
+		String physics = props.getProperty("capePhysics");
+		capePhysics = physics != null ? Math.floorMod(parseIntOr(physics, 1), CAPE_PHYSICS.length)
+				: Boolean.parseBoolean(props.getProperty("wavyCapesOn", "true")) ? 1 : 0;
 		emoteSyncNoticeShown = Boolean.parseBoolean(props.getProperty("emoteSyncNoticeShown", "false"));
+		whoisChatDefault = Boolean.parseBoolean(props.getProperty("whoisChatDefault", "false"));
 		// No key yet (a fresh install, or 0.9.x, whose wheel showed the first owned
 		// emotes): start with the starters, so nobody's wheel comes up empty.
 		String saved = props.getProperty("emoteWheel");
@@ -2460,7 +2510,10 @@ public final class NexoConfig {
 		props.setProperty("windowTitleServerEnabled", Boolean.toString(windowTitleServerEnabled));
 		props.setProperty("emoteShopEnabled", Boolean.toString(emoteShopEnabled));
 		props.setProperty("emoteSyncOn", Boolean.toString(emoteSyncEnabled));
+		props.setProperty("nexoCapesOn", Boolean.toString(nexoCapesEnabled));
+		props.setProperty("capePhysics", Integer.toString(capePhysics));
 		props.setProperty("emoteSyncNoticeShown", Boolean.toString(emoteSyncNoticeShown));
+		props.setProperty("whoisChatDefault", Boolean.toString(whoisChatDefault));
 		props.setProperty("emoteWheel", String.join(",", emoteWheel));
 		props.setProperty("defaultServerAdded", Boolean.toString(defaultServerAdded));
 		props.setProperty("hideVanillaActionbar", Boolean.toString(hideVanillaActionbar));
@@ -2581,6 +2634,14 @@ public final class NexoConfig {
 			Files.move(temporary, PATH, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 		} catch (IOException e) {
 			LOGGER.warn("Failed to save {}", PATH, e);
+		}
+	}
+
+	private static int parseIntOr(String text, int fallback) {
+		try {
+			return Integer.parseInt(text.strip());
+		} catch (NumberFormatException e) {
+			return fallback;
 		}
 	}
 }
